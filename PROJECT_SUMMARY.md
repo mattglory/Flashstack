@@ -299,7 +299,7 @@ vs **Ethereum Flash Loans**:
 
 ## 📧 Contact & Links
 
-- **GitHub**: [Repository URL]
+- **GitHub**: mattglory
 - **Builder**: Glory Matthew
 - **Project**: FlashStack
 - **Status**: Ready for Grant Submission

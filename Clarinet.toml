@@ -70,3 +70,9 @@ strict = false
 trusted_sender = false
 trusted_caller = false
 callee_filter = false
+
+[contracts.snp-flashstack-receiver]
+path = "contracts/snp-flashstack-receiver.clar"
+clarity_version = 2
+epoch = 2.5
+depends_on = ["flash-receiver-trait", "sbtc-token", "flashstack-core"]

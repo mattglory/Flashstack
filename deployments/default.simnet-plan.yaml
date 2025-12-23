@@ -84,6 +84,11 @@ plan:
             path: "contracts\\multidex-arbitrage-receiver.clar"
             clarity-version: 2
         - emulated-contract-publish:
+            contract-name: snp-flashstack-receiver
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\snp-flashstack-receiver.clar"
+            clarity-version: 2
+        - emulated-contract-publish:
             contract-name: test-receiver
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: "contracts\\test-receiver.clar"
