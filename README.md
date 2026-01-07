@@ -8,8 +8,7 @@
 > **Flash loans for Bitcoin Layer 2 - Built for Bitcoin's security model**  
 > Enabling instant, trustless capital for DeFi strategies on Stacks blockchain
 
-**Developer:** [Glory Matthew](https://github.com/mattglory) | **Status:** Pre-audit testnet (code complete, audit pending) | **Network:** Stacks Testnet
-
+**Developer:** [Glory Matthew](https://github.com/mattglory) | **Status:** Security-Hardened Testnet | Audit Funding Requested | Mainnet Q1 2026 | Network: Stacks Testnet
 ---
 
 ## Overview
@@ -26,6 +25,11 @@ FlashStack is a flash loan protocol that brings instant, uncollateralized liquid
  0.05% Fee (Competitive with Ethereum)
 ```
 
+### Live Testnet Deployment
+- **Testnet Address:** ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7
+- **Explorer:** [View on Stacks Explorer](https://explorer.hiro.so/txid/ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7.flashstack-core?chain=testnet)
+- **Latest Security Update:** January 5, 2026 (Commit 13b4b60)
+  
 ### Architecture
 
 - **Core Protocol:** Atomic flash minting of sBTC with mandatory same-block repayment
@@ -292,10 +296,10 @@ clarinet console
 
 ## Economics
 
-### Fee Structure
 - **Flash Loan Fee:** 0.05% (50 basis points)
 - **Fee Range:** 0.05% - 1.00% (admin configurable)
-- **Current Setting:** 0.05% (10x cheaper than some Ethereum competitors)
+- **Current Setting:** 0.05% (10
+### Fee Structurex cheaper than some Ethereum competitors)
 
 ### Revenue Model
 Fees collected per flash mint, scaling with protocol usage
@@ -386,7 +390,7 @@ Built on Stacks. Secured by Bitcoin.
 
 ---
 
-**Last Updated:** December 23, 2025  
-**Status:**  Testnet Deployed |  Audit Pending |  Mainnet Q1 2026  
+**Last Updated:** January 5, 2026  
+**Status:**  Security-Hardened Testnet | Audit Funding Requested | Mainnet Q1 2026 
 **Repository:** https://github.com/mattglory/flashstack
 
