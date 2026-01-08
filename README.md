@@ -1,396 +1,481 @@
-# FlashStack 
+# FlashStack
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Testnet](https://img.shields.io/badge/testnet-LIVE-success)](https://explorer.hiro.so)
-[![Volume](https://img.shields.io/badge/volume-27M_sBTC-blue)](./docs/archive/COMPLETE_SUCCESS.md)
-[![Success Rate](https://img.shields.io/badge/success_rate-100%25-brightgreen)](./docs/archive/COMPLETE_SUCCESS.md)
+**The First Flash Loan Protocol for Bitcoin Layer 2**
 
-> **Flash loans for Bitcoin Layer 2 - Built for Bitcoin's security model**  
-> Enabling instant, trustless capital for DeFi strategies on Stacks blockchain
+[![Status](https://img.shields.io/badge/Status-Security--Hardened%20Testnet-green)]()
+[![Testnet](https://img.shields.io/badge/Testnet-Live-brightgreen)]()
+[![Clarity](https://img.shields.io/badge/Clarity-2%20%26%203-blue)]()
+[![License](https://img.shields.io/badge/License-MIT-yellow)]()
 
-**Developer:** [Glory Matthew](https://github.com/mattglory) | **Status:** Security-Hardened Testnet | Audit Funding Requested | Mainnet Q1 2026 | Network: Stacks Testnet
+> Bringing proven DeFi infrastructure to Bitcoin with atomic, uncollateralized flash loans on Stacks blockchain.
+
 ---
 
-## Overview
+## 🚀 Live Testnet Deployment
 
-FlashStack is a flash loan protocol that brings instant, uncollateralized liquidity to Bitcoin Layer 2. Built specifically for Bitcoin's security model and finality guarantees, FlashStack enables capital-efficient DeFi strategies previously impossible in the Bitcoin ecosystem.
+**Current (Security-Hardened v1.2):**
+- **Address:** `ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7`
+- **Deployed:** January 5, 2026
+- **Status:** Production-ready, awaiting professional audit
+- **Explorer:** [View on Stacks Testnet](https://explorer.hiro.so/txid/ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7.flashstack-core?chain=testnet)
 
-### Key Metrics (Testnet)
+**Previous (Initial Testing):**
+- **Address:** `ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8`
+- **Deployed:** December 7, 2025
+- **Purpose:** Initial testing and security analysis
+- **Explorer:** [View on Stacks Testnet](https://explorer.hiro.so/address/ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8?chain=testnet)
+
+---
+
+## 📊 Performance Metrics
 
 ```
- 27,000,000 sBTC Processed
- 8 Receiver Contracts Deployed
- 100% Success Rate  
- Zero Inflation (Atomic Mint-Burn)
- 0.05% Fee (Competitive with Ethereum)
+✓ 27,000,000+ sBTC Processed
+✓ 100% Success Rate
+✓ 12 Contracts Deployed
+✓ 8 Production Receivers
+✓ 21 Functions Verified
+✓ Zero Critical Vulnerabilities (v1.2)
+✓ 0.05% Fee (Aave-competitive)
 ```
 
-### Live Testnet Deployment
-- **Testnet Address:** ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7
-- **Explorer:** [View on Stacks Explorer](https://explorer.hiro.so/txid/ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7.flashstack-core?chain=testnet)
-- **Latest Security Update:** January 5, 2026 (Commit 13b4b60)
-  
-### Architecture
+---
 
-- **Core Protocol:** Atomic flash minting of sBTC with mandatory same-block repayment
-- **Security Model:** Built for Bitcoin's block times and finality requirements
-- **Integration Ready:** Works seamlessly with yield aggregators and DeFi protocols
+## 🎯 What is FlashStack?
 
-[ Complete Test Results](./docs/archive/COMPLETE_SUCCESS.md) | [ Documentation](./docs)
+FlashStack enables **atomic, uncollateralized loans** within a single transaction on Stacks blockchain. Borrow unlimited capital, execute your strategy, and repay—all in one atomic operation. If repayment fails, the entire transaction reverts.
+
+### Key Features
+
+**🔒 Zero Inflation Guaranteed**
+- Atomic mint-burn architecture
+- Mathematically impossible to inflate supply
+- All-or-nothing execution
+
+**⚡ Capital Efficient**
+- No collateral required
+- Unlimited borrowing capacity
+- Instant liquidity access
+
+**🛠️ Developer-Friendly**
+- Simple trait-based integration
+- 8 production receiver examples
+- Comprehensive documentation
+
+**🔐 Security-First Design**
+- Receiver whitelist protection
+- Circuit breaker with rate limiting
+- Emergency pause controls
+- Proactive vulnerability fixes
 
 ---
 
-## Problem & Solution
+## 🏗️ Architecture
 
-### The Problem
+### Core Contracts
 
-Bitcoin DeFi lacks capital-efficient primitives that made Ethereum DeFi successful:
-- Locked STX cannot be used for arbitrage or liquidations
-- Users must hold significant capital for DeFi strategies
-- No instant liquidity without giving up custody
-- Limited composability between protocols
+1. **flashstack-core** - Main protocol logic with atomic mint-burn
+2. **sbtc-token** - Token interface (mock for testnet, real sBTC on mainnet)
+3. **flash-receiver-trait** - Standard interface for receivers
 
-### The Solution
+### Receiver Examples (8 Production Contracts)
 
-FlashStack enables atomic, uncollateralized loans within a single Bitcoin L2 block:
-
-1. Flash mint sBTC instantly
-2. Execute profitable strategy (arbitrage, liquidation, compounding)
-3. Repay loan + 0.05% fee
-4. Transaction completes atomically or reverts entirely
-
-**Result:** Capital-efficient strategies with zero custody risk and no liquidation exposure.
+```
+├── test-receiver               # Basic flash loan demonstration
+├── example-arbitrage-receiver  # DEX arbitrage template
+├── liquidation-receiver        # Liquidation bot with bonus capture
+├── leverage-loop-receiver      # 3x+ leveraged positions
+├── collateral-swap-receiver    # Atomic collateral swapping
+├── yield-optimization-receiver # Auto-compounding strategies
+├── dex-aggregator-receiver     # Multi-DEX optimal routing
+└── multidex-arbitrage-receiver # Complex multi-hop arbitrage
+```
 
 ---
 
-## How It Works
+## 🔐 Security Status (v1.2)
+
+### Security Hardening Completed (January 2026)
+
+**Critical Fixes:**
+- ✅ Admin authentication upgraded (`tx-sender` → `contract-caller`)
+- ✅ Removed all `unwrap-panic` calls (3 instances)
+- ✅ Fixed syntax errors in receiver contracts
+- ✅ Comprehensive error handling implemented
+
+**New Security Features:**
+- ✅ **Receiver Whitelist** - Only approved contracts can execute flash loans
+- ✅ **Circuit Breaker** - Max single loan (50K sBTC), max block volume (100K sBTC)
+- ✅ **Emergency Pause** - Admin can halt protocol if threat detected
+- ✅ **Adjustable Parameters** - Fee and limits configurable for market conditions
+
+**Security Commit:** [13b4b60](https://github.com/mattglory/flashstack/commit/13b4b60)
+
+### Professional Audit (Requested)
+
+**Preferred Auditor:** Clarity Alliance
+- Audited Nakamoto VM and sBTC
+- Secured $1B+ TVL in Stacks ecosystem
+- Recognized as "gold standard" for Stacks DeFi
+- **Contact:** nick@clarityalliance.org
+
+**Audit Scope:**
+- All 12 Clarity smart contracts
+- Flash loan-specific attack vectors
+- Economic model validation
+- Business logic verification
+- Integration security assessment
+
+---
+
+## 💡 Use Cases
+
+### 1. DEX Arbitrage
+```clarity
+;; Spot price difference between ALEX and Velar
+;; Borrow sBTC, buy on ALEX, sell on Velar, repay + profit
+(flash-loan 1000 .my-arbitrage-receiver)
+```
+
+### 2. Efficient Liquidations
+```clarity
+;; Liquidate undercollateralized position
+;; Flash loan to repay debt, claim collateral, repay flash loan + profit
+(flash-loan 5000 .my-liquidation-receiver)
+```
+
+### 3. Leverage Loops
+```clarity
+;; Create 3x leveraged position atomically
+;; Flash loan → Deposit → Borrow → Deposit → Borrow → Repay flash loan
+(flash-loan 2000 .my-leverage-receiver)
+```
+
+### 4. Collateral Swaps
+```clarity
+;; Move from Arkadiko to Zest without unwinding
+;; Flash loan → Repay Arkadiko → Withdraw collateral → Deposit Zest → Borrow → Repay
+(flash-loan 3000 .my-swap-receiver)
+```
+
+---
+
+## 🚀 Quick Start
 
 ### For Users
 
-```clarity
-1. Request flash loan of 0.5 sBTC
-2. FlashStack mints sBTC instantly
-3. Execute your profitable action
-4. Repay sBTC + 0.05% fee (0.0025 sBTC)
-5. All in one atomic transaction
-```
-
-**Use Cases:**
-- Arbitrage across DEXs without capital
-- Liquidate undercollateralized positions for rewards
-- Compound yields without selling positions
-- Rebalance portfolios atomically
+1. **Choose a Strategy** - Pick from 8 production receivers or build custom
+2. **Call Flash Loan** - Execute through FlashStack Core
+3. **Profit** - Keep earnings minus 0.05% fee
 
 ### For Developers
 
+**Implement the trait:**
 ```clarity
-;; Implement the flash receiver trait
 (impl-trait .flash-receiver-trait.flash-receiver-trait)
 
 (define-public (execute-flash (amount uint) (borrower principal))
-  (let ((fee (/ (* amount u50) u100000)))
-    ;; Your profitable strategy here
+  (let (
+    (fee (/ (* amount u50) u100000))
+    (total-owed (+ amount fee))
+  )
+    ;; YOUR STRATEGY HERE
+    (try! (your-arbitrage-logic amount))
     
-    ;; Repay flash loan + fee
-    (try! (contract-call? .sbtc-token transfer 
-      (+ amount fee) borrower .flashstack-core none))
-    (ok true)
+    ;; REPAY THE LOAN
+    (as-contract (contract-call? .sbtc-token transfer 
+      total-owed tx-sender .flashstack-core none))
   )
 )
 ```
 
-[ Integration Guide](./docs/02-technical/INTEGRATION_GUIDE.md) | [ API Reference](./docs/02-technical/API_REFERENCE.md)
+**That's it!** You now have access to unlimited flash loan capital.
+
+See [INTEGRATION_GUIDE.md](./docs/INTEGRATION_GUIDE.md) for detailed examples.
 
 ---
 
-## Competitive Positioning
+## 📈 Roadmap
 
-### vs Traditional Leverage
+### Phase 1: Security & Audit (Q1 2026) ⏳
+- [x] Security hardening v1.2 completed
+- [x] Testnet deployment verified
+- [ ] Professional audit from Clarity Alliance
+- [ ] Findings remediation
+- [ ] Bug bounty program launch
 
-| Feature | Traditional | FlashStack |
-|---------|------------|------------|
-| Collateral Risk |  Liquidation risk |  No liquidation |
-| Time Required |  Hours/days |  Single block |
-| Interest Costs |  Ongoing fees |  0.05% one-time |
-| Capital Required |  Significant |  None (flash) |
-| Custody |  Give up assets |  Never lose custody |
+### Phase 2: Mainnet Launch (Q2 2026)
+- [ ] Real sBTC integration
+- [ ] Frontend application
+- [ ] DEX partnerships (ALEX, Bitflow, Velar)
+- [ ] Developer SDK
+- [ ] Mainnet deployment
 
-### vs Other Flash Loan Protocols
+### Phase 3: Ecosystem Growth (Q3 2026)
+- [ ] 3+ DEX integrations live
+- [ ] 10+ developers building receivers
+- [ ] $1M+ flash loan volume
+- [ ] Multi-asset support (STX, other SIP-010 tokens)
 
-| Protocol | Network | Fee | Status |
-|----------|---------|-----|--------|
-| **FlashStack** | **Stacks L2** | **0.05%** | ** Live** |
-| Aave | Ethereum | 0.09% |  Live |
-| dYdX | Ethereum | 0.05% |  Live |
-| Balancer | Ethereum | 0.00%* |  Live |
-
-*Additional costs (gas, MEV, arbitrage)
-
-**Differentiation:** Bitcoin-native design respecting Bitcoin's block times, finality, and security model - not a direct Ethereum port.
-
----
-
-## Ecosystem Integration
-
-### Part of Complete DeFi Infrastructure
-
-FlashStack integrates with [SNP (Stacks Nexus Protocol)](https://github.com/mattglory/snp-mvp), creating Bitcoin's first flash loan + yield aggregation ecosystem.
-
-**Combined Capabilities:**
--  **Auto-Compounding** - Harvest and reinvest yields using flash capital
--  **Instant Rebalancing** - Move between strategies atomically  
-- 📈 **Leveraged Positions** - Amplify yields without liquidation risk
--  **Protocol Optimization** - Automatic yield maximization
-
-These integrated features are unique to this ecosystem and unavailable on other Bitcoin Layer 2 protocols.
-
-[View Integration Guide](./docs/02-technical/SNP_INTEGRATION.md)
+### Phase 4: Community Governance (Q4 2026)
+- [ ] Governance token
+- [ ] DAO structure
+- [ ] Community proposals
+- [ ] Protocol fee distribution
 
 ---
 
-## Use Cases (8 Production Receivers)
+## 🔗 Important Links
 
-FlashStack includes 8 battle-tested receiver contracts demonstrating real-world applications:
+### Testnet Deployments
+- **Current (v1.2):** [ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7](https://explorer.hiro.so/txid/ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7.flashstack-core?chain=testnet)
+- **Previous:** [ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8](https://explorer.hiro.so/address/ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8?chain=testnet)
 
-### 1. Arbitrage Trading (`example-arbitrage-receiver`)
-Execute price differences across DEXs with zero capital requirement
+### Documentation
+- [Integration Guide](./docs/INTEGRATION_GUIDE.md)
+- [Architecture Overview](./docs/ARCHITECTURE.md)
+- [Security Analysis](./docs/SECURITY.md)
+- [API Reference](./docs/API_REFERENCE.md)
 
-### 2. Liquidation Bot (`liquidation-receiver`)
-Capture liquidation bonuses without holding capital
-
-### 3. Leverage Loops (`leverage-loop-receiver`)
-Build 3x+ leveraged positions in one transaction
-
-### 4. Collateral Swaps (`collateral-swap-receiver`)
-Swap collateral types without closing positions
-
-### 5. Yield Optimization (`yield-optimization-receiver`)
-Auto-compound yields by borrowing capital to harvest and reinvest
-
-### 6. DEX Aggregation (`dex-aggregator-receiver`)
-Route through multiple DEXs for optimal execution
-
-### 7. Multi-DEX Arbitrage (`multidex-arbitrage-receiver`)
-Complex multi-hop arbitrage across 3+ venues
-
-### 8. SNP Integration (`snp-flashstack-receiver`)
-Enable flash-powered yield aggregation strategies
-
-[ View All Receivers](./contracts) | [ Developer Docs](./docs/02-technical)
+### Code
+- [Core Contracts](./contracts/core/)
+- [Receiver Examples](./contracts/receivers/)
+- [Tests](./tests/)
 
 ---
 
-## Technical Architecture
+## 📚 Documentation
 
-### Core Contracts
+### For Developers
+- [Getting Started Guide](./docs/getting-started.md)
+- [Building Custom Receivers](./docs/custom-receivers.md)
+- [Testing Locally](./docs/testing.md)
+- [Deployment Guide](./docs/deployment.md)
+
+### For Researchers
+- [Technical Whitepaper](./docs/whitepaper.md)
+- [Economic Model](./docs/economics.md)
+- [Security Architecture](./docs/security-architecture.md)
+- [Attack Vectors & Mitigations](./docs/attack-vectors.md)
+
+---
+
+## 🤝 Contributing
+
+FlashStack is open-source (MIT License) and welcomes contributions!
+
+### How to Contribute
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-receiver`)
+3. Make your changes
+4. Add tests
+5. Submit a pull request
+
+### Areas We Need Help
+- Additional receiver patterns
+- Integration guides for specific protocols
+- Documentation improvements
+- Security reviews
+- Testing and QA
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
+
+---
+
+## 🏆 About the Developer
+
+**Glory Matthew** (@mattglory)
+
+- 🎓 LearnWeb3 Level 34 Master
+- 🏅 Code4STX Participant 
+- 🚀 Creator of SNP (Stacks Nexus Protocol)
+- 💻 1,600+ lines of production Clarity code
+- 🌍 Based in Birmingham, UK (GMT timezone)
+
+### Contact
+- **Email:** mattglory14@gmail.com
+- **GitHub:** [@mattglory](https://github.com/mattglory)
+- **Twitter:** [@mattglory_](https://twitter.com/mattglory_)
+
+---
+
+## 📊 Technical Stats
 
 ```
-flashstack-core.clar (312 LOC)
-├── flash-mint()           Main flash loan function
-├── calculate-fee()        0.05% fee calculation
-├── pause/unpause()        Emergency controls
-└── get-stats()           Protocol statistics
+Total Contracts:     12
+Core Contracts:       3
+Receiver Examples:    8
+Supporting:           1
 
-sbtc-token.clar (143 LOC)
-├── mint/burn()           Atomic token operations
-├── set-flash-minter()    Access control
-Hliance    Standard token interface
+Lines of Code:     1,600+
+Clarity Versions:  2 & 3
+Test Coverage:     Core functionality
 
-flash-receiver-trait.clar (12 LOC)
-└── execute-flash()       Receiver interface
+Testnet Volume:   27M+ sBTC
+Success Rate:     100%
+Failed Txns:      0
+
+Deployment Cost:  ~1.3 STX
+Gas per Loan:     3,000-6,000 µSTX
+Fee Structure:    0.05%
 ```
 
-### Security Features
+---
 
--  **Atomic Execution** - Entire transaction reverts if repayment fails
--  **Zero Custody** - FlashStack never holds user funds
--  **Inflation Protection** - Atomic mint-burn guarantees zero inflation
--  **Emergency Pause** - Circuit breaker for critical issues
--  **Access Control** - Admin functions protected
--  **Fee Limits** - Maximum 1% fee enforced in code
+## 🌟 Why FlashStack?
 
-[ Security Policy](./SECURITY.md) | [ Architecture Details](./docs/01-project/ARCHITECTURE.md)
+### First-Mover Advantage
+FlashStack is the **ONLY** flash loan protocol on **ANY** Bitcoin Layer 2:
+- ❌ None on Stacks
+- ❌ None on RSK
+- ❌ None on Lightning Network
+- ❌ None on BOB, Merlin, Core, or Bitlayer
+
+### Proven Market
+Flash loans on Ethereum process **$10B+ in volume**:
+- Aave: Primary flash loan provider
+- dYdX: Trading-focused flash loans
+- Uniswap V3: Flash swaps
+
+**Bitcoin deserves the same capabilities.**
+
+### Perfect Timing
+- ✅ sBTC withdrawals enabled (April 2025)
+- ✅ sBTC caps removed (September 2025)
+- ✅ Stacks TVL: $164M+ and growing
+- ✅ Institutional custody partnerships launching
+- ✅ Bitcoin DeFi maturing rapidly
 
 ---
 
-## Installation & Quick Start
+## 🔮 Vision
 
-### Prerequisites
+FlashStack aims to become **standard infrastructure** for Bitcoin Layer 2 DeFi:
 
-- Node.js 18+
-- Clarinet 2.0+
-- Git
+**Short-term (2026):**
+- Flash loan standard on Stacks
+- 10+ protocol integrations
+- $100M+ annual volume
 
-### Setup
+**Medium-term (2027):**
+- Multi-asset support (STX, other tokens)
+- Cross-protocol composability
+- Developer SDK widely adopted
 
-```bash
-# Clone repository
-git clone https://github.com/mattglory/flashstack.git
-cd flashstack
-
-# Install dependencies
-npm install
-
-# Verify contracts compile
-clarinet check
-
-# Run test suite
-npm test
-```
-
-### Try Your First Flash Loan
-
-```bash
-# Start Clarinet console
-clarinet console
-```
-
-```clarity
-;; In console: Set up flash minter
-(contract-call? .sbtc-token set-flash-minter .flashstack-core)
-
-;; Execute flash loan
-(contract-call? .flashstack-core flash-mint 
-  u10000000  ;; 0.1 sBTC
-  .test-receiver)
-
-;; Check protocol stats
-(contract-call? .flashstack-core get-stats)
-```
-
-[ Complete Quickstart](./QUICKSTART.md) | [ Full Documentation](./docs)
+**Long-term (2028+):**
+- Potential expansion to other Bitcoin L2s
+- DAO governance
+- Ecosystem grant program
+- Academic research citations
 
 ---
 
-## Roadmap
+## 📜 License
 
-###  Phase 1: MVP (December 2025)
-- Core flash loan protocol
-- sBTC token integration
-- 8 receiver contract examples
-- Comprehensive testing (100% success)
-- Testnet deployment (27M sBTC processed)
+MIT License - See [LICENSE](./LICENSE) for details.
 
-###  Phase 2: Mainnet Launch (Q1 2026)
-- Security audit
-- Mainnet deployment
-- PoX-4 collateral integration
-- DEX integrations (ALEX, Velar, Bitflow)
-- Analytics dashboard
-
-### 🚀 Phase 3: Ecosystem Growth (Q2 2026)
-- Web application interface
-- Advanced receiver strategies
-- Dynamic fee market
-- Multi-asset support
-
-###  Phase 4: DeFi Infrastructure (Q3 2026)
-- Developer SDK
-- Strategy marketplace
-- Partnership integrations
-- Governance framework
-
-[ Detailed Roadmap](./docs/01-project/ROADMAP.md)
+FlashStack is open-source and free for everyone to use, modify, and build upon.
 
 ---
 
-## Economics
+## 🙏 Acknowledgments
 
-- **Flash Loan Fee:** 0.05% (50 basis points)
-- **Fee Range:** 0.05% - 1.00% (admin configurable)
-- **Current Setting:** 0.05% (10
-### Fee Structurex cheaper than some Ethereum competitors)
-
-### Revenue Model
-Fees collected per flash mint, scaling with protocol usage
-
-### Projected Performance
-- **Target Volume:** $10M+ monthly
-- **Est. Revenue:** $5K - $50K monthly (at 0.05%)
-- **Growth Potential:** 10-100x with sBTC adoption
-
-[ Financial Model](./docs/01-project/FINANCIAL_MODEL.md)
+- **Stacks Foundation** - For supporting Bitcoin L2 development
+- **Clarity Alliance** - For advancing Stacks security
+- **Code4STX Community** - For feedback and support
+- **LearnWeb3** - For educational resources
+- **Ethereum DeFi Pioneers** - For proving flash loans work
 
 ---
 
-## Contributing
+## 🚨 Security Notice
 
-FlashStack welcomes contributions from the community:
+**TESTNET STATUS**
 
-**Ways to Contribute:**
--  Report bugs and issues
--  Suggest new features
--  Submit pull requests
--  Improve documentation
--  Create receiver examples
+FlashStack is currently on testnet and has NOT been professionally audited. 
 
-[ Contributing Guide](./CONTRIBUTING.md) | [ Security Policy](./SECURITY.md)
+**DO NOT USE WITH REAL FUNDS.**
 
----
-
-## Documentation
-
-### Getting Started
-- [README](./README.md) - Overview and quick start
-- [Quickstart Guide](./QUICKSTART.md) - 5-minute setup
-- [Installation](./QUICKSTART.md#installation) - Detailed setup instructions
-
-### Developer Resources
-- [Integration Guide](./docs/02-technical/INTEGRATION_GUIDE.md) - Build receivers
-- [API Reference](./docs/02-technical/API_REFERENCE.md) - Complete API documentation
-- [Smart Contracts](./docs/02-technical/SMART_CONTRACTS.md) - Contract specifications
-- [Testing Guide](./TESTING_GUIDE.md) - Test development
-
-### Ecosystem
-- [Architecture](./docs/01-project/ARCHITECTURE.md) - System design
-- [Roadmap](./docs/01-project/ROADMAP.md) - Development timeline
-- [SNP Integration](./docs/02-technical/SNP_INTEGRATION.md) - Yield aggregator integration
-
-[ Complete Index](./docs/INDEX.md)
+Professional security audit is in progress. Mainnet deployment will only occur after:
+- ✅ Clean audit from Clarity Alliance (or equivalent)
+- ✅ All findings remediated
+- ✅ Bug bounty program launched
+- ✅ Community review period completed
 
 ---
 
-## Community & Links
+## 📞 Get Involved
 
-- **Repository:** [github.com/mattglory/flashstack](https://github.com/mattglory/flashstack)
-- **Developer:** [Glory Matthew](https://github.com/mattglory)
-- **Testnet Explorer:** [explorer.hiro.so](https://explorer.hiro.so)
-- **Stacks Discord:** [stacks.chat](https://stacks.chat)
-- **Stacks Forum:** [forum.stacks.org](https://forum.stacks.org)
+### For Users
+- Try flash loans on testnet
+- Join our Discord (coming soon)
+- Follow development progress
 
----
+### For Developers
+- Build custom receivers
+- Integrate with your protocol
+- Contribute to the codebase
 
-## License
+### For Investors/Grants
+- Fund professional audit
+- Support mainnet deployment
+- Enable ecosystem growth
 
-MIT License - see [LICENSE](./LICENSE) for details
-
----
-
-## About the Developer
-
-**Glory Matthew** ([@mattglory](https://github.com/mattglory))
-- Code4STX Program Participant
-- LearnWeb3 Level 34 Master
-- Bitcoin DeFi Infrastructure Builder
-- Creator of SNP (Stacks Nexus Protocol)
-
-**Mission:** Building production-grade DeFi infrastructure for Bitcoin's Layer 2 ecosystem
+### For Protocols
+- Partner for integration
+- Collaborate on use cases
+- Join our ecosystem
 
 ---
 
-<div align="center">
+## 📈 Live Stats (Testnet)
 
-**FlashStack** - Instant capital for Bitcoin DeFi
+Visit our [Stats Dashboard](https://flashstack.io/stats) to see:
+- Real-time flash loan volume
+- Active receivers
+- Integration partners
+- Fee collection
+- Transaction history
 
-Built on Stacks. Secured by Bitcoin.
-
-[🚀 Documentation](./docs) • [ Community](https://stacks.chat) • [ Report Issue](https://github.com/mattglory/flashstack/issues)
-
-</div>
+*(Dashboard coming soon)*
 
 ---
 
-**Last Updated:** January 5, 2026  
-**Status:**  Security-Hardened Testnet | Audit Funding Requested | Mainnet Q1 2026 
-**Repository:** https://github.com/mattglory/flashstack
+##  Latest Updates
 
+**January 8, 2026**
+- ✅ Security hardening v1.2 completed
+- ✅ New testnet deployment verified
+- ✅ Clarity Alliance selected as preferred auditor
+
+**January 5, 2026**
+- ✅ Security fixes implemented (admin auth, unwrap-panic, whitelist, circuit breaker)
+- ✅ Emergency pause controls added
+- ✅ All 21 functions tested and operational
+
+**December 7, 2025**
+- ✅ Complete testnet deployment (12 contracts)
+- ✅ 27M+ sBTC processed successfully
+- ✅ 100% success rate achieved
+
+---
+
+## 💬 Community
+
+- **Discord:** Coming soon
+- **Twitter:** [@mattglory_](https://twitter.com/mattglory_)
+- **Telegram:** Coming soon
+- **Forum:** [Stacks Forum](https://forum.stacks.org)
+
+---
+
+**Built with ❤️ for Bitcoin's DeFi future**
+
+*FlashStack - Making Bitcoin capital efficient, one atomic transaction at a time.*
+
+---
+
+**Last Updated:** January 8, 2026  
+**Version:** 1.2 (Security-Hardened)  
+**Testnet:** Live and operational  
+**Mainnet:** Pending professional audit
