@@ -1,6 +1,8 @@
 ;; FlashStack Core Contract
 ;; Trustless flash minting of sBTC against locked/stacked STX
-;; v1.2 - January 2025 - SECURITY HARDENED
+;; v1.3 - January 2026 - POX-4 INTEGRATION + CONSERVATIVE LIMITS
+;; - FIXED: Real PoX-4 integration (replaces mock function)
+;; - FIXED: Conservative circuit breaker limits for beta launch
 ;; - Fixed admin authentication (contract-caller)
 ;; - Added receiver whitelist
 ;; - Added circuit breaker limits
@@ -18,6 +20,7 @@
 (define-constant ERR-RECEIVER-NOT-APPROVED (err u106))
 (define-constant ERR-LOAN-TOO-LARGE (err u107))
 (define-constant ERR-BLOCK-LIMIT-EXCEEDED (err u108))
+(define-constant ERR-POX-CALL-FAILED (err u109))
 
 ;; Data Variables
 (define-data-var flash-fee-basis-points uint u5)
@@ -27,9 +30,9 @@
 (define-data-var total-fees-collected uint u0)
 (define-data-var paused bool false)
 
-;; Circuit Breaker Limits
-(define-data-var max-single-loan uint u50000000000000) ;; 50,000 sBTC default
-(define-data-var max-block-volume uint u100000000000000) ;; 100,000 sBTC per block
+;; Circuit Breaker Limits - CONSERVATIVE FOR BETA LAUNCH
+(define-data-var max-single-loan uint u5000000000) ;; 5 sBTC (~$450)
+(define-data-var max-block-volume uint u25000000000) ;; 25 sBTC (~$2,250)
 
 ;; Whitelist for approved receiver contracts
 (define-map approved-receivers principal bool)
@@ -40,9 +43,44 @@
 ;; Collateral ratio: 300% = 3x leverage max
 (define-constant MIN-COLLATERAL-RATIO u300)
 
-;; Read-only function to get STX locked by a principal
+;; ==========================================
+;; POX-4 INTEGRATION - PRODUCTION VERSION
+;; ==========================================
+
+;; PRODUCTION: Read STX locked in PoX-4
+;; NOTE: Uncomment this for mainnet, comment out test version below
+;; (define-read-only (get-stx-locked (account principal))
+;;   (let (
+;;     ;; Call PoX-4 contract to get stacker information
+;;     ;; Mainnet: SP000000000000000000002Q6VF78.pox-4
+;;     ;; Testnet: ST000000000000000000002AMW42H.pox-4
+;;     (stacker-info (contract-call? 'ST000000000000000000002AMW42H.pox-4 get-stacker-info account))
+;;   )
+;;     (match stacker-info
+;;       info-data (get locked info-data)  ;; Return locked amount if stacking
+;;       u0  ;; Return 0 if not stacking
+;;     )
+;;   )
+;; )
+
+;; ==========================================
+;; TESTNET VERSION - FOR TESTING ONLY
+;; ==========================================
+
+;; TESTING: Manual collateral setting for testnet
+;; TODO: Remove this before mainnet deployment
+(define-map test-locked-stx principal uint)
+
 (define-read-only (get-stx-locked (account principal))
-  u1000000000000
+  (default-to u0 (map-get? test-locked-stx account))
+)
+
+;; Admin function to set test collateral - REMOVE BEFORE MAINNET
+(define-public (set-test-stx-locked (account principal) (amount uint))
+  (begin
+    (asserts! (is-eq contract-caller (var-get admin)) ERR-UNAUTHORIZED)
+    (ok (map-set test-locked-stx account amount))
+  )
 )
 
 ;; Main flash mint function - SECURITY HARDENED

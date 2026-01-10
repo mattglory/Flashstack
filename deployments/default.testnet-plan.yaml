@@ -10,78 +10,85 @@ plan:
       transactions:
         - contract-publish:
             contract-name: flash-receiver-trait
-            expected-sender: ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8
-            cost: 85750
+            expected-sender: ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7
+            cost: 2840
             path: "contracts\\flash-receiver-trait.clar"
             anchor-block-only: true
             clarity-version: 2
         - contract-publish:
             contract-name: sbtc-token
-            expected-sender: ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8
-            cost: 85890
+            expected-sender: ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7
+            cost: 22770
             path: "contracts\\sbtc-token.clar"
             anchor-block-only: true
             clarity-version: 2
         - contract-publish:
             contract-name: collateral-swap-receiver
-            expected-sender: ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8
-            cost: 86060
+            expected-sender: ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7
+            cost: 44980
             path: "contracts\\collateral-swap-receiver.clar"
             anchor-block-only: true
             clarity-version: 2
         - contract-publish:
             contract-name: dex-aggregator-receiver
-            expected-sender: ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8
-            cost: 86029
+            expected-sender: ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7
+            cost: 40480
             path: "contracts\\dex-aggregator-receiver.clar"
             anchor-block-only: true
             clarity-version: 2
         - contract-publish:
             contract-name: example-arbitrage-receiver
-            expected-sender: ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8
-            cost: 85874
+            expected-sender: ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7
+            cost: 19830
             path: "contracts\\example-arbitrage-receiver.clar"
             anchor-block-only: true
             clarity-version: 2
         - contract-publish:
             contract-name: flashstack-core
-            expected-sender: ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8
-            cost: 86060
+            expected-sender: ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7
+            cost: 73540
             path: "contracts\\flashstack-core.clar"
             anchor-block-only: true
             clarity-version: 2
         - contract-publish:
             contract-name: leverage-loop-receiver
-            expected-sender: ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8
-            cost: 86122
+            expected-sender: ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7
+            cost: 52150
             path: "contracts\\leverage-loop-receiver.clar"
             anchor-block-only: true
             clarity-version: 2
         - contract-publish:
             contract-name: liquidation-receiver
-            expected-sender: ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8
-            cost: 85983
+            expected-sender: ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7
+            cost: 33450
             path: "contracts\\liquidation-receiver.clar"
             anchor-block-only: true
             clarity-version: 2
         - contract-publish:
             contract-name: multidex-arbitrage-receiver
-            expected-sender: ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8
-            cost: 86075
+            expected-sender: ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7
+            cost: 46100
             path: "contracts\\multidex-arbitrage-receiver.clar"
             anchor-block-only: true
             clarity-version: 2
         - contract-publish:
+            contract-name: snp-flashstack-receiver
+            expected-sender: ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7
+            cost: 32700
+            path: "contracts\\snp-flashstack-receiver.clar"
+            anchor-block-only: true
+            clarity-version: 2
+        - contract-publish:
             contract-name: test-receiver
-            expected-sender: ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8
-            cost: 85781
+            expected-sender: ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7
+            cost: 6610
             path: "contracts\\test-receiver.clar"
             anchor-block-only: true
             clarity-version: 2
         - contract-publish:
             contract-name: yield-optimization-receiver
-            expected-sender: ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8
-            cost: 86029
+            expected-sender: ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7
+            cost: 40990
             path: "contracts\\yield-optimization-receiver.clar"
             anchor-block-only: true
             clarity-version: 2

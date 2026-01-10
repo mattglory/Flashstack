@@ -48,7 +48,7 @@ Related to #
 ```bash
 # List the commands you ran to test
 clarinet check
-clarinet console
+clarinet console3
 ```
 
 ### Test Results
