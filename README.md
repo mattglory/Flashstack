@@ -4,6 +4,7 @@
 
 [![Status](https://img.shields.io/badge/Status-Security--Hardened%20Testnet-green)]()
 [![Testnet](https://img.shields.io/badge/Testnet-Live-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-60%20Passing-success)]()
 [![Clarity](https://img.shields.io/badge/Clarity-2%20%26%203-blue)]()
 [![License](https://img.shields.io/badge/License-MIT-yellow)]()
 
@@ -160,6 +161,34 @@ FlashStack enables **atomic, uncollateralized loans** within a single transactio
 
 ---
 
+## 📋 Prerequisites
+
+Before you begin, ensure you have:
+
+- **Node.js** 16.x or higher
+- **npm** 7.x or higher
+- **Clarinet** 2.0+ (for local development)
+- **Git** (for cloning the repository)
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/mattglory/flashstack.git
+cd flashstack
+
+# Install dependencies
+npm install
+
+# Verify contracts compile
+npm run check
+
+# Run tests
+npm test
+```
+
+---
+
 ## 🚀 Quick Start
 
 ### For Users
@@ -191,7 +220,47 @@ FlashStack enables **atomic, uncollateralized loans** within a single transactio
 
 **That's it!** You now have access to unlimited flash loan capital.
 
-See [INTEGRATION_GUIDE.md](./docs/INTEGRATION_GUIDE.md) for detailed examples.
+---
+
+## 🧪 Testing
+
+FlashStack has comprehensive test coverage using Vitest and Clarigen for type-safe contract testing.
+
+### Test Stats
+```
+✓ 60 tests passing across 4 test files
+✓ Comprehensive test coverage
+✓ Type-safe Clarity assertions
+✓ CI/CD ready
+```
+
+### Run Tests
+
+```bash
+# Install dependencies
+npm install
+
+# Run all tests
+npm test
+
+# Watch mode (auto-rerun on changes)
+npm run test:watch
+
+# Generate coverage report
+npm run test:coverage
+```
+
+### Test Coverage Areas
+- Contract initialization and deployment
+- Admin access control and permissions
+- Fee calculations (0.05% - 1.00%)
+- Collateral requirements (300% ratio)
+- Circuit breaker limits
+- Whitelist management
+- Flash loan execution scenarios
+- Security checks and edge cases
+
+See [TESTING.md](./TESTING.md) for complete testing documentation.
 
 ---
 
@@ -200,6 +269,8 @@ See [INTEGRATION_GUIDE.md](./docs/INTEGRATION_GUIDE.md) for detailed examples.
 ### Phase 1: Security & Audit (Q1 2026) ⏳
 - [x] Security hardening v1.2 completed
 - [x] Testnet deployment verified
+- [x] Comprehensive test suite (60 tests)
+- [x] Type-safe testing infrastructure
 - [ ] Professional audit from Clarity Alliance
 - [ ] Findings remediation
 - [ ] Bug bounty program launch
@@ -232,31 +303,30 @@ See [INTEGRATION_GUIDE.md](./docs/INTEGRATION_GUIDE.md) for detailed examples.
 - **Previous:** [ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8](https://explorer.hiro.so/address/ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8?chain=testnet)
 
 ### Documentation
-- [Integration Guide](./docs/INTEGRATION_GUIDE.md)
-- [Architecture Overview](./docs/ARCHITECTURE.md)
-- [Security Analysis](./docs/SECURITY.md)
-- [API Reference](./docs/API_REFERENCE.md)
+- [Testing Guide](./TESTING.md) - Comprehensive testing documentation
+- [Testing Summary](./TESTING_SUMMARY.md) - Quick testing reference
+- Clarinet Configuration: [Clarinet.toml](./Clarinet.toml)
 
 ### Code
-- [Core Contracts](./contracts/core/)
-- [Receiver Examples](./contracts/receivers/)
-- [Tests](./tests/)
+- [Core Contracts](./contracts/) - flashstack-core, sbtc-token, trait
+- [Receiver Examples](./contracts/) - 8 production receivers
+- [Tests](./tests/) - 60 comprehensive tests
 
 ---
 
 ## 📚 Documentation
 
 ### For Developers
-- [Getting Started Guide](./docs/getting-started.md)
-- [Building Custom Receivers](./docs/custom-receivers.md)
-- [Testing Locally](./docs/testing.md)
-- [Deployment Guide](./docs/deployment.md)
+- **[Testing Guide](./TESTING.md)** - Complete testing documentation with examples
+- **[Testing Summary](./TESTING_SUMMARY.md)** - Quick testing reference
+- **[Clarinet Config](./Clarinet.toml)** - Contract configuration and dependencies
+- **[Receiver Examples](./contracts/)** - 8 production-ready receiver implementations
 
 ### For Researchers
-- [Technical Whitepaper](./docs/whitepaper.md)
-- [Economic Model](./docs/economics.md)
-- [Security Architecture](./docs/security-architecture.md)
-- [Attack Vectors & Mitigations](./docs/attack-vectors.md)
+- **[README](./README.md)** - This file, comprehensive project overview
+- **[Contracts](./contracts/)** - All Clarity smart contract source code
+- **[Tests](./tests/)** - Test suites demonstrating all functionality
+- **Security v1.2** - See commit [13b4b60](https://github.com/mattglory/flashstack/commit/13b4b60)
 
 ---
 
@@ -309,7 +379,10 @@ Supporting:           1
 
 Lines of Code:     1,600+
 Clarity Versions:  2 & 3
-Test Coverage:     Core functionality
+Test Suite:        60 passing tests
+Test Files:        4 comprehensive suites
+Test Framework:    Vitest + Clarigen
+Coverage:          Core + Admin + Security
 
 Testnet Volume:   27M+ sBTC
 Success Rate:     100%
@@ -443,6 +516,12 @@ Visit our [Stats Dashboard](https://flashstack.io/stats) to see:
 
 ##  Latest Updates
 
+**January 18, 2026**
+- ✅ Comprehensive test suite completed (60 tests)
+- ✅ Clarigen integration for type-safe testing
+- ✅ Coverage reporting configured
+- ✅ Testing documentation published (TESTING.md)
+
 **January 8, 2026**
 - ✅ Security hardening v1.2 completed
 - ✅ New testnet deployment verified
@@ -475,7 +554,7 @@ Visit our [Stats Dashboard](https://flashstack.io/stats) to see:
 
 ---
 
-**Last Updated:** January 8, 2026  
-**Version:** 1.2 (Security-Hardened)  
-**Testnet:** Live and operational  
+**Last Updated:** January 18, 2026
+**Version:** 1.3 (Testing Complete)
+**Testnet:** Live and operational
 **Mainnet:** Pending professional audit
