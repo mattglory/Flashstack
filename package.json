@@ -6,9 +6,12 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "check": "clarinet check",
     "console": "clarinet console",
-    "devnet": "clarinet integrate"
+    "devnet": "clarinet integrate",
+    "clarigen": "clarigen",
+    "gen": "clarigen generate"
   },
   "keywords": [
     "stacks",
@@ -24,6 +27,9 @@
   "devDependencies": {
     "@hirosystems/clarinet-sdk": "^2.8.0",
     "@hirosystems/clarinet-sdk-wasm": "^2.8.0",
+    "@clarigen/cli": "^4.0.1",
+    "@clarigen/core": "^4.0.1",
+    "@clarigen/test": "^4.0.1",
     "vitest": "^1.0.0"
   }
 }
