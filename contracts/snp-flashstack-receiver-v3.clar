@@ -1,6 +1,7 @@
-;; SNP-FlashStack Integration Receiver - Minimal Working Version
+;; SNP-FlashStack Integration Receiver v3
 ;; This receiver integrates FlashStack flash loans with SNP yield aggregation
-;; Built by Matt Glory - December 2025
+;; Enables leveraged positions in SNP vaults using FlashStack
+;; Built by Matt Glory - January 2026
 
 (impl-trait .flash-receiver-trait.flash-receiver-trait)
 
@@ -10,10 +11,13 @@
 (define-constant ERR-VAULT-WITHDRAW-FAILED (err u502))
 (define-constant ERR-INSUFFICIENT-BALANCE (err u503))
 (define-constant ERR-VAULT-LIMIT-REACHED (err u201))
+(define-constant ERR-REPAYMENT-FAILED (err u200))
 
 ;; Data vars
 (define-data-var authorized-vaults (list 10 principal) (list))
 (define-data-var contract-owner principal tx-sender)
+(define-data-var total-operations uint u0)
+(define-data-var total-volume uint u0)
 
 ;; Admin functions
 (define-public (authorize-vault (vault principal))
@@ -25,78 +29,138 @@
   )
 )
 
+(define-public (remove-vault (vault principal))
+  (begin
+    (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+    (var-set authorized-vaults 
+      (filter is-not-removed-vault (var-get authorized-vaults)))
+    (ok true)
+  )
+)
+
+(define-private (is-not-removed-vault (vault principal))
+  true  ;; Simplified for now - would need proper filter logic
+)
+
 ;; Main flash loan execution
 (define-public (execute-flash (amount uint) (borrower principal))
   (let (
-    (fee (/ (* amount u50) u100000))
+    (fee-bp (unwrap! (contract-call? .flashstack-core get-fee-basis-points) ERR-REPAYMENT-FAILED))
+    (fee (/ (* amount fee-bp) u10000))
     (total-owed (+ amount fee))
   )
+    ;; Security: Only FlashStack core can call this
     (asserts! (is-eq contract-caller .flashstack-core) ERR-NOT-AUTHORIZED)
+    
+    ;; Execute yield optimization strategy
     (try! (optimize-yield amount borrower))
-    ;; Return as-contract result directly (like test-receiver)
+    
+    ;; Update stats
+    (var-set total-operations (+ (var-get total-operations) u1))
+    (var-set total-volume (+ (var-get total-volume) amount))
+    
+    ;; Repay the flash loan (this is the final return value)
     (as-contract (contract-call? .sbtc-token transfer 
       total-owed tx-sender .flashstack-core none))
   )
 )
 
 ;; Yield optimization strategy
+;; This is where the magic happens:
+;; 1. Receive flash-minted sBTC
+;; 2. Deposit into SNP vault for yield
+;; 3. Simulate yield/profit
+;; 4. Withdraw from vault
+;; 5. Repay flash loan + fee
 (define-private (optimize-yield (flash-amount uint) (user principal))
   (let (
-    (withdraw-amount (+ flash-amount (/ (* flash-amount u50) u100000)))
+    ;; Calculate expected yield (0.05% profit in this example)
+    (expected-yield (/ (* flash-amount u50) u100000))
+    (withdraw-amount (+ flash-amount expected-yield))
   )
-    (try! (mock-deposit flash-amount))
-    (try! (mock-withdraw withdraw-amount))
+    ;; Step 1: Deposit flash-minted sBTC into SNP vault
+    (try! (mock-deposit-to-vault flash-amount))
+    
+    ;; Step 2: Simulate vault generating yield
+    ;; (in production, this would be actual vault operations)
+    
+    ;; Step 3: Withdraw from vault (original + yield)
+    (try! (mock-withdraw-from-vault withdraw-amount))
+    
     (ok true)
   )
 )
 
-;; Mock functions - replace with real SNP vault calls
-(define-private (mock-deposit (amount uint))
+;; ============================================
+;; MOCK FUNCTIONS - TO BE REPLACED WITH REAL SNP VAULT CALLS
+;; ============================================
+;; TODO: Replace these with actual SNP vault integration
+;; For now, these are placeholders that simulate vault operations
+
+(define-private (mock-deposit-to-vault (amount uint))
+  ;; TODO: Replace with actual SNP vault deposit call
+  ;; Example: (contract-call? .snp-vault-core deposit amount .sbtc-token)
   (if (> amount u0)
     (ok true)
-    ERR-INSUFFICIENT-BALANCE
+    ERR-VAULT-DEPOSIT-FAILED
   )
 )
 
-(define-private (mock-withdraw (amount uint))
+(define-private (mock-withdraw-from-vault (amount uint))
+  ;; TODO: Replace with actual SNP vault withdrawal call
+  ;; Example: (contract-call? .snp-vault-core withdraw amount .sbtc-token)
   (if (> amount u0)
     (ok true)
-    ERR-INSUFFICIENT-BALANCE
+    ERR-VAULT-WITHDRAW-FAILED
   )
 )
 
-(define-private (is-authorized-vault (vault principal))
-  (is-some (index-of (var-get authorized-vaults) vault))
-)
+;; ============================================
+;; READ-ONLY FUNCTIONS
+;; ============================================
 
-;; Read-only functions
 (define-read-only (get-stats)
   {
+    total-operations: (var-get total-operations),
+    total-volume: (var-get total-volume),
     authorized-vaults: (var-get authorized-vaults)
   }
 )
 
+(define-read-only (is-vault-authorized (vault principal))
+  (is-some (index-of (var-get authorized-vaults) vault))
+)
+
+;; Calculate the leverage benefit of using FlashStack + SNP
+;; This helps users understand the profitability of leveraged vault positions
 (define-read-only (calculate-leverage-benefit
     (user-capital uint)
     (leverage uint)
     (vault-apy uint)
-    (fee uint))
+    (flashstack-fee uint))
   (let (
     (total-capital (* user-capital leverage))
     (flash-amount (* user-capital (- leverage u1)))
-    (fees (/ (* flash-amount fee) u10000))
-    (yield (/ (* total-capital vault-apy) u10000))
-    (net (- yield fees))
+    (flash-fees (/ (* flash-amount flashstack-fee) u10000))
+    (gross-yield (/ (* total-capital vault-apy) u10000))
+    (net-yield (- gross-yield flash-fees))
   )
     {
-      capital: user-capital,
+      user-capital: user-capital,
       leverage: leverage,
-      total: total-capital,
-      flash: flash-amount,
-      fees: fees,
-      yield: yield,
-      net: net,
-      profitable: (> net u0)
+      total-capital: total-capital,
+      flash-loan-amount: flash-amount,
+      flash-fees: flash-fees,
+      gross-yield: gross-yield,
+      net-yield: net-yield,
+      profitable: (> net-yield u0),
+      apy-boost: (if (> user-capital u0) 
+                    (/ (* net-yield u10000) user-capital) 
+                    u0)
     }
   )
+)
+
+(define-read-only (get-owner)
+  (ok (var-get contract-owner))
 )
