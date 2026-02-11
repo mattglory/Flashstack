@@ -104,6 +104,8 @@ logs/
 *.bak
 *.backup
 *~
+nul
+tmpclaude-*
 
 # ============================================
 # Documentation Build
