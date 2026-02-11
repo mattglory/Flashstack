@@ -2,15 +2,18 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const navItems = [
-  { label: "Dashboard", href: "/", active: true },
-  { label: "Flash Loan", href: "#", comingSoon: true },
+  { label: "Dashboard", href: "/" },
+  { label: "Flash Loan", href: "/flash-loan" },
   { label: "Receivers", href: "#", comingSoon: true },
   { label: "Admin", href: "#", comingSoon: true },
 ];
 
 export function Sidebar() {
+  const pathname = usePathname();
+
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-surface-card border-r border-surface-border flex flex-col">
       {/* Logo */}
@@ -26,25 +29,31 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 mt-2">
-        {navItems.map((item) => (
-          <Link
-            key={item.label}
-            href={item.href}
-            className={`flex items-center justify-between px-4 py-3 rounded-lg mb-1 text-sm transition-colors ${
-              item.active
-                ? "bg-brand-600/10 text-brand-400 font-medium"
-                : "text-slate-400 hover:text-slate-200 hover:bg-surface-hover"
-            } ${item.comingSoon ? "cursor-default" : ""}`}
-            onClick={item.comingSoon ? (e) => e.preventDefault() : undefined}
-          >
-            <span>{item.label}</span>
-            {item.comingSoon && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-surface-hover text-slate-500">
-                Soon
-              </span>
-            )}
-          </Link>
-        ))}
+        {navItems.map((item) => {
+          const isActive = item.href === "/"
+            ? pathname === "/"
+            : pathname.startsWith(item.href);
+
+          return (
+            <Link
+              key={item.label}
+              href={item.href}
+              className={`flex items-center justify-between px-4 py-3 rounded-lg mb-1 text-sm transition-colors ${
+                isActive
+                  ? "bg-brand-600/10 text-brand-400 font-medium"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-surface-hover"
+              } ${item.comingSoon ? "cursor-default" : ""}`}
+              onClick={item.comingSoon ? (e) => e.preventDefault() : undefined}
+            >
+              <span>{item.label}</span>
+              {item.comingSoon && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-surface-hover text-slate-500">
+                  Soon
+                </span>
+              )}
+            </Link>
+          );
+        })}
       </nav>
 
       {/* Footer */}
