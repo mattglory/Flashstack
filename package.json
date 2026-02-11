@@ -30,6 +30,6 @@
     "@clarigen/cli": "^4.0.1",
     "@clarigen/core": "^4.0.1",
     "@clarigen/test": "^4.0.1",
-    "vitest": "^1.0.0"
+    "vitest": "^4.0.18"
   }
 }
