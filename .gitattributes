@@ -1,0 +1,2 @@
+# Force LF line endings for Clarity contracts (Clarinet requires LF)
+*.clar text eol=lf
