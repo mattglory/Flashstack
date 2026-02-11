@@ -7,9 +7,9 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     ignore:
-      # Only allow patch updates for esbuild (major/minor can break builds)
-      - dependency-name: "esbuild"
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # Block ALL major version upgrades — require manual migration
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   # Frontend (web/)
   - package-ecosystem: "npm"
@@ -18,11 +18,6 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     ignore:
-      # Block major version upgrades for Next.js (14→15 requires migration)
-      - dependency-name: "next"
-        update-types: ["version-update:semver-major"]
-      # Block major React upgrades (tied to Next.js version)
-      - dependency-name: "react"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "react-dom"
+      # Block ALL major version upgrades — require manual migration
+      - dependency-name: "*"
         update-types: ["version-update:semver-major"]
