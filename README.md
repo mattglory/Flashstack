@@ -4,8 +4,9 @@
 
 [![Status](https://img.shields.io/badge/Status-Security--Hardened%20Testnet-green)]()
 [![Testnet](https://img.shields.io/badge/Testnet-Live-brightgreen)]()
-[![Tests](https://img.shields.io/badge/Tests-60%20Passing-success)]()
+[![Tests](https://img.shields.io/badge/Tests-86%20Passing-success)]()
 [![Clarity](https://img.shields.io/badge/Clarity-2%20%26%203-blue)]()
+[![Live](https://img.shields.io/badge/Live-flashstack.vercel.app-blue)](https://flashstack.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-yellow)]()
 
 > Atomic, uncollateralized flash loans on Stacks blockchain. Borrow capital, execute your strategy, and repay — all in one transaction. If repayment fails, the entire transaction reverts.
@@ -20,7 +21,7 @@
 git clone https://github.com/mattglory/flashstack.git
 cd flashstack
 npm install
-npm test          # 60 tests passing
+npm test          # 86 tests passing
 npm run check     # Clarinet contract verification
 ```
 
@@ -156,11 +157,12 @@ const result = await request("stx_callContract", {
 | `sbtc-token` | SIP-010 token interface (mock on testnet, real sBTC on mainnet) |
 | `flash-receiver-trait` | Standard interface all receivers must implement |
 
-### Receiver Examples (8 contracts)
+### Receiver Examples (10 contracts)
 
 | Receiver | Strategy |
 |---|---|
 | `test-receiver` | Basic flash loan demonstration |
+| `simple-receiver` | Minimal receiver template |
 | `example-arbitrage-receiver` | DEX arbitrage template |
 | `liquidation-receiver` | Liquidation bot with bonus capture |
 | `leverage-loop-receiver` | 3x+ leveraged positions |
@@ -168,6 +170,7 @@ const result = await request("stx_callContract", {
 | `yield-optimization-receiver` | Auto-compounding strategies |
 | `dex-aggregator-receiver` | Multi-DEX optimal routing |
 | `multidex-arbitrage-receiver` | Complex multi-hop arbitrage |
+| `snp-flashstack-receiver-v3` | SNP integration for leveraged yield |
 
 ### Read-Only Functions
 
@@ -204,9 +207,12 @@ const result = await request("stx_callContract", {
 The `web/` directory contains a Next.js 14 dashboard:
 
 - **Protocol Stats** — live on-chain data with 30s auto-refresh
+- **Flash Loan Execution** — submit flash loans with fee preview and receiver selection
 - **Wallet Connection** — Leather/Xverse via @stacks/connect v8
 - **Network Toggle** — switch between testnet and mainnet
 - **User Position** — STX locked and max flash amount
+
+**Live:** [flashstack.vercel.app](https://flashstack.vercel.app)
 
 **Tech:** Next.js 14 (App Router), TypeScript, Tailwind CSS, @stacks/connect, @stacks/transactions, @stacks/network
 
@@ -234,12 +240,12 @@ See commit [`13b4b60`](https://github.com/mattglory/flashstack/commit/13b4b60) f
 ## Testing
 
 ```bash
-npm test                # Run all 60 tests
+npm test                # Run all 86 tests
 npm run test:watch      # Watch mode
 npm run test:coverage   # Coverage report
 ```
 
-**Coverage areas:** initialization, admin access control, fee calculations (0.05%-1.00%), collateral ratios (300%), circuit breaker limits, whitelist management, flash loan execution, security edge cases.
+**Coverage areas:** initialization, admin access control, fee calculations (0.05%-1.00%), collateral ratios (300%), circuit breaker limits, whitelist management, flash loan execution, end-to-end mint-burn cycle verification, boundary value testing, admin transfer security, SNP receiver integration, sbtc-token operations.
 
 Framework: [Vitest](https://vitest.dev/) + [Clarigen](https://github.com/mechanismHQ/clarigen) for type-safe Clarity testing.
 
@@ -251,8 +257,8 @@ See [TESTING.md](./TESTING.md) for details.
 
 - [x] Security hardening v1.2
 - [x] Testnet deployment (12 contracts)
-- [x] Test suite (60 tests)
-- [x] Frontend dashboard
+- [x] Test suite (86 tests)
+- [x] Frontend dashboard with flash loan execution UI
 - [ ] Professional audit
 - [ ] Bug bounty program
 - [ ] Real sBTC integration
@@ -267,8 +273,8 @@ See [TESTING.md](./TESTING.md) for details.
 
 ```
 flashstack/
-  contracts/              # 12 Clarity smart contracts
-  tests/                  # 60 Vitest + Clarigen tests
+  contracts/              # 15 Clarity smart contracts
+  tests/                  # 86 Vitest + Clarigen tests
   web/                    # Next.js 14 frontend dashboard
     src/
       app/                # App Router pages
