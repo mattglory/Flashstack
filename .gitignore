@@ -60,8 +60,8 @@ desktop.ini
 **/private/
 **/PRIVATE/
 settings/Mainnet.toml
-settings/Testnet.toml
-settings/Devnet.toml
+# Devnet.toml uses standard Clarinet test mnemonics — safe to track, required for CI
+# settings/Devnet.toml
 .secret
 secrets.json
 wallet.json
