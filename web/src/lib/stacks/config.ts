@@ -14,7 +14,7 @@ export const RECEIVER_CONTRACTS = [
   { name: "yield-optimization-receiver", label: "Yield Optimizer", description: "Auto-compounding" },
   { name: "dex-aggregator-receiver", label: "DEX Aggregator", description: "Multi-DEX routing" },
   { name: "snp-flashstack-receiver-v3", label: "SNP Integration", description: "SNP leveraged yield" },
-] as const;
+];
 
 export const HIRO_API_URLS: Record<NetworkType, string> = {
   testnet: "https://api.testnet.hiro.so",
