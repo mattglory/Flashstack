@@ -21,19 +21,16 @@ genesis:
       balance: "100000000000000"
       sbtc-balance: "1000000000"
   contracts:
-    - genesis
-    - lockup
-    - bns
-    - cost-voting
     - costs
     - pox
-    - costs-2
     - pox-2
-    - costs-3
     - pox-3
     - pox-4
-    - signers
-    - signers-voting
+    - lockup
+    - costs-2
+    - costs-3
+    - cost-voting
+    - bns
 plan:
   batches:
     - id: 0
@@ -41,61 +38,66 @@ plan:
         - emulated-contract-publish:
             contract-name: flash-receiver-trait
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\flash-receiver-trait.clar"
+            path: contracts/flash-receiver-trait.clar
             clarity-version: 2
         - emulated-contract-publish:
             contract-name: sbtc-token
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\sbtc-token.clar"
+            path: contracts/sbtc-token.clar
             clarity-version: 2
         - emulated-contract-publish:
             contract-name: collateral-swap-receiver
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\collateral-swap-receiver.clar"
+            path: contracts/collateral-swap-receiver.clar
             clarity-version: 2
         - emulated-contract-publish:
             contract-name: dex-aggregator-receiver
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\dex-aggregator-receiver.clar"
+            path: contracts/dex-aggregator-receiver.clar
             clarity-version: 2
         - emulated-contract-publish:
             contract-name: example-arbitrage-receiver
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\example-arbitrage-receiver.clar"
+            path: contracts/example-arbitrage-receiver.clar
             clarity-version: 2
         - emulated-contract-publish:
             contract-name: flashstack-core
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\flashstack-core.clar"
+            path: contracts/flashstack-core.clar
             clarity-version: 2
         - emulated-contract-publish:
             contract-name: leverage-loop-receiver
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\leverage-loop-receiver.clar"
+            path: contracts/leverage-loop-receiver.clar
             clarity-version: 2
         - emulated-contract-publish:
             contract-name: liquidation-receiver
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\liquidation-receiver.clar"
+            path: contracts/liquidation-receiver.clar
             clarity-version: 2
         - emulated-contract-publish:
             contract-name: multidex-arbitrage-receiver
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\multidex-arbitrage-receiver.clar"
+            path: contracts/multidex-arbitrage-receiver.clar
             clarity-version: 2
         - emulated-contract-publish:
             contract-name: snp-flashstack-receiver
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\snp-flashstack-receiver.clar"
+            path: contracts/snp-flashstack-receiver.clar
+            clarity-version: 2
+        - emulated-contract-publish:
+            contract-name: snp-flashstack-receiver-v3
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: contracts/snp-flashstack-receiver-v3.clar
             clarity-version: 2
         - emulated-contract-publish:
             contract-name: test-receiver
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\test-receiver.clar"
+            path: contracts/test-receiver.clar
             clarity-version: 2
         - emulated-contract-publish:
             contract-name: yield-optimization-receiver
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\yield-optimization-receiver.clar"
+            path: contracts/yield-optimization-receiver.clar
             clarity-version: 2
       epoch: "2.5"
