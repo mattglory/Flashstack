@@ -2,31 +2,42 @@ name: FlashStack CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
-  security-scan:
+  test-contracts:
+    name: Test Smart Contracts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Run security scan
-        run: |
-          echo "Security scan passed"
-          
-  check-contracts:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run contract tests
+        run: npm test
+
+  build-web:
+    name: Build Frontend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Setup Clarinet
-        run: |
-          # Simplified check - just verify files exist
-          if [ -d "contracts" ]; then
-            echo "Contracts directory found"
-            ls -la contracts/
-            echo "Contract check passed"
-          else
-            echo "Contracts directory not found"
-            exit 1
-          fi
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: cd web && npm ci
+
+      - name: Build Next.js app
+        run: cd web && npm run build
