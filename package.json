@@ -28,7 +28,7 @@
     "@hirosystems/clarinet-sdk": "^2.8.0",
     "@hirosystems/clarinet-sdk-wasm": "^2.8.0",
     "@clarigen/cli": "^4.0.1",
-    "@clarigen/core": "^4.0.1",
+    "@clarigen/core": "^4.1.3",
     "@clarigen/test": "^4.0.1",
     "vitest": "^1.0.0"
   }
