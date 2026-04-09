@@ -54,10 +54,8 @@
 
 (define-public (mint (amount uint) (recipient principal))
   (begin
-    ;; Only flash-minter contract or owner can mint
-    ;; Uses contract-caller for flash-minter to support cross-contract calls
-    (asserts! (or (is-eq contract-caller (var-get flash-minter))
-                   (is-eq tx-sender CONTRACT-OWNER))
+    ;; Only the designated flash-minter contract can mint (C-01: deployer backdoor removed)
+    (asserts! (is-eq contract-caller (var-get flash-minter))
               ERR-NOT-AUTHORIZED)
     (asserts! (> amount u0) ERR-INSUFFICIENT-BALANCE)
     (ft-mint? sbtc amount recipient)
@@ -66,10 +64,8 @@
 
 (define-public (burn (amount uint) (owner principal))
   (begin
-    ;; Only flash-minter contract or owner can burn
-    ;; Uses contract-caller for flash-minter to support as-contract calls
-    (asserts! (or (is-eq contract-caller (var-get flash-minter))
-                   (is-eq tx-sender CONTRACT-OWNER))
+    ;; Only the designated flash-minter contract can burn (C-01: deployer backdoor removed)
+    (asserts! (is-eq contract-caller (var-get flash-minter))
               ERR-NOT-AUTHORIZED)
     (asserts! (> amount u0) ERR-INSUFFICIENT-BALANCE)
     (ft-burn? sbtc amount owner)

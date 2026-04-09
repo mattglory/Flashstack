@@ -25,11 +25,13 @@
   "author": "Glory Matthew",
   "license": "MIT",
   "devDependencies": {
-    "@hirosystems/clarinet-sdk": "^2.8.0",
-    "@hirosystems/clarinet-sdk-wasm": "^2.8.0",
     "@clarigen/cli": "^4.0.1",
     "@clarigen/core": "^4.0.1",
     "@clarigen/test": "^4.0.1",
+    "@stacks/clarinet-sdk": "3.16.0",
     "vitest": "^1.0.0"
+  },
+  "dependencies": {
+    "@stacks/transactions": "^7.4.0"
   }
 }
