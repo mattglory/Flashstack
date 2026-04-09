@@ -1,4 +1,4 @@
-import { initSimnet } from "@hirosystems/clarinet-sdk";
+import { initSimnet } from "@stacks/clarinet-sdk";
 import { project, projectFactory } from "@clarigen/core";
 import type { TestProvider } from "@clarigen/test";
 import { Cl } from "@stacks/transactions";

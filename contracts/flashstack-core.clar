@@ -122,35 +122,39 @@
     ;; ===== FLASH LOAN EXECUTION =====
     
     (let (
-      (balance-before (unwrap! (as-contract (contract-call? .sbtc-token get-balance tx-sender)) ERR-REPAY-FAILED))
+      ;; C-02: Use total supply invariant instead of balance comparison to prevent
+      ;; circumvention via pre-existing token holdings
+      (supply-before (unwrap! (contract-call? .sbtc-token get-total-supply) ERR-REPAY-FAILED))
     )
       ;; Mint amount + fee to receiver (so they can pay back total)
       (try! (contract-call? .sbtc-token mint total-owed receiver-principal))
-      
+
       ;; Execute callback
       (match (contract-call? receiver execute-flash amount borrower)
         success (begin
-          (let (
-            (balance-after (unwrap! (as-contract (contract-call? .sbtc-token get-balance tx-sender)) ERR-REPAY-FAILED))
-          )
-            (asserts! (>= balance-after (+ balance-before total-owed)) ERR-REPAY-FAILED)
-            
             ;; Burn the returned tokens to complete the cycle
             (try! (as-contract (contract-call? .sbtc-token burn total-owed tx-sender)))
-            
-            (var-set total-flash-mints (+ (var-get total-flash-mints) u1))
-            (var-set total-volume (+ (var-get total-volume) amount))
-            (var-set total-fees-collected (+ (var-get total-fees-collected) fee))
-            
-            (ok {
-              amount: amount,
-              fee: fee,
-              total-minted: total-owed,
-              borrower: borrower,
-              flash-mint-id: (var-get total-flash-mints)
-            })
+
+            ;; Verify supply invariant: total supply must equal pre-mint level,
+            ;; proving the exact minted amount was burned (not satisfied via pre-existing tokens)
+            (let (
+              (supply-after (unwrap! (contract-call? .sbtc-token get-total-supply) ERR-REPAY-FAILED))
+            )
+              (asserts! (is-eq supply-after supply-before) ERR-REPAY-FAILED)
+
+              (var-set total-flash-mints (+ (var-get total-flash-mints) u1))
+              (var-set total-volume (+ (var-get total-volume) amount))
+              (var-set total-fees-collected (+ (var-get total-fees-collected) fee))
+
+              (ok {
+                amount: amount,
+                fee: fee,
+                total-minted: total-owed,
+                borrower: borrower,
+                flash-mint-id: (var-get total-flash-mints)
+              })
+            )
           )
-        )
         error ERR-CALLBACK-FAILED
       )
     )

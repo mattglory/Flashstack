@@ -172,17 +172,17 @@ describe("FlashStack Core Tests", () => {
     );
     
     // get-stats returns (ok {...}), verify it's ok
-    expect(result.type).toBe(7); // ResponseOk
-    
+    expect(result.type).toBe("ok"); // ResponseOk
+
     // Extract the tuple value and check fields
     const statsTuple = result.value;
-    expect(statsTuple.data["total-flash-mints"].value).toBe(0n);
-    expect(statsTuple.data["total-volume"].value).toBe(0n);
-    expect(statsTuple.data["total-fees-collected"].value).toBe(0n);
-    expect(statsTuple.data["current-fee-bp"].value).toBe(5n);
-    
-    // Check paused field - BoolFalse = type 4, BoolTrue = type 3
-    const pausedValue = statsTuple.data["paused"];
-    expect(pausedValue.type).toBe(4); // BoolFalse
+    expect(statsTuple.value["total-flash-mints"].value).toBe(0n);
+    expect(statsTuple.value["total-volume"].value).toBe(0n);
+    expect(statsTuple.value["total-fees-collected"].value).toBe(0n);
+    expect(statsTuple.value["current-fee-bp"].value).toBe(5n);
+
+    // Check paused field
+    const pausedValue = statsTuple.value["paused"];
+    expect(pausedValue.type).toBe("false"); // BoolFalse
   });
 });

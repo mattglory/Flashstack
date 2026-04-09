@@ -76,7 +76,7 @@ describe("FlashStack - Edge Cases & Integration", () => {
 
       expect(result).toBeOk();
 
-      const data = result.value.data;
+      const data = result.value.value;
       expect(data.amount.value).toBe(BigInt(amount));
       expect(data.fee.value).toBe(BigInt(expectedFee));
       expect(data["total-minted"].value).toBe(BigInt(amount + expectedFee));
@@ -100,7 +100,7 @@ describe("FlashStack - Edge Cases & Integration", () => {
         deployer
       );
 
-      const stats = result.value.data;
+      const stats = result.value.value;
       expect(stats["total-flash-mints"].value).toBe(1n);
       expect(stats["total-volume"].value).toBe(BigInt(amount));
       expect(stats["total-fees-collected"].value).toBe(50000n); // 5bp fee
@@ -175,7 +175,7 @@ describe("FlashStack - Edge Cases & Integration", () => {
         deployer
       );
 
-      const stats = result.value.data;
+      const stats = result.value.value;
       expect(stats["total-flash-mints"].value).toBe(3n);
       expect(stats["total-volume"].value).toBe(350000000n); // 3.5 sBTC total
     });
@@ -189,7 +189,7 @@ describe("FlashStack - Edge Cases & Integration", () => {
           wallet1
         );
         expect(result).toBeOk();
-        expect(result.value.data["flash-mint-id"].value).toBe(BigInt(i + 1));
+        expect(result.value.value["flash-mint-id"].value).toBe(BigInt(i + 1));
       }
     });
   });
@@ -523,12 +523,12 @@ describe("FlashStack - Edge Cases & Integration", () => {
         deployer
       );
 
-      const data = result.data;
+      const data = result.value;
       expect(data["user-capital"].value).toBe(1000000000n);
       expect(data.leverage.value).toBe(3n);
       expect(data["total-capital"].value).toBe(3000000000n);
       expect(data["flash-loan-amount"].value).toBe(2000000000n);
-      expect(data.profitable.type).toBe(3); // ClarityType.BoolTrue
+      expect(data.profitable.type).toBe("true"); // ClarityType.BoolTrue
     });
 
     it("reports zero apy-boost when user capital is zero", () => {
@@ -544,7 +544,7 @@ describe("FlashStack - Edge Cases & Integration", () => {
         deployer
       );
 
-      const data = result.data;
+      const data = result.value;
       expect(data["apy-boost"].value).toBe(0n);
     });
 
@@ -556,7 +556,7 @@ describe("FlashStack - Edge Cases & Integration", () => {
         deployer
       );
 
-      const data = result.data;
+      const data = result.value;
       expect(data["total-operations"].value).toBe(0n);
       expect(data["total-volume"].value).toBe(0n);
     });

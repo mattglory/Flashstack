@@ -1,5 +1,5 @@
 import { beforeEach, expect } from "vitest";
-import { initSimnet } from "@hirosystems/clarinet-sdk";
+import { initSimnet } from "@stacks/clarinet-sdk";
 import { Cl, ClarityValue, cvToValue, ClarityType } from "@stacks/transactions";
 
 declare global {

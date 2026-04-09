@@ -602,10 +602,10 @@ describe("FlashStack Core - Comprehensive Test Suite", () => {
       );
 
       // Verify initial stats are zero
-      expect(statsBefore.type).toBe(7); // ResponseOk
+      expect(statsBefore.type).toBe("ok"); // ResponseOk
       const statsData = statsBefore.value;
-      expect(statsData.data["total-flash-mints"].value).toBe(0n);
-      expect(statsData.data["total-volume"].value).toBe(0n);
+      expect(statsData.value["total-flash-mints"].value).toBe(0n);
+      expect(statsData.value["total-volume"].value).toBe(0n);
     });
   });
 
@@ -721,12 +721,12 @@ describe("FlashStack Core - Comprehensive Test Suite", () => {
         deployer
       );
 
-      expect(result.type).toBe(7); // ResponseOk
+      expect(result.type).toBe("ok"); // ResponseOk
       const statsData = result.value;
-      expect(statsData.data["total-flash-mints"].value).toBe(0n);
-      expect(statsData.data["total-volume"].value).toBe(0n);
-      expect(statsData.data["total-fees-collected"].value).toBe(0n);
-      expect(statsData.data["current-fee-bp"].value).toBe(5n); // Back to 5
+      expect(statsData.value["total-flash-mints"].value).toBe(0n);
+      expect(statsData.value["total-volume"].value).toBe(0n);
+      expect(statsData.value["total-fees-collected"].value).toBe(0n);
+      expect(statsData.value["current-fee-bp"].value).toBe(5n); // Back to 5
     });
   });
 });
