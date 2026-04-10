@@ -1,0 +1,20 @@
+# settings/Testnet.toml - DO NOT COMMIT THE REAL VERSION (it contains your private mnemonic)
+# Copy this file to settings/Testnet.toml and fill in your testnet wallet mnemonic.
+#
+# To get a testnet wallet:
+#   1. Install Hiro Wallet: https://wallet.hiro.so
+#   2. Create a new wallet and save the 24-word mnemonic
+#   3. Fund it from the Stacks testnet faucet:
+#      https://explorer.hiro.so/sandbox/faucet?chain=testnet
+#
+# The deployer address is derived from the mnemonic (first account, index 0).
+
+[network]
+name = "testnet"
+node_rpc_address = "https://api.testnet.hiro.so"
+
+[accounts.deployer]
+mnemonic = "word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12 word13 word14 word15 word16 word17 word18 word19 word20 word21 word22 word23 word24"
+# After filling in your mnemonic, run:
+#   clarinet deployments generate --testnet
+# to regenerate the deployment plan with your actual deployer address.
