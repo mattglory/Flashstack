@@ -2,7 +2,8 @@ import { STACKS_TESTNET, STACKS_MAINNET, StacksNetwork } from "@stacks/network";
 
 export type NetworkType = "testnet" | "mainnet";
 
-export const CONTRACT_ADDRESS = "ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7";
+// Mainnet deployer address — update after mainnet deployment
+export const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ?? "SP3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7";
 export const CONTRACT_NAME = "flashstack-core";
 
 export const RECEIVER_CONTRACTS = [

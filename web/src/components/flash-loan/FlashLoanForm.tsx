@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useStacks } from "@/lib/hooks/useStacks";
 import { useFlashLoan } from "@/lib/hooks/useFlashLoan";
 import { useProtocolStats } from "@/lib/hooks/useProtocolStats";
@@ -158,7 +158,7 @@ export function FlashLoanForm() {
             <p className="text-green-400 text-sm font-medium">Transaction submitted</p>
             {txId && (
               <a
-                href={`https://explorer.hiro.so/txid/${txId}?chain=testnet`}
+                href={`https://explorer.hiro.so/txid/${txId}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-green-400/80 text-xs underline mt-1 block"

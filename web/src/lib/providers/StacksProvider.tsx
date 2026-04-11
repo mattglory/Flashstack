@@ -23,7 +23,9 @@ const StacksContext = createContext<StacksContextValue | null>(null);
 export function StacksProvider({ children }: { children: React.ReactNode }) {
   const [isWalletConnected, setIsWalletConnected] = useState(false);
   const [stxAddress, setStxAddress] = useState<string | null>(null);
-  const [network, setNetwork] = useState<NetworkType>("testnet");
+  const [network, setNetwork] = useState<NetworkType>(
+    (process.env.NEXT_PUBLIC_NETWORK as NetworkType) ?? "mainnet"
+  );
 
   const hydrateFromStorage = useCallback(() => {
     if (typeof window === "undefined") return;
