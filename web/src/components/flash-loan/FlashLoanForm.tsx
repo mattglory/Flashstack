@@ -27,7 +27,9 @@ export function FlashLoanForm() {
 
   const isPaused = stats?.paused ?? false;
   const maxFlash = userStats?.maxFlashAmount ?? 0n;
-  const exceedsMax = amountMicro > 0 && BigInt(amountMicro) > maxFlash;
+  const maxSingleLoan = stats?.maxSingleLoan ?? 500000000n; // 5 sBTC default
+  const effectiveMax = maxFlash < maxSingleLoan ? maxFlash : maxSingleLoan;
+  const exceedsMax = amountMicro > 0 && BigInt(amountMicro) > effectiveMax;
 
   if (!isWalletConnected) {
     return (
@@ -68,8 +70,8 @@ export function FlashLoanForm() {
         />
         <StatCard
           label="Your Max Flash"
-          value={`${formatSbtc(maxFlash)} sBTC`}
-          subtext="Based on locked STX"
+          value={`${formatSbtc(effectiveMax)} sBTC`}
+          subtext={maxFlash > maxSingleLoan ? "Circuit breaker limit" : "Based on locked STX"}
         />
         <StatCard
           label="Total Mints"
@@ -95,7 +97,8 @@ export function FlashLoanForm() {
           />
           {exceedsMax && (
             <p className="text-red-400 text-xs mt-1">
-              Exceeds your max flash amount ({formatSbtc(maxFlash)} sBTC)
+              Exceeds limit: max is {formatSbtc(effectiveMax)} sBTC
+              {maxFlash > maxSingleLoan ? " (circuit breaker)" : " (your collateral)"}
             </p>
           )}
         </div>

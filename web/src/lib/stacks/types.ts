@@ -4,6 +4,7 @@ export interface ProtocolStats {
   totalFeesCollected: bigint;
   currentFeeBp: number;
   paused: boolean;
+  maxSingleLoan: bigint;
 }
 
 export interface UserStats {

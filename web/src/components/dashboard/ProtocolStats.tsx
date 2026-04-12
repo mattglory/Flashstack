@@ -61,6 +61,11 @@ export function ProtocolStats() {
           value={formatFeeBp(stats.currentFeeBp)}
           subtext={`${stats.currentFeeBp} basis points`}
         />
+        <StatCard
+          label="Max Single Loan"
+          value={`${formatSbtc(stats.maxSingleLoan)} sBTC`}
+          subtext="Circuit breaker limit"
+        />
       </div>
     </div>
   );

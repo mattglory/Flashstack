@@ -27,15 +27,19 @@ async function callReadOnly(
 export async function fetchProtocolStats(
   network: NetworkType
 ): Promise<ProtocolStats> {
-  const json = await callReadOnly("get-stats", [], network);
+  const [statsJson, maxLoanJson] = await Promise.all([
+    callReadOnly("get-stats", [], network),
+    callReadOnly("get-max-single-loan", [], network),
+  ]);
 
-  const val = json.value.value;
+  const val = statsJson.value.value;
   return {
     totalFlashMints: parseInt(val["total-flash-mints"].value, 10),
     totalVolume: BigInt(val["total-volume"].value),
     totalFeesCollected: BigInt(val["total-fees-collected"].value),
     currentFeeBp: parseInt(val["current-fee-bp"].value, 10),
     paused: val.paused.value,
+    maxSingleLoan: BigInt(maxLoanJson.value.value),
   };
 }
 
