@@ -1,8 +1,17 @@
 /**
- * FlashStack Testnet Flash Loan Executor
+ * FlashStack Flash Loan Executor
  * Waits for each transaction to confirm before sending the next.
  *
- * Usage: node scripts/run-flash-loans.mjs
+ * Usage:
+ *   DEPLOYER_MNEMONIC="your twelve word..." \
+ *   DEPLOYER_ADDRESS="SP..." \
+ *   NETWORK=mainnet \
+ *   node scripts/run-flash-loans.mjs
+ *
+ * Environment variables:
+ *   DEPLOYER_MNEMONIC  — BIP-39 mnemonic for the deployer wallet (required)
+ *   DEPLOYER_ADDRESS   — STX address matching the mnemonic (required)
+ *   NETWORK            — "mainnet" or "testnet" (default: mainnet)
  */
 
 import { makeContractCall, broadcastTransaction, PostConditionMode, Cl } from "@stacks/transactions";
@@ -11,10 +20,19 @@ const { STACKS_TESTNET, STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
 
-const MNEMONIC = "embrace denial purse peace alone insect ranch install milk upon switch exclude carry spot merge pizza increase fancy quarter glide country disorder fabric ability";
-const DEPLOYER = "SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ";
-const network = STACKS_MAINNET;
-const API = "https://api.hiro.so";
+const MNEMONIC = process.env.DEPLOYER_MNEMONIC;
+const DEPLOYER = process.env.DEPLOYER_ADDRESS;
+const NET = process.env.NETWORK ?? "mainnet";
+
+if (!MNEMONIC || !DEPLOYER) {
+  console.error("ERROR: Set DEPLOYER_MNEMONIC and DEPLOYER_ADDRESS environment variables.");
+  console.error("  Example:");
+  console.error('  DEPLOYER_MNEMONIC="word1 word2 ..." DEPLOYER_ADDRESS="SP..." node scripts/run-flash-loans.mjs');
+  process.exit(1);
+}
+
+const network = NET === "testnet" ? STACKS_TESTNET : STACKS_MAINNET;
+const API = NET === "testnet" ? "https://api.testnet.hiro.so" : "https://api.hiro.so";
 
 async function getPrivateKey() {
   const wallet = await generateWallet({ secretKey: MNEMONIC, password: "" });
@@ -65,8 +83,9 @@ async function callContract(privateKey, nonce, contractName, functionName, args)
 }
 
 async function main() {
-  console.log("FlashStack Testnet Flash Loan Executor");
-  console.log("======================================");
+  console.log("FlashStack Flash Loan Executor");
+  console.log("==============================");
+  console.log(`Network:  ${NET}`);
   console.log(`Deployer: ${DEPLOYER}\n`);
 
   const privateKey = await getPrivateKey();
@@ -119,7 +138,7 @@ async function main() {
   // Flash Loan 3: 0.10 sBTC — dex-aggregator-receiver (ARBITRAGE execution)
   console.log("Flash Loan #3: 0.10 sBTC via dex-aggregator-receiver (arbitrage)...");
 
-  // Whitelist the dex-aggregator-receiver for the arbitrage execution
+  // Whitelist the dex-aggregator-receiver
   console.log("  Whitelisting dex-aggregator-receiver...");
   const wl2 = await callContract(privateKey, nonce++, "flashstack-core", "add-approved-receiver", [
     Cl.principal(`${DEPLOYER}.dex-aggregator-receiver`),
@@ -134,12 +153,17 @@ async function main() {
   console.log(`  txid: ${fl3}`);
   await waitForConfirm(fl3, "flash-mint #3 (arbitrage)");
 
+  const explorer = NET === "testnet"
+    ? "https://explorer.hiro.so/txid"
+    : "https://explorer.hiro.so/txid";
+  const chainParam = NET === "testnet" ? "?chain=testnet" : "";
+
   console.log("\n======================================");
-  console.log("MILESTONE 2 EVIDENCE - SAVE THESE LINKS");
+  console.log("FLASH LOAN EVIDENCE - SAVE THESE LINKS");
   console.log("======================================");
-  console.log(`Flash Loan 1: https://explorer.hiro.so/txid/${fl1}`);
-  console.log(`Flash Loan 2: https://explorer.hiro.so/txid/${fl2}`);
-  console.log(`Flash Loan 3 (arbitrage): https://explorer.hiro.so/txid/${fl3}`);
+  console.log(`Flash Loan 1: ${explorer}/${fl1}${chainParam}`);
+  console.log(`Flash Loan 2: ${explorer}/${fl2}${chainParam}`);
+  console.log(`Flash Loan 3 (arbitrage): ${explorer}/${fl3}${chainParam}`);
   console.log("======================================");
 }
 
