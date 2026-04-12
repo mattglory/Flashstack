@@ -30,12 +30,13 @@ export function useFlashLoan() {
 
       try {
         const { request } = await import("@stacks/connect");
+        const { Cl, cvToHex } = await import("@stacks/transactions");
         const result = await request("stx_callContract", {
           contract: `${CONTRACT_ADDRESS}.${CONTRACT_NAME}`,
           functionName: "flash-mint",
           functionArgs: [
-            `u${amountMicroSbtc}`,
-            `'${CONTRACT_ADDRESS}.${receiverContract}`,
+            cvToHex(Cl.uint(BigInt(amountMicroSbtc))),
+            cvToHex(Cl.principal(`${CONTRACT_ADDRESS}.${receiverContract}`)),
           ],
         });
 
