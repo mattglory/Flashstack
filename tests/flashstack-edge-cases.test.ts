@@ -106,7 +106,11 @@ describe("FlashStack - Edge Cases & Integration", () => {
       expect(stats["total-fees-collected"].value).toBe(50000n); // 5bp fee
     });
 
-    it("maintains zero sBTC supply after flash mint (mint-burn cycle)", () => {
+    it("supply increases by exactly fee after flash mint (H-01: fee kept in treasury)", () => {
+      const amount = 100000000; // 1 sBTC
+      const feeBp = 5n;
+      const expectedFee = (BigInt(amount) * feeBp) / 10000n; // 5000 sats
+
       const { result: supplyBefore } = simnet.callReadOnlyFn(
         "sbtc-token",
         "get-total-supply",
@@ -117,7 +121,7 @@ describe("FlashStack - Edge Cases & Integration", () => {
       simnet.callPublicFn(
         "flashstack-core",
         "flash-mint",
-        [Cl.uint(100000000), Cl.principal(`${deployer}.test-receiver`)],
+        [Cl.uint(amount), Cl.principal(`${deployer}.test-receiver`)],
         wallet1
       );
 
@@ -128,8 +132,11 @@ describe("FlashStack - Edge Cases & Integration", () => {
         deployer
       );
 
-      // Supply should be identical — minted tokens were burned
-      expect(supplyAfter).toBeOk(supplyBefore.value);
+      // H-01 fix: only principal is burned; fee remains in treasury.
+      // supply-after = supply-before + fee
+      const beforeVal = (supplyBefore as any).value.value;
+      const afterVal = (supplyAfter as any).value.value;
+      expect(afterVal - beforeVal).toBe(expectedFee);
     });
   });
 

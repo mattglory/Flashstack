@@ -13,11 +13,15 @@
 (define-constant ERR-COMPOUND-FAILED (err u502))
 (define-constant ERR-REPAYMENT-FAILED (err u503))
 (define-constant ERR-STRATEGY-FAILED (err u504))
+(define-constant ERR-FEE-FETCH-FAILED (err u505))
 
 ;; Main flash loan execution for yield optimization
 (define-public (execute-flash (amount uint) (borrower principal))
   (let (
-    (fee (/ (* amount u5) u10000))  ;; 0.05% FlashStack fee
+    ;; H-03 fix: query fee dynamically from core contract
+    (fee-bp (unwrap! (contract-call? .flashstack-core get-fee-basis-points) ERR-FEE-FETCH-FAILED))
+    (raw-fee (/ (* amount fee-bp) u10000))
+    (fee (if (> raw-fee u0) raw-fee u1))
     (total-owed (+ amount fee))
   )
     ;; Verify this is called by FlashStack

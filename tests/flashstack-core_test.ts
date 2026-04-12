@@ -159,8 +159,8 @@ describe("FlashStack Core Tests", () => {
       [Cl.uint(101)], // Above 1% max (100 basis points)
       deployer
     );
-    // Contract returns ERR-UNAUTHORIZED (102) for invalid fee
-    expect(result).toBeErr(Cl.uint(102));
+    // L-02 fix: now returns ERR-INVALID-AMOUNT (104) for invalid fee, not ERR-UNAUTHORIZED
+    expect(result).toBeErr(Cl.uint(104));
   });
 
   it("gets protocol statistics", () => {

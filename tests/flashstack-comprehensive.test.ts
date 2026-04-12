@@ -175,7 +175,7 @@ describe("FlashStack Core - Comprehensive Test Suite", () => {
           [Cl.uint(101)],
           deployer
         );
-        expect(result).toBeErr(Cl.uint(102)); // ERR-UNAUTHORIZED
+        expect(result).toBeErr(Cl.uint(104)); // ERR-INVALID-AMOUNT (L-02 fix)
       });
 
       it("can set fee to maximum (1%)", () => {

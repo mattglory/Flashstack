@@ -7,6 +7,7 @@
 ;; Error Codes
 (define-constant ERR-ARBITRAGE-FAILED (err u200))
 (define-constant ERR-INSUFFICIENT-PROFIT (err u201))
+(define-constant ERR-FEE-FETCH-FAILED (err u202))
 
 ;; Simulated DEX prices for demo
 (define-data-var dex-a-price uint u1000000)
@@ -16,7 +17,10 @@
 ;; Receiver gets amount + fee, must return amount + fee
 (define-public (execute-flash (amount uint) (borrower principal))
   (let (
-    (fee (/ (* amount u5) u10000))
+    ;; H-03 fix: query fee dynamically from core contract
+    (fee-bp (unwrap! (contract-call? .flashstack-core get-fee-basis-points) ERR-FEE-FETCH-FAILED))
+    (raw-fee (/ (* amount fee-bp) u10000))
+    (fee (if (> raw-fee u0) raw-fee u1))
     (total-owed (+ amount fee))
   )
     ;; In production: Use the sBTC for arbitrage
@@ -57,9 +61,12 @@
   )
 )
 
-;; Admin functions for testing
+;; Admin-only price setters (M-03 fix: restricted to contract deployer)
+(define-constant CONTRACT-OWNER tx-sender)
+
 (define-public (set-dex-a-price (price uint))
   (begin
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-ARBITRAGE-FAILED)
     (asserts! (> price u0) ERR-ARBITRAGE-FAILED)
     (ok (var-set dex-a-price price))
   )
@@ -67,6 +74,7 @@
 
 (define-public (set-dex-b-price (price uint))
   (begin
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-ARBITRAGE-FAILED)
     (asserts! (> price u0) ERR-ARBITRAGE-FAILED)
     (ok (var-set dex-b-price price))
   )

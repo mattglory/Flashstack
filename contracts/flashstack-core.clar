@@ -39,8 +39,11 @@
 ;; Whitelist for approved receiver contracts
 (define-map approved-receivers principal bool)
 
-;; Per-block volume tracking
+;; Per-block volume tracking (uses block-height - M-02 fix)
 (define-map block-loan-volume uint uint)
+
+;; Treasury address for collected fees (H-01 fix)
+(define-data-var treasury principal tx-sender)
 
 ;; Collateral ratio: 300% = 3x leverage max
 (define-constant MIN-COLLATERAL-RATIO u300)
@@ -82,7 +85,10 @@
     (locked-stx (get-stx-locked borrower))
     (min-required (/ (* amount MIN-COLLATERAL-RATIO) u100))
     (receiver-principal (contract-of receiver))
-    (fee (/ (* amount (var-get flash-fee-basis-points)) u10000))
+    ;; L-01 fix: enforce minimum fee of 1 sat to prevent free flash loans
+    (raw-fee (/ (* amount (var-get flash-fee-basis-points)) u10000))
+    ;; L-01 fix: enforce minimum fee of 1 sat to prevent free flash loans on tiny amounts
+    (fee (if (> raw-fee u0) raw-fee u1))
     (total-owed (+ amount fee))
   )
     ;; ===== SECURITY CHECKS =====
@@ -99,7 +105,7 @@
     ;; Circuit breaker: Check single loan limit
     (asserts! (<= amount (var-get max-single-loan)) ERR-LOAN-TOO-LARGE)
     
-    ;; Circuit breaker: Check block volume limit
+    ;; Circuit breaker: Check block volume limit (M-02: use block-height)
     (let (
       (current-block-volume (default-to u0 (map-get? block-loan-volume block-height)))
       (new-block-volume (+ current-block-volume amount))
@@ -124,15 +130,27 @@
       ;; Execute callback
       (match (contract-call? receiver execute-flash amount borrower)
         success (begin
-            ;; Burn the returned tokens to complete the cycle
-            (try! (as-contract (contract-call? .sbtc-token burn total-owed tx-sender)))
+            ;; H-01 fix: Burn only the principal (amount), not the fee.
+            ;; The receiver returns total-owed to this contract; we burn
+            ;; only amount and transfer the fee to treasury.
+            (try! (as-contract (contract-call? .sbtc-token burn amount tx-sender)))
 
-            ;; Verify supply invariant: total supply must equal pre-mint level,
-            ;; proving the exact minted amount was burned (not satisfied via pre-existing tokens)
+            ;; Transfer fee to treasury (H-01: protocol earns the fee)
+            (try! (as-contract (contract-call? .sbtc-token transfer
+              fee
+              tx-sender
+              (var-get treasury)
+              (some 0x464c415348)
+            )))
+
+            ;; Verify supply invariant: supply must have decreased by exactly amount
+            ;; (amount burned + fee still exists in treasury, so supply-after = supply-before + fee)
+            ;; The invariant we enforce: supply-after == supply-before + fee
+            ;; This proves amount was burned and fee was not destroyed.
             (let (
               (supply-after (unwrap! (contract-call? .sbtc-token get-total-supply) ERR-REPAY-FAILED))
             )
-              (asserts! (is-eq supply-after supply-before) ERR-REPAY-FAILED)
+              (asserts! (is-eq supply-after (+ supply-before fee)) ERR-REPAY-FAILED)
 
               (var-set total-flash-mints (+ (var-get total-flash-mints) u1))
               (var-set total-volume (+ (var-get total-volume) amount))
@@ -204,9 +222,21 @@
 (define-public (set-fee (new-fee-bp uint))
   (begin
     (asserts! (is-eq contract-caller (var-get admin)) ERR-UNAUTHORIZED)
-    (asserts! (<= new-fee-bp u100) ERR-UNAUTHORIZED)
+    ;; L-02 fix: use ERR-INVALID-AMOUNT for fee validation (not ERR-UNAUTHORIZED)
+    (asserts! (<= new-fee-bp u100) ERR-INVALID-AMOUNT)
     (ok (var-set flash-fee-basis-points new-fee-bp))
   )
+)
+
+(define-public (set-treasury (new-treasury principal))
+  (begin
+    (asserts! (is-eq contract-caller (var-get admin)) ERR-UNAUTHORIZED)
+    (ok (var-set treasury new-treasury))
+  )
+)
+
+(define-read-only (get-treasury)
+  (ok (var-get treasury))
 )
 
 (define-public (set-admin (new-admin principal))
