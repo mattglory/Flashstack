@@ -1,0 +1,101 @@
+id: 0
+name: Mainnet deployment
+network: mainnet
+stacks-node: https://api.hiro.so
+bitcoin-node: http://blockstack:blockstacksystem@bitcoin.blockstack.com:8332
+plan:
+  batches:
+  - id: 0
+    transactions:
+    - transaction-type: contract-publish
+      contract-name: flash-receiver-trait
+      expected-sender: SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ
+      cost: 2840
+      path: contracts/flash-receiver-trait.clar
+      anchor-block-only: true
+      clarity-version: 2
+    - transaction-type: contract-publish
+      contract-name: sbtc-token
+      expected-sender: SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ
+      cost: 22690
+      path: contracts/sbtc-token.clar
+      anchor-block-only: true
+      clarity-version: 2
+    - transaction-type: contract-publish
+      contract-name: flashstack-core
+      expected-sender: SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ
+      cost: 102590
+      path: contracts/flashstack-core.clar
+      anchor-block-only: true
+      clarity-version: 2
+    - transaction-type: contract-publish
+      contract-name: collateral-swap-receiver
+      expected-sender: SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ
+      cost: 47290
+      path: contracts/collateral-swap-receiver.clar
+      anchor-block-only: true
+      clarity-version: 2
+    - transaction-type: contract-publish
+      contract-name: dex-aggregator-receiver
+      expected-sender: SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ
+      cost: 42230
+      path: contracts/dex-aggregator-receiver.clar
+      anchor-block-only: true
+      clarity-version: 2
+    - transaction-type: contract-publish
+      contract-name: example-arbitrage-receiver
+      expected-sender: SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ
+      cost: 24620
+      path: contracts/example-arbitrage-receiver.clar
+      anchor-block-only: true
+      clarity-version: 2
+    - transaction-type: contract-publish
+      contract-name: leverage-loop-receiver
+      expected-sender: SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ
+      cost: 54460
+      path: contracts/leverage-loop-receiver.clar
+      anchor-block-only: true
+      clarity-version: 2
+    - transaction-type: contract-publish
+      contract-name: liquidation-receiver
+      expected-sender: SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ
+      cost: 35760
+      path: contracts/liquidation-receiver.clar
+      anchor-block-only: true
+      clarity-version: 2
+    - transaction-type: contract-publish
+      contract-name: multidex-arbitrage-receiver
+      expected-sender: SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ
+      cost: 46100
+      path: contracts/multidex-arbitrage-receiver.clar
+      anchor-block-only: true
+      clarity-version: 2
+    - transaction-type: contract-publish
+      contract-name: snp-flashstack-receiver
+      expected-sender: SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ
+      cost: 32700
+      path: contracts/snp-flashstack-receiver.clar
+      anchor-block-only: true
+      clarity-version: 2
+    - transaction-type: contract-publish
+      contract-name: snp-flashstack-receiver-v3
+      expected-sender: SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ
+      cost: 53960
+      path: contracts/snp-flashstack-receiver-v3.clar
+      anchor-block-only: true
+      clarity-version: 2
+    - transaction-type: contract-publish
+      contract-name: test-receiver
+      expected-sender: SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ
+      cost: 6610
+      path: contracts/test-receiver.clar
+      anchor-block-only: true
+      clarity-version: 2
+    - transaction-type: contract-publish
+      contract-name: yield-optimization-receiver
+      expected-sender: SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ
+      cost: 43300
+      path: contracts/yield-optimization-receiver.clar
+      anchor-block-only: true
+      clarity-version: 2
+    epoch: '2.5'
