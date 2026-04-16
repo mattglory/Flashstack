@@ -14,21 +14,33 @@
 
 ## Mainnet Deployment
 
-All 13 contracts are live on Stacks mainnet:
+### STX Flash Loans (Reserve-Based) — New
+
+| Contract | Address | Explorer |
+|---|---|---|
+| `flashstack-stx-core` | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-core` | [View](https://explorer.hiro.so/txid/0x4c1a17483eb5bc42b4d7454ffc53f5b1fe4d18d1370b23b60199ee9d8d28ba70?chain=mainnet) |
+| `stx-flash-receiver-trait` | `SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.stx-flash-receiver-trait` | [View](https://explorer.hiro.so/txid/0x767d17c6d8ef98998cd48ce4ad47ed0432d29e74fb0e8fc12b0b353e975e57cf?chain=mainnet) |
+| `stx-test-receiver` | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.stx-test-receiver` | [View](https://explorer.hiro.so/txid/0xfead69fa92f54e5790ff1b17a9479e86716e93b66357726d8c9be336df558e45?chain=mainnet) |
+| `bitflow-arb-receiver` | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.bitflow-arb-receiver` | [View](https://explorer.hiro.so/txid/0x616449ab17cb75e3ddd4d2bbb2b7c38c0d4cd566b00035606d9a70bc08b637d4?chain=mainnet) |
+
+Reserve: 80 STX seeded. Max single loan: 5,000 STX. Fee: 0.05%.
+
+### sBTC Flash Loans (Mint/Burn) — Original
 
 | Contract | Address |
 |---|---|
-| `flashstack-core` | [`SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.flashstack-core`](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.flashstack-core) |
+| `flashstack-core` | [`SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.flashstack-core`](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.flashstack-core?chain=mainnet) |
 | `sbtc-token` | `SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.sbtc-token` |
 | `flash-receiver-trait` | `SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.flash-receiver-trait` |
 
 ### Confirmed Mainnet Flash Loans
 
-| # | Amount | Receiver | Strategy |
-|---|---|---|---|
-| 1 | 0.01 sBTC | `test-receiver` | Basic demonstration |
-| 2 | 0.05 sBTC | `test-receiver` | Basic demonstration |
-| 3 | 0.10 sBTC | `dex-aggregator-receiver` | DEX arbitrage |
+| # | Asset | Amount | Receiver | Tx |
+|---|---|---|---|---|
+| 1 | sBTC | 0.01 sBTC | `test-receiver` | Basic demonstration |
+| 2 | sBTC | 0.05 sBTC | `test-receiver` | Basic demonstration |
+| 3 | sBTC | 0.10 sBTC | `dex-aggregator-receiver` | DEX arbitrage |
+| 4 | STX | 80 STX reserve deposited | `flashstack-stx-core` | [View](https://explorer.hiro.so/txid/0x9dd66a9d5372cb843d1ecfdf47138e7e91cf7597f807dafdbb7e129e1da23040?chain=mainnet) |
 
 ### Previous Testnet Deployment
 
@@ -102,6 +114,57 @@ All findings from an independent security review were addressed:
 | L-02 | Low | Wrong error code from `set-fee` | Fixed — returns ERR-INVALID-AMOUNT (u104) |
 | I-01 | Info | No treasury for fee accumulation | Accepted — treasury var added |
 | I-02 | Info | Stale v2 contract deployed | Fixed — flashstack-core-v2 deleted |
+
+---
+
+## Arbitrage Strategies
+
+Flash loans are uncollateralized — you borrow zero capital and only pay the Stacks tx fee (~$0.002). The protocol guarantees: if your repayment fails, everything reverts. You never lose your own capital, only the gas fee.
+
+### Strategy 1: stSTX Peg Arbitrage (Bitflow)
+
+stSTX accumulates staking yield. When yield accrues, stSTX briefly trades above 1:1 STX on Bitflow before arbitrageurs equalize it. `bitflow-arb-receiver` captures this atomically:
+
+```
+Borrow 1000 STX (free, uncollateralized)
+  -> Swap 1000 STX -> 1012 stSTX on Bitflow (stSTX at 0.988 STX = above peg)
+  -> Swap 1012 stSTX -> 1010 STX on Bitflow
+  -> Repay 1000.05 STX (principal + 0.05% fee)
+  -> Keep 9.95 STX profit, zero capital at risk
+```
+
+**When to run:** Watch for stSTX/STX ratio on Bitflow rising above 1.0005 (0.05% spread covers the fee).
+
+### Strategy 2: Cross-DEX Price Arbitrage
+
+Same token, different price on two DEXes (e.g. ALEX vs Velar):
+
+```
+Borrow 500 STX
+  -> Buy TOKEN on ALEX at lower price
+  -> Sell TOKEN on Velar at higher price
+  -> Repay 500.025 STX + keep spread
+```
+
+### Strategy 3: Liquidation Bot
+
+A DeFi lending protocol lists undercollateralized positions. You borrow STX, repay the borrower's debt, receive discounted collateral, sell it, repay the flash loan, keep the liquidation bonus.
+
+```
+Borrow 2000 STX
+  -> Repay borrower's 2000 STX debt to lending protocol
+  -> Receive 2200 STX worth of collateral (10% liquidation bonus)
+  -> Sell collateral for 2200 STX
+  -> Repay 2000.10 STX
+  -> Keep 199.90 STX profit
+```
+
+### Economics Summary
+
+| Role | Capital required | Risk | Profit source |
+|---|---|---|---|
+| Borrower (you) | 0 STX | ~$0.002 tx fee if strategy fails | Arb spread minus 0.05% fee |
+| Reserve provider (admin) | 80+ STX locked | Reserve stays safe (reverts on failure) | 0.05% fee on every loan |
 
 ---
 

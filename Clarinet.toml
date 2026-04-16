@@ -4,7 +4,12 @@ description = "FlashStack - Trustless flash minting of sBTC against locked/stack
 authors = ["Glory Matthew"]
 telemetry = false
 cache_dir = "./.cache"
-requirements = []
+requirements = [
+  { contract_id = "SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.stx-flash-receiver-trait" },
+  { contract_id = "SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M.stableswap-stx-ststx-v-1-2" },
+  { contract_id = "SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M.stx-ststx-lp-token-v-1-2" },
+  { contract_id = "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststx-token" },
+]
 boot_contracts = []
 
 [contracts.flashstack-core]
@@ -70,6 +75,24 @@ strict = false
 trusted_sender = false
 trusted_caller = false
 callee_filter = false
+
+[contracts.flashstack-stx-core]
+path = "contracts/flashstack-stx-core.clar"
+clarity_version = 3
+epoch = 3.0
+depends_on = ["stx-flash-receiver-trait"]
+
+[contracts.stx-test-receiver]
+path = "contracts/stx-test-receiver.clar"
+clarity_version = 3
+epoch = 3.0
+depends_on = ["stx-flash-receiver-trait", "flashstack-stx-core"]
+
+[contracts.bitflow-arb-receiver]
+path = "contracts/bitflow-arb-receiver.clar"
+clarity_version = 3
+epoch = 3.0
+depends_on = ["stx-flash-receiver-trait", "flashstack-stx-core"]
 
 [contracts.snp-flashstack-receiver]
 path = "contracts/snp-flashstack-receiver.clar"
