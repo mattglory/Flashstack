@@ -40,7 +40,8 @@ Reserve: 80 STX seeded. Max single loan: 5,000 STX. Fee: 0.05%.
 | 1 | sBTC | 0.01 sBTC | `test-receiver` | Basic demonstration |
 | 2 | sBTC | 0.05 sBTC | `test-receiver` | Basic demonstration |
 | 3 | sBTC | 0.10 sBTC | `dex-aggregator-receiver` | DEX arbitrage |
-| 4 | STX | 80 STX reserve deposited | `flashstack-stx-core` | [View](https://explorer.hiro.so/txid/0x9dd66a9d5372cb843d1ecfdf47138e7e91cf7597f807dafdbb7e129e1da23040?chain=mainnet) |
+| 4 | STX | 10 STX | `stx-test-receiver` | [View](https://explorer.hiro.so/txid/0x3cc5020c29fb871614c01eb8ce622f6011f04bb668fb1773ca81acef4422ca8e?chain=mainnet) |
+| 5 | STX | 50 STX | `stx-test-receiver` | [View](https://explorer.hiro.so/txid/0x48bbabb52c85a6d69baa27d4b7d3b03ce9fc6a1c25a41fd07648ff2d96f4ef4a?chain=mainnet) |
 
 ### Previous Testnet Deployment
 

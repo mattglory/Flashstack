@@ -28,7 +28,7 @@ if (!MNEMONIC || !DEPLOYER) {
 
 const network = STACKS_MAINNET;
 const API = "https://api.hiro.so";
-const FEE = 10_000_000; // 10 STX max per deploy tx
+const FEE = 1_000_000; // 1 STX per deploy (market rate)
 
 async function getPrivateKey() {
   const wallet = await generateWallet({ secretKey: MNEMONIC, password: "" });

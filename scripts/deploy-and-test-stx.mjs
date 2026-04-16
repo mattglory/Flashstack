@@ -29,7 +29,7 @@ if (!MNEMONIC) {
 
 const network = STACKS_MAINNET;
 const API = "https://api.hiro.so";
-const FEE = 8_000_000; // 8 STX per deploy
+const FEE = 1_000_000; // 1 STX per deploy (market rate ~0.5-1.5 STX)
 
 async function getPrivateKey() {
   const wallet = await generateWallet({ secretKey: MNEMONIC, password: "" });
