@@ -33,6 +33,9 @@ export function useStxFlashLoan() {
 
         const receiverPrincipal = `${STX_CONTRACT_ADDRESS}.${receiverName}`;
 
+        // PostConditionMode.Allow (0x02) — flash loans move STX internally
+        // through receiver contracts. Leather adds restrictive post-conditions
+        // by default which block these internal transfers. Allow mode disables that.
         const result = await request("stx_callContract", {
           contract: `${STX_CONTRACT_ADDRESS}.${STX_CONTRACT_NAME}`,
           functionName: "flash-loan",
@@ -40,6 +43,7 @@ export function useStxFlashLoan() {
             cvToHex(Cl.uint(BigInt(amountMicroStx))),
             cvToHex(Cl.principal(receiverPrincipal)),
           ],
+          postConditionMode: "allow",
         });
 
         const txId = typeof result === "object" && result !== null && "txid" in result

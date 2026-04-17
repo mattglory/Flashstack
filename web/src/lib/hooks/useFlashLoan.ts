@@ -38,6 +38,7 @@ export function useFlashLoan() {
             cvToHex(Cl.uint(BigInt(amountMicroSbtc))),
             cvToHex(Cl.principal(`${CONTRACT_ADDRESS}.${receiverContract}`)),
           ],
+          postConditionMode: "allow",
         });
 
         const txId = typeof result === "object" && result !== null && "txid" in result
