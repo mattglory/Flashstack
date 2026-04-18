@@ -5,11 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
-  { label: "Dashboard", href: "/" },
+  { label: "Dashboard", href: "/dashboard" },
   { label: "Flash Loan", href: "/flash-loan" },
   { label: "LP Pool", href: "/pool" },
   { label: "Receivers", href: "/receivers" },
-  { label: "Admin", href: "#", comingSoon: true },
 ];
 
 export function Sidebar() {
@@ -31,9 +30,7 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 px-3 mt-2">
         {navItems.map((item) => {
-          const isActive = item.href === "/"
-            ? pathname === "/"
-            : pathname.startsWith(item.href);
+          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
 
           return (
             <Link
@@ -43,15 +40,9 @@ export function Sidebar() {
                 isActive
                   ? "bg-brand-600/10 text-brand-400 font-medium"
                   : "text-slate-400 hover:text-slate-200 hover:bg-surface-hover"
-              } ${item.comingSoon ? "cursor-default" : ""}`}
-              onClick={item.comingSoon ? (e) => e.preventDefault() : undefined}
+              }`}
             >
               <span>{item.label}</span>
-              {item.comingSoon && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-surface-hover text-slate-500">
-                  Soon
-                </span>
-              )}
             </Link>
           );
         })}

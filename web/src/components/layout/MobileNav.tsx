@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 const navItems = [
   {
     label: "Dashboard",
-    href: "/",
+    href: "/dashboard",
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
@@ -53,7 +53,7 @@ export function MobileNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-surface-card border-t border-surface-border">
       <div className="flex">
         {navItems.map((item) => {
-          const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link
               key={item.label}

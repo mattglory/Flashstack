@@ -1,11 +1,349 @@
-import { ProtocolStats } from "@/components/dashboard/ProtocolStats";
-import { UserStats } from "@/components/dashboard/UserStats";
+"use client";
 
-export default function DashboardPage() {
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { fetchPoolStats } from "@/lib/stacks/pool-client";
+
+const DEPLOYER = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
+
+function useLiveStats() {
+  const [loans, setLoans] = useState<number | null>(null);
+  const [volume, setVolume] = useState<string | null>(null);
+  const [pool, setPool] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        // STX core stats
+        const coreRes = await fetch(
+          `https://api.hiro.so/v2/contracts/call-read/${DEPLOYER}/flashstack-stx-core/get-stats`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sender: DEPLOYER, arguments: [] }),
+          }
+        );
+        const coreData = await coreRes.json();
+        // Parse result — cv tuple
+        if (coreData.result) {
+          const hex = coreData.result;
+          // Fallback: use Hiro API read-only via fetchCallReadOnlyFunction
+        }
+
+        // Pool stats
+        const poolStats = await fetchPoolStats("mainnet");
+        setPool((Number(poolStats.poolBalance) / 1e6).toFixed(0));
+        setLoans(poolStats.totalLoans);
+        setVolume((Number(poolStats.totalVolume) / 1e6).toFixed(0));
+      } catch {
+        // show static fallbacks if API fails
+      }
+    }
+    load();
+  }, []);
+
+  return { loans, volume, pool };
+}
+
+export default function LandingPage() {
+  const { loans, volume, pool } = useLiveStats();
+
   return (
-    <div className="max-w-5xl space-y-8">
-      <ProtocolStats />
-      <UserStats />
+    <div className="min-h-screen bg-surface text-slate-100 flex flex-col">
+      {/* ── Nav ─────────────────────────────────────────── */}
+      <header className="border-b border-surface-border sticky top-0 z-50 bg-surface/80 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Image src="/flashstack-logo.svg" alt="FlashStack" width={32} height={32} />
+            <span className="text-lg font-bold text-white tracking-tight">FlashStack</span>
+          </div>
+          <nav className="hidden md:flex items-center gap-6 text-sm text-slate-400">
+            <a href="#how-it-works" className="hover:text-white transition-colors">How it works</a>
+            <a href="#products" className="hover:text-white transition-colors">Products</a>
+            <a href="https://github.com/mattglory/Flashstack" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">GitHub</a>
+          </nav>
+          <Link
+            href="/dashboard"
+            className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium transition-colors"
+          >
+            Launch App
+          </Link>
+        </div>
+      </header>
+
+      {/* ── Hero ────────────────────────────────────────── */}
+      <section className="relative overflow-hidden">
+        {/* Background glow */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-brand-600/10 rounded-full blur-3xl" />
+        </div>
+
+        <div className="relative max-w-6xl mx-auto px-4 md:px-6 pt-20 pb-24 text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-600/10 border border-brand-600/20 text-brand-400 text-xs font-medium mb-6">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-400 animate-pulse" />
+            Live on Stacks Mainnet
+          </div>
+
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight mb-6 leading-none">
+            Flash Loans on
+            <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-blue-300">
+              Bitcoin Layer 2
+            </span>
+          </h1>
+
+          <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+            Borrow any amount of STX with <strong className="text-white">zero collateral</strong> in a single atomic transaction.
+            Repay in the same block or the whole thing reverts — trustless by design.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              href="/flash-loan"
+              className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-base transition-colors shadow-lg shadow-brand-600/20"
+            >
+              Try a Flash Loan
+            </Link>
+            <Link
+              href="/pool"
+              className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-surface-card hover:bg-surface-hover border border-surface-border text-white font-semibold text-base transition-colors"
+            >
+              Earn Yield as LP
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Live Stats ──────────────────────────────────── */}
+      <section className="border-y border-surface-border bg-surface-card">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-10">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            <LiveStat label="Flash Loans" value={loans !== null ? loans.toLocaleString() : "6+"} live={loans !== null} />
+            <LiveStat label="STX Reserves" value={`${pool !== null ? pool : "110"} STX`} live={pool !== null} />
+            <LiveStat label="Total Volume" value={volume !== null ? `${volume} STX` : "110+ STX"} live={volume !== null} />
+            <LiveStat label="Fee Rate" value="0.05%" live />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Products ────────────────────────────────────── */}
+      <section id="products" className="max-w-6xl mx-auto px-4 md:px-6 py-20">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">Two ways to use FlashStack</h2>
+          <p className="text-slate-400">Whether you're building strategies or providing liquidity.</p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-5">
+          {/* Flash Loans */}
+          <div className="bg-surface-card border border-surface-border rounded-2xl p-7 flex flex-col gap-5 hover:border-brand-600/40 transition-colors">
+            <div className="w-12 h-12 rounded-xl bg-brand-600/10 flex items-center justify-center">
+              <svg className="w-6 h-6 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-white mb-2">Flash Loans</h3>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                Borrow STX instantly with no collateral. Execute arbitrage, liquidations, or any on-chain strategy — the loan is atomic. No repayment = full revert. Zero risk to the protocol.
+              </p>
+            </div>
+            <div className="space-y-2 text-sm">
+              <Feature text="Zero collateral required" />
+              <Feature text="0.05% flat fee per loan" />
+              <Feature text="Up to 5,000 STX per transaction" />
+              <Feature text="Build any strategy with receiver contracts" />
+            </div>
+            <Link
+              href="/flash-loan"
+              className="mt-auto w-full text-center py-3 rounded-xl bg-brand-600/10 hover:bg-brand-600/20 border border-brand-600/20 text-brand-400 font-medium text-sm transition-colors"
+            >
+              Borrow STX →
+            </Link>
+          </div>
+
+          {/* LP Pool */}
+          <div className="bg-surface-card border border-surface-border rounded-2xl p-7 flex flex-col gap-5 hover:border-brand-600/40 transition-colors">
+            <div className="w-12 h-12 rounded-xl bg-green-600/10 flex items-center justify-center">
+              <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-white mb-2">LP Pool</h3>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                Deposit STX into the liquidity pool and earn a share of every flash loan fee. Like Aave but for flash loans — your share value grows automatically as fees accumulate. Withdraw anytime.
+              </p>
+            </div>
+            <div className="space-y-2 text-sm">
+              <Feature text="Earn 0.05% on every flash loan" green />
+              <Feature text="No lockup — withdraw anytime" green />
+              <Feature text="Share value grows automatically" green />
+              <Feature text="Fully non-custodial, on-chain" green />
+            </div>
+            <Link
+              href="/pool"
+              className="mt-auto w-full text-center py-3 rounded-xl bg-green-600/10 hover:bg-green-600/20 border border-green-600/20 text-green-400 font-medium text-sm transition-colors"
+            >
+              Earn Yield →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── How It Works ────────────────────────────────── */}
+      <section id="how-it-works" className="bg-surface-card border-y border-surface-border">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-20">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">How flash loans work</h2>
+            <p className="text-slate-400">Everything happens in a single Stacks transaction block.</p>
+          </div>
+
+          <div className="grid md:grid-cols-4 gap-4">
+            {[
+              { n: "01", title: "Request Loan", desc: "Call flash-loan with the amount and your receiver contract address." },
+              { n: "02", title: "Receive STX", desc: "FlashStack sends you the full loan amount instantly, no questions asked." },
+              { n: "03", title: "Execute Strategy", desc: "Your receiver contract runs — arbitrage, liquidate, swap, anything on-chain." },
+              { n: "04", title: "Repay + Fee", desc: "Return principal + 0.05% fee. If you don't, the whole transaction reverts." },
+            ].map((step) => (
+              <div key={step.n} className="relative p-5 rounded-xl bg-surface border border-surface-border">
+                <span className="text-4xl font-black text-brand-600/20">{step.n}</span>
+                <h4 className="text-white font-semibold mt-2 mb-1">{step.title}</h4>
+                <p className="text-slate-400 text-sm leading-relaxed">{step.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Build Section ───────────────────────────────── */}
+      <section className="max-w-6xl mx-auto px-4 md:px-6 py-20">
+        <div className="grid md:grid-cols-2 gap-10 items-center">
+          <div>
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Build your strategy</h2>
+            <p className="text-slate-400 leading-relaxed mb-6">
+              Any Clarity contract can be a FlashStack receiver. Implement one function, deploy, get whitelisted, and you have access to up to 5,000 STX per transaction.
+            </p>
+            <div className="space-y-3 mb-8">
+              <Feature text="STX arbitrage between DEXes" />
+              <Feature text="Atomic collateral swaps" />
+              <Feature text="Leveraged yield positions" />
+              <Feature text="Self-liquidation to avoid penalties" />
+            </div>
+            <Link
+              href="/receivers"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-surface-card hover:bg-surface-hover border border-surface-border text-white text-sm font-medium transition-colors"
+            >
+              View receiver templates →
+            </Link>
+          </div>
+          <div className="bg-surface-card border border-surface-border rounded-xl overflow-hidden">
+            <div className="flex items-center gap-1.5 px-4 py-3 border-b border-surface-border">
+              <div className="w-3 h-3 rounded-full bg-red-500/50" />
+              <div className="w-3 h-3 rounded-full bg-yellow-500/50" />
+              <div className="w-3 h-3 rounded-full bg-green-500/50" />
+              <span className="ml-2 text-xs text-slate-500">my-strategy.clar</span>
+            </div>
+            <pre className="p-5 text-xs leading-relaxed overflow-x-auto text-slate-300"><code>{`;; Implement this one function
+(define-public (execute-stx-flash
+    (amount uint)
+    (core principal))
+  (let (
+    ;; fee = 0.05% of amount
+    (fee (/ (* amount u5) u10000))
+  )
+    ;; --- YOUR STRATEGY HERE ---
+    ;; arbitrage, liquidate, swap...
+    ;; --------------------------
+
+    ;; Repay principal + fee
+    (stx-transfer?
+      (+ amount fee)
+      tx-sender core)
+  )
+)`}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA Banner ──────────────────────────────────── */}
+      <section className="bg-brand-600/5 border-y border-brand-600/10">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-16 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            Ready to try it?
+          </h2>
+          <p className="text-slate-400 mb-8 max-w-lg mx-auto">
+            Connect your Leather wallet on Stacks mainnet. No registration, no KYC, no custodians — just code.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link
+              href="/flash-loan"
+              className="px-7 py-3.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold transition-colors shadow-lg shadow-brand-600/20"
+            >
+              Launch App
+            </Link>
+            <a
+              href="https://github.com/mattglory/Flashstack"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-7 py-3.5 rounded-xl bg-surface-card hover:bg-surface-hover border border-surface-border text-white font-semibold transition-colors"
+            >
+              Read the code
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Footer ──────────────────────────────────────── */}
+      <footer className="border-t border-surface-border">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <Image src="/flashstack-logo.svg" alt="FlashStack" width={24} height={24} />
+            <span className="text-sm font-semibold text-white">FlashStack</span>
+            <span className="text-slate-500 text-sm">— Flash Loans on Bitcoin L2</span>
+          </div>
+          <div className="flex items-center gap-5 text-xs text-slate-500">
+            <a
+              href={`https://explorer.hiro.so/address/${DEPLOYER}.flashstack-stx-core?chain=mainnet`}
+              target="_blank" rel="noopener noreferrer"
+              className="hover:text-slate-300 transition-colors"
+            >
+              Contract
+            </a>
+            <a
+              href="https://github.com/mattglory/Flashstack"
+              target="_blank" rel="noopener noreferrer"
+              className="hover:text-slate-300 transition-colors"
+            >
+              GitHub
+            </a>
+            <span>Built on Stacks</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function LiveStat({ label, value, live }: { label: string; value: string; live?: boolean }) {
+  return (
+    <div>
+      <div className="flex items-center justify-center gap-1.5 mb-1">
+        {live && <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />}
+        <span className="text-xs text-slate-400 uppercase tracking-wide">{label}</span>
+      </div>
+      <p className="text-2xl md:text-3xl font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function Feature({ text, green }: { text: string; green?: boolean }) {
+  return (
+    <div className="flex items-center gap-2 text-sm text-slate-300">
+      <svg className={`w-4 h-4 flex-shrink-0 ${green ? "text-green-400" : "text-brand-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+      </svg>
+      {text}
     </div>
   );
 }

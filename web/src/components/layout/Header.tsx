@@ -5,7 +5,7 @@ import { ConnectButton } from "@/components/wallet/ConnectButton";
 import { NetworkSelector } from "@/components/wallet/NetworkSelector";
 
 const PAGE_TITLES: Record<string, string> = {
-  "/": "Dashboard",
+  "/dashboard": "Dashboard",
   "/flash-loan": "Flash Loan",
   "/pool": "LP Pool",
   "/receivers": "Receivers",
