@@ -8,6 +8,7 @@ const navItems = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Flash Loan", href: "/flash-loan" },
   { label: "LP Pool", href: "/pool" },
+  { label: "Arb Bot", href: "/arb" },
   { label: "Receivers", href: "/receivers" },
 ];
 
