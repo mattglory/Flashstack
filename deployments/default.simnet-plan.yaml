@@ -49,6 +49,11 @@ plan:
       path: contracts/sbtc-token.clar
       clarity-version: 2
     - transaction-type: emulated-contract-publish
+      contract-name: flashstack-core
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/flashstack-core.clar
+      clarity-version: 2
+    - transaction-type: emulated-contract-publish
       contract-name: collateral-swap-receiver
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
       path: contracts/collateral-swap-receiver.clar
@@ -62,11 +67,6 @@ plan:
       contract-name: example-arbitrage-receiver
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
       path: contracts/example-arbitrage-receiver.clar
-      clarity-version: 2
-    - transaction-type: emulated-contract-publish
-      contract-name: flashstack-core
-      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-      path: contracts/flashstack-core.clar
       clarity-version: 2
     - transaction-type: emulated-contract-publish
       contract-name: leverage-loop-receiver

@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 const navItems = [
   { label: "Dashboard", href: "/" },
   { label: "Flash Loan", href: "/flash-loan" },
+  { label: "LP Pool", href: "/pool" },
   { label: "Receivers", href: "/receivers" },
   { label: "Admin", href: "#", comingSoon: true },
 ];
@@ -15,7 +16,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-surface-card border-r border-surface-border flex flex-col">
+    <aside className="hidden md:flex fixed left-0 top-0 h-screen w-64 bg-surface-card border-r border-surface-border flex-col">
       {/* Logo */}
       <div className="p-6 flex items-center gap-3">
         <Image

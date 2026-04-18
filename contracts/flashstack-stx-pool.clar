@@ -1,9 +1,9 @@
-;; FlashStack STX Pool — External Liquidity Provider Model
+;; FlashStack STX Pool -- External Liquidity Provider Model
 ;; Anyone can deposit STX and earn yield from flash loan fees.
 ;; This is the "mini Aave pool" upgrade to the single-admin reserve model.
 ;;
 ;; How it works:
-;;   1. LPs deposit STX — they receive pool shares proportional to their deposit
+;;   1. LPs deposit STX -- they receive pool shares proportional to their deposit
 ;;   2. Flash loan borrowers pay 0.05% fee per loan
 ;;   3. Fees accumulate in the pool, increasing share value
 ;;   4. LPs withdraw STX + accrued yield at any time (pro-rata)
@@ -147,7 +147,7 @@
     ;; Invoke receiver callback
     (try! (contract-call? receiver execute-stx-flash amount (as-contract tx-sender)))
 
-    ;; Verify pool grew by at least the fee — this is the repayment guarantee
+    ;; Verify pool grew by at least the fee -- this is the repayment guarantee
     (let ((reserve-after (stx-get-balance (as-contract tx-sender))))
       (asserts! (>= reserve-after (+ reserve-before fee)) ERR-REPAY-FAILED)
 
@@ -156,7 +156,7 @@
       (var-set total-volume (+ (var-get total-volume) amount))
       (var-set total-fees   (+ (var-get total-fees) fee))
 
-      ;; Fee stays in pool — automatically increases share value for all LPs
+      ;; Fee stays in pool -- automatically increases share value for all LPs
 
       (ok true)
     )

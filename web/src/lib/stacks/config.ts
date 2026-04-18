@@ -10,6 +10,10 @@ export const CONTRACT_NAME = "flashstack-core";
 export const STX_CONTRACT_ADDRESS = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
 export const STX_CONTRACT_NAME = "flashstack-stx-core";
 
+// LP Pool — external depositors earn yield from flash loan fees
+export const POOL_CONTRACT_ADDRESS = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
+export const POOL_CONTRACT_NAME = "flashstack-stx-pool";
+
 export const RECEIVER_CONTRACTS = [
   { name: "test-receiver", label: "Test Receiver", description: "Basic flash loan test", address: CONTRACT_ADDRESS },
   { name: "example-arbitrage-receiver", label: "Arbitrage", description: "DEX arbitrage strategy", address: CONTRACT_ADDRESS },
