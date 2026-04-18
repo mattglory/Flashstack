@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { fetchProtocolStats } from "@/lib/stacks/client";
+import { fetchStxProtocolStats as fetchProtocolStats } from "@/lib/stacks/stx-client";
 import type { ProtocolStats } from "@/lib/stacks/types";
 import { useStacks } from "./useStacks";
 

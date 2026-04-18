@@ -317,7 +317,20 @@ export default function LandingPage() {
             >
               GitHub
             </a>
-            <span>Built on Stacks</span>
+            <a
+              href="https://x.com/flashstackbtc"
+              target="_blank" rel="noopener noreferrer"
+              className="hover:text-slate-300 transition-colors"
+            >
+              X / Twitter
+            </a>
+            <a
+              href="https://skool.com/stackers"
+              target="_blank" rel="noopener noreferrer"
+              className="hover:text-slate-300 transition-colors"
+            >
+              Community
+            </a>
           </div>
         </div>
       </footer>

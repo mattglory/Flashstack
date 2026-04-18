@@ -1,9 +1,12 @@
 "use client";
 
 import { useProtocolStats } from "@/lib/hooks/useProtocolStats";
-import { formatSbtc, formatFeeBp } from "@/lib/utils/format";
 import { StatCard } from "./StatCard";
 import { StatusBadge } from "./StatusBadge";
+
+function formatStx(micro: bigint) {
+  return (Number(micro) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 3 });
+}
 
 export function ProtocolStats() {
   const { stats, loading, error } = useProtocolStats();
@@ -14,10 +17,7 @@ export function ProtocolStats() {
         <h2 className="text-lg font-semibold text-white">Protocol Stats</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div
-              key={i}
-              className="bg-surface-card border border-surface-border rounded-xl p-5 animate-pulse"
-            >
+            <div key={i} className="bg-surface-card border border-surface-border rounded-xl p-5 animate-pulse">
               <div className="h-4 w-24 bg-surface-hover rounded mb-3" />
               <div className="h-8 w-32 bg-surface-hover rounded" />
             </div>
@@ -45,25 +45,25 @@ export function ProtocolStats() {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard
-          label="Total Flash Mints"
+          label="Total Flash Loans"
           value={stats.totalFlashMints.toLocaleString()}
         />
         <StatCard
           label="Total Volume"
-          value={`${formatSbtc(stats.totalVolume)} sBTC`}
+          value={`${formatStx(stats.totalVolume)} STX`}
         />
         <StatCard
           label="Fees Collected"
-          value={`${formatSbtc(stats.totalFeesCollected)} sBTC`}
+          value={`${formatStx(stats.totalFeesCollected)} STX`}
         />
         <StatCard
           label="Fee Rate"
-          value={formatFeeBp(stats.currentFeeBp)}
+          value={`${(stats.currentFeeBp / 100).toFixed(2)}%`}
           subtext={`${stats.currentFeeBp} basis points`}
         />
         <StatCard
           label="Max Single Loan"
-          value={`${formatSbtc(stats.maxSingleLoan)} sBTC`}
+          value={`${formatStx(stats.maxSingleLoan)} STX`}
           subtext="Circuit breaker limit"
         />
       </div>
