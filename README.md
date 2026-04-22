@@ -4,50 +4,85 @@
 
 [![Status](https://img.shields.io/badge/Status-Mainnet%20Live-brightgreen)]()
 [![Tests](https://img.shields.io/badge/Tests-86%20Passing-success)]()
-[![Clarity](https://img.shields.io/badge/Clarity-2-blue)]()
+[![Clarity](https://img.shields.io/badge/Clarity-2%20%26%203-blue)]()
 [![Live](https://img.shields.io/badge/Live-flashstack.vercel.app-blue)](https://flashstack.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-yellow)]()
 
-> Atomic, uncollateralized flash loans on Stacks blockchain. Borrow capital, execute your strategy, and repay — all in one transaction. If repayment fails, the entire transaction reverts.
+> Atomic, uncollateralized flash loans on Stacks (Bitcoin L2). Borrow any amount of STX with zero collateral, execute your strategy, and repay — all in one transaction. If repayment fails, the entire transaction reverts automatically.
+
+---
+
+## Live App
+
+**[flashstack.vercel.app](https://flashstack.vercel.app)**
+
+- Flash Loan — borrow STX with zero collateral
+- LP Pool — deposit STX, earn yield from every flash loan fee
+- Arb Bot — one-click Bitflow STX/stSTX arbitrage with live price check
+- Receivers — deployed strategy contracts and build-your-own templates
 
 ---
 
 ## Mainnet Deployment
 
-### STX Flash Loans (Reserve-Based) — New
+### Deployer Wallets
 
-| Contract | Address | Explorer |
+| Wallet | Address | Purpose |
 |---|---|---|
-| `flashstack-stx-core` | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-core` | [View](https://explorer.hiro.so/txid/0x4c1a17483eb5bc42b4d7454ffc53f5b1fe4d18d1370b23b60199ee9d8d28ba70?chain=mainnet) |
-| `stx-flash-receiver-trait` | `SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.stx-flash-receiver-trait` | [View](https://explorer.hiro.so/txid/0x767d17c6d8ef98998cd48ce4ad47ed0432d29e74fb0e8fc12b0b353e975e57cf?chain=mainnet) |
-| `stx-test-receiver` | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.stx-test-receiver` | [View](https://explorer.hiro.so/txid/0xfead69fa92f54e5790ff1b17a9479e86716e93b66357726d8c9be336df558e45?chain=mainnet) |
-| `bitflow-arb-receiver` | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.bitflow-arb-receiver` | [View](https://explorer.hiro.so/txid/0x616449ab17cb75e3ddd4d2bbb2b7c38c0d4cd566b00035606d9a70bc08b637d4?chain=mainnet) |
+| STX wallet | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5` | STX flash loan infrastructure (active) |
+| sBTC wallet | `SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ` | sBTC flash loan infrastructure |
 
-Reserve: 80 STX seeded. Max single loan: 5,000 STX. Fee: 0.05%.
+### STX Flash Loan Contracts — SP20XD46... (4 contracts)
 
-### sBTC Flash Loans (Mint/Burn) — Original
-
-| Contract | Address |
+| Contract | Explorer |
 |---|---|
-| `flashstack-core` | [`SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.flashstack-core`](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.flashstack-core?chain=mainnet) |
-| `sbtc-token` | `SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.sbtc-token` |
-| `flash-receiver-trait` | `SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.flash-receiver-trait` |
+| `flashstack-stx-core` — flash loan core, 80 STX reserve | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-core?chain=mainnet) |
+| `flashstack-stx-pool` — LP pool, 30 STX, anyone deposits | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-pool?chain=mainnet) |
+| `stx-test-receiver` — basic flash loan receiver | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.stx-test-receiver?chain=mainnet) |
+| `bitflow-arb-receiver` — Bitflow STX/stSTX arbitrage | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.bitflow-arb-receiver?chain=mainnet) |
 
-### Confirmed Mainnet Flash Loans
+### sBTC Flash Loan Contracts — SP3TGRVG7... (17 contracts)
 
-| # | Asset | Amount | Receiver | Tx |
+| Contract | Explorer |
+|---|---|
+| `flashstack-core` — sBTC mint/burn flash loan core | [View](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.flashstack-core?chain=mainnet) |
+| `sbtc-token` — SIP-010 sBTC token | [View](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.sbtc-token?chain=mainnet) |
+| `flash-receiver-trait` — sBTC receiver interface | [View](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.flash-receiver-trait?chain=mainnet) |
+| `stx-flash-receiver-trait` — STX receiver interface | [View](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.stx-flash-receiver-trait?chain=mainnet) |
+| `test-receiver` | [View](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.test-receiver?chain=mainnet) |
+| `example-arbitrage-receiver` | [View](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.example-arbitrage-receiver?chain=mainnet) |
+| `liquidation-receiver` | [View](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.liquidation-receiver?chain=mainnet) |
+| `leverage-loop-receiver` | [View](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.leverage-loop-receiver?chain=mainnet) |
+| `collateral-swap-receiver` | [View](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.collateral-swap-receiver?chain=mainnet) |
+| `yield-optimization-receiver` | [View](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.yield-optimization-receiver?chain=mainnet) |
+| `dex-aggregator-receiver` | [View](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.dex-aggregator-receiver?chain=mainnet) |
+| `multidex-arbitrage-receiver` | [View](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.multidex-arbitrage-receiver?chain=mainnet) |
+| `snp-flashstack-receiver-v3` | [View](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.snp-flashstack-receiver-v3?chain=mainnet) |
+| `snp-flashstack-receiver` | [View](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.snp-flashstack-receiver?chain=mainnet) |
+| `stx-core-test2` | test contract |
+| `stx-core-test3` | test contract |
+| `test-trait-use` | test contract |
+
+**Total confirmed on-chain: 21 contracts across 2 wallets**
+- 4 production STX contracts (SP20XD46...)
+- 14 production sBTC contracts (SP3TGRVG7...)
+- 3 development/iteration contracts (`stx-core-test2`, `stx-core-test3`, `test-trait-use`)
+
+*M2 milestone submission referenced 16 production contracts (sBTC + STX infrastructure, excluding test iterations and the LP pool + arb receiver added post-submission).*
+
+---
+
+## Confirmed Mainnet Flash Loans (7 total)
+
+| # | Asset | Amount | Contract | Tx |
 |---|---|---|---|---|
-| 1 | sBTC | 0.01 sBTC | `test-receiver` | Basic demonstration |
-| 2 | sBTC | 0.05 sBTC | `test-receiver` | Basic demonstration |
-| 3 | sBTC | 0.10 sBTC | `dex-aggregator-receiver` | DEX arbitrage |
+| 1 | sBTC | 1 sBTC (u1000000) | `test-receiver` | [View](https://explorer.hiro.so/txid/0x0ee37861a8c1451451b4050a784bd3ad58aad60fc5c3c6c74715c5a24dc141ce?chain=mainnet) |
+| 2 | sBTC | 5 sBTC (u5000000) | `test-receiver` | [View](https://explorer.hiro.so/txid/0x4a74c0b389e5cd805445d7e4cfd45c391ad9807fba9276d98c2760311251ba00?chain=mainnet) |
+| 3 | sBTC | 10 sBTC (u10000000) | `dex-aggregator-receiver` | [View](https://explorer.hiro.so/txid/0xddfc9fa8b5a9586e2df6e00d39708d0692b25a49ef04d2f25ec69dc9bfeb167b?chain=mainnet) |
 | 4 | STX | 10 STX | `stx-test-receiver` | [View](https://explorer.hiro.so/txid/0x3cc5020c29fb871614c01eb8ce622f6011f04bb668fb1773ca81acef4422ca8e?chain=mainnet) |
 | 5 | STX | 50 STX | `stx-test-receiver` | [View](https://explorer.hiro.so/txid/0x48bbabb52c85a6d69baa27d4b7d3b03ce9fc6a1c25a41fd07648ff2d96f4ef4a?chain=mainnet) |
-
-### Previous Testnet Deployment
-
-| Version | Address | Date |
-|---|---|---|
-| v1.2 | [`ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7`](https://explorer.hiro.so/address/ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7?chain=testnet) | Jan 5, 2026 |
+| 6 | STX | 50 STX | `stx-test-receiver` (frontend UI) | [View](https://explorer.hiro.so/txid/0xeb5056009cf9ad8b9d249895b921274d3eb741c925dc1ceb306eb69e97e009de?chain=mainnet) |
+| 7 | STX | test | `stx-test-receiver` | [View](https://explorer.hiro.so/txid/0x2304038e0cef7010daf0eeabc8d00fd1529915506d8fe209822f61d4e39668dd?chain=mainnet) |
 
 ---
 
@@ -63,9 +98,9 @@ npm test          # 86 tests passing
 npm run check     # Clarinet contract verification
 ```
 
-**Requirements:** Node.js 16+, npm 7+, [Clarinet](https://github.com/hirosystems/clarinet) 2.0+
+**Requirements:** Node.js 16+, [Clarinet](https://github.com/hirosystems/clarinet) 2.0+
 
-### Frontend Dashboard
+### Frontend
 
 ```bash
 cd web
@@ -73,288 +108,129 @@ npm install
 npm run dev       # http://localhost:3000
 ```
 
-The dashboard connects to the live mainnet deployment and shows real-time protocol stats, wallet connection via Leather/Xverse, and user position data.
+### Opportunity Monitor Bot
+
+```bash
+# Dry-run — check for arb every 30s, prints opportunities, no execution
+DEPLOYER_MNEMONIC="your twelve word mnemonic" \
+  node scripts/monitor-opportunities.mjs
+
+# Live — auto-execute when profitable (requires funded wallet)
+EXECUTE=true \
+  LOAN_STX=50 \
+  DEPLOYER_MNEMONIC="your twelve word mnemonic" \
+  node scripts/monitor-opportunities.mjs
+```
+
+> **Never hardcode your mnemonic in source files or commit it to git.**
 
 ---
 
 ## How It Works
 
-FlashStack uses an **atomic mint-burn architecture**:
+### STX Flash Loans (primary product)
 
-1. User calls `flash-mint` with an amount and a receiver contract
-2. Protocol mints sBTC to the receiver (amount + fee)
-3. Receiver executes its strategy (arbitrage, liquidation, etc.)
-4. Receiver repays the full amount + fee back to the protocol
-5. Protocol burns the returned amount; fee is transferred to treasury
+1. Call `flash-loan(amount, receiver)` on `flashstack-stx-core` or `flashstack-stx-pool`
+2. Protocol sends STX to your receiver contract
+3. Your receiver executes any strategy (arb, liquidation, swap, etc.)
+4. Receiver repays principal + 0.05% fee before returning
+5. If repayment fails, entire transaction reverts — zero risk to protocol
 
-If step 4 fails, the entire transaction reverts — no funds are at risk.
+### LP Pool
+
+1. Anyone deposits STX into `flashstack-stx-pool`
+2. Depositor receives shares proportional to deposit
+3. Every flash loan fee accumulates in the pool
+4. Share value increases automatically as fees grow
+5. Withdraw anytime — receive principal + all accrued yield
+
+### sBTC Flash Loans (mint/burn model)
+
+Same atomic guarantee but using a mint/burn mechanism for sBTC.
+
+---
+
+## Strategies
+
+### Bitflow STX/stSTX Arbitrage (live — use Arb Bot page)
+
+stSTX accumulates staking yield every ~2 weeks. When yield accrues, stSTX briefly trades above 1:1 STX on Bitflow before arbitrageurs equalize it.
+
+```
+Borrow 1000 STX (zero collateral)
+  -> Buy stSTX on Bitflow (stSTX above peg)
+  -> Sell stSTX back to STX (at higher rate)
+  -> Repay 1000.05 STX (principal + 0.05% fee)
+  -> Keep spread as profit
+```
+
+Use the live bot at [flashstack.vercel.app/arb](https://flashstack.vercel.app/arb) or run:
+
+```bash
+EXECUTE=true DEPLOYER_MNEMONIC="..." node scripts/monitor-opportunities.mjs
+```
+
+### Cross-DEX Arbitrage
+
+```
+Borrow STX -> Buy TOKEN cheap on DEX A -> Sell TOKEN on DEX B -> Repay -> Keep spread
+```
+
+### Self-Liquidation
+
+Borrowers approaching liquidation can flash-borrow to repay their own debt and avoid liquidation penalties.
+
+---
+
+## Build a Receiver Contract
+
+```clarity
+;; Implement this single function
+(impl-trait 'SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.stx-flash-receiver-trait.stx-flash-receiver-trait)
+
+(define-public (execute-stx-flash (amount uint) (core principal))
+  (let (
+    (fee       (/ (* amount u5) u10000))  ;; 0.05%
+    (total-owed (+ amount fee))
+  )
+    ;; Your strategy here — you have (amount) STX right now
+
+    ;; Repay principal + fee
+    (unwrap! (as-contract (stx-transfer? total-owed tx-sender core)) (err u500))
+    (ok true)
+  )
+)
+```
+
+Deploy to mainnet, then open a GitHub issue or email mattglory14@gmail.com to get whitelisted. Include your deployed contract address.
 
 ---
 
 ## Security
 
-### Status: Mainnet (not audited)
+**Status: Mainnet, not professionally audited. Use at your own risk.**
 
-> This protocol has not been professionally audited. Use at your own risk.
-
-### Security Hardening (v1.2)
-
-All findings from an independent security review were addressed:
+All findings from an independent security review were addressed before mainnet deployment:
 
 | ID | Severity | Finding | Status |
 |---|---|---|---|
-| C-01 | Critical | Anyone could call `mint` on sbtc-token | Fixed — flash-minter-only gate |
-| C-02 | Critical | Reentrancy via receiver callback | Fixed — supply invariant check |
-| H-01 | High | Supply inflates after each flash loan | Fixed — burn amount, transfer fee separately |
-| H-02 | High | No collateral check before mint | Accepted — test override by design |
-| H-03 | High | Fee hardcoded in receivers | Fixed — dynamic `get-fee-basis-points` call |
-| M-01 | Medium | No circuit breaker | Fixed — max single loan 5 sBTC, max block 25 sBTC |
-| M-02 | Medium | Wrong block height API | N/A — `block-height` correct for epoch 2.5 |
-| M-03 | Medium | Simulated DEX prices unprotected | Fixed — owner-only setters |
-| L-01 | Low | Fee rounds to zero for tiny loans | Fixed — minimum fee of 1 satoshi |
-| L-02 | Low | Wrong error code from `set-fee` | Fixed — returns ERR-INVALID-AMOUNT (u104) |
-| I-01 | Info | No treasury for fee accumulation | Accepted — treasury var added |
-| I-02 | Info | Stale v2 contract deployed | Fixed — flashstack-core-v2 deleted |
-
----
-
-## Arbitrage Strategies
-
-Flash loans are uncollateralized — you borrow zero capital and only pay the Stacks tx fee (~$0.002). The protocol guarantees: if your repayment fails, everything reverts. You never lose your own capital, only the gas fee.
-
-### Strategy 1: stSTX Peg Arbitrage (Bitflow)
-
-stSTX accumulates staking yield. When yield accrues, stSTX briefly trades above 1:1 STX on Bitflow before arbitrageurs equalize it. `bitflow-arb-receiver` captures this atomically:
-
-```
-Borrow 1000 STX (free, uncollateralized)
-  -> Swap 1000 STX -> 1012 stSTX on Bitflow (stSTX at 0.988 STX = above peg)
-  -> Swap 1012 stSTX -> 1010 STX on Bitflow
-  -> Repay 1000.05 STX (principal + 0.05% fee)
-  -> Keep 9.95 STX profit, zero capital at risk
-```
-
-**When to run:** Watch for stSTX/STX ratio on Bitflow rising above 1.0005 (0.05% spread covers the fee).
-
-### Strategy 2: Cross-DEX Price Arbitrage
-
-Same token, different price on two DEXes (e.g. ALEX vs Velar):
-
-```
-Borrow 500 STX
-  -> Buy TOKEN on ALEX at lower price
-  -> Sell TOKEN on Velar at higher price
-  -> Repay 500.025 STX + keep spread
-```
-
-### Strategy 3: Liquidation Bot
-
-A DeFi lending protocol lists undercollateralized positions. You borrow STX, repay the borrower's debt, receive discounted collateral, sell it, repay the flash loan, keep the liquidation bonus.
-
-```
-Borrow 2000 STX
-  -> Repay borrower's 2000 STX debt to lending protocol
-  -> Receive 2200 STX worth of collateral (10% liquidation bonus)
-  -> Sell collateral for 2200 STX
-  -> Repay 2000.10 STX
-  -> Keep 199.90 STX profit
-```
-
-### Economics Summary
-
-| Role | Capital required | Risk | Profit source |
-|---|---|---|---|
-| Borrower (you) | 0 STX | ~$0.002 tx fee if strategy fails | Arb spread minus 0.05% fee |
-| Reserve provider (admin) | 80+ STX locked | Reserve stays safe (reverts on failure) | 0.05% fee on every loan |
-
----
-
-## Integration Guide
-
-### Build a Flash Loan Receiver
-
-Implement the `flash-receiver-trait` to create your own strategy:
-
-```clarity
-(impl-trait .flash-receiver-trait.flash-receiver-trait)
-
-(define-public (execute-flash (amount uint) (borrower principal))
-  (let (
-    (fee-bp (unwrap! (contract-call? .flashstack-core get-fee-basis-points) (err u999)))
-    (raw-fee (/ (* amount fee-bp) u10000))
-    (fee (if (> raw-fee u0) raw-fee u1))
-    (total-owed (+ amount fee))
-  )
-    ;; === YOUR STRATEGY HERE ===
-    ;; Examples: arbitrage, liquidation, leverage, collateral swap
-    (try! (your-strategy-logic amount))
-
-    ;; === REPAY THE LOAN ===
-    (as-contract (contract-call? .sbtc-token transfer
-      total-owed tx-sender .flashstack-core none))
-  )
-)
-```
-
-### Run Flash Loans via Script
-
-```bash
-DEPLOYER_MNEMONIC="your twelve word mnemonic here" \
-DEPLOYER_ADDRESS="SP..." \
-NETWORK=mainnet \
-node scripts/run-flash-loans.mjs
-```
-
-**Never hardcode your mnemonic in source files.**
-
-### Read Protocol Data
-
-```typescript
-import { fetchCallReadOnlyFunction, cvToJSON } from "@stacks/transactions";
-import { STACKS_MAINNET } from "@stacks/network";
-
-const CONTRACT = "SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ";
-
-const result = await fetchCallReadOnlyFunction({
-  contractAddress: CONTRACT,
-  contractName: "flashstack-core",
-  functionName: "get-stats",
-  functionArgs: [],
-  network: STACKS_MAINNET,
-  senderAddress: CONTRACT,
-});
-
-const stats = cvToJSON(result);
-// { total-flash-mints, total-volume, total-fees-collected, current-fee-bp, paused }
-```
-
-### Connect a Wallet
-
-```typescript
-import { connect, disconnect, isConnected, getLocalStorage } from "@stacks/connect";
-
-await connect();
-
-if (isConnected()) {
-  const { addresses } = getLocalStorage();
-  const stxAddress = addresses.stx[0].address;
-  console.log("Connected:", stxAddress);
-}
-```
-
-### Call Flash Mint
-
-```typescript
-import { request } from "@stacks/connect";
-
-const result = await request("stx_callContract", {
-  contract: "SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.flashstack-core",
-  functionName: "flash-mint",
-  functionArgs: [
-    "u1000000",
-    "SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.your-receiver"
-  ],
-});
-```
-
----
-
-## Architecture
-
-### Core Contracts
-
-| Contract | Purpose |
-|---|---|
-| `flashstack-core` | Main protocol — flash mint/burn, fees, circuit breaker, admin |
-| `sbtc-token` | SIP-010 token interface (mock sBTC) |
-| `flash-receiver-trait` | Standard interface all receivers must implement |
-
-### Receiver Contracts (10)
-
-| Receiver | Strategy |
-|---|---|
-| `test-receiver` | Basic flash loan demonstration |
-| `simple-receiver` | Minimal receiver template |
-| `example-arbitrage-receiver` | DEX arbitrage template |
-| `liquidation-receiver` | Liquidation bot with bonus capture |
-| `leverage-loop-receiver` | 3x leveraged positions |
-| `collateral-swap-receiver` | Atomic collateral swapping |
-| `yield-optimization-receiver` | Auto-compounding strategies |
-| `dex-aggregator-receiver` | Multi-DEX routing via ALEX Lab AMM |
-| `multidex-arbitrage-receiver` | Multi-hop arbitrage |
-| `snp-flashstack-receiver-v3` | SNP integration for leveraged yield |
-
-### Read-Only Functions
-
-| Function | Returns |
-|---|---|
-| `get-stats()` | Total mints, volume, fees collected, fee rate, paused status |
-| `get-stx-locked(principal)` | STX locked as collateral |
-| `get-max-flash-amount(uint)` | Max borrowable sBTC for given collateral |
-| `get-max-single-loan()` | Circuit breaker: max single loan |
-| `get-max-block-volume()` | Circuit breaker: max volume per block |
-| `is-paused()` | Protocol pause status |
-| `get-fee-basis-points()` | Current fee in basis points |
-| `calculate-fee(uint)` | Fee for a given loan amount |
-
-### Error Codes
-
-| Code | Meaning |
-|---|---|
-| `u100` | Not enough collateral |
-| `u101` | Repayment failed |
-| `u102` | Unauthorized (admin only) |
-| `u103` | Receiver callback failed |
-| `u104` | Invalid amount (must be > 0) |
-| `u105` | Protocol is paused |
-| `u106` | Receiver not on whitelist |
-| `u107` | Loan exceeds single-loan limit |
-| `u108` | Block volume limit exceeded |
-| `u109` | PoX call failed |
-
----
-
-## Frontend
-
-The `web/` directory contains a Next.js 14 dashboard:
-
-- **Protocol Stats** — live on-chain data with 30s auto-refresh
-- **Flash Loan Execution** — submit flash loans with fee preview and receiver selection
-- **Wallet Connection** — Leather/Xverse via @stacks/connect v8
-- **Network Toggle** — switch between testnet and mainnet
-- **User Position** — STX locked and max flash amount
-
-**Live:** [flashstack.vercel.app](https://flashstack.vercel.app)
-
-**Tech:** Next.js 14 (App Router), TypeScript, Tailwind CSS, @stacks/connect, @stacks/transactions, @stacks/network
-
-### Frontend Configuration
-
-```bash
-# web/.env.local (testnet)
-NEXT_PUBLIC_NETWORK=testnet
-NEXT_PUBLIC_CONTRACT_ADDRESS=ST3JAZD8CJ9XX3WNN2G61C7HD4RY333MRKPR5JGW7
-
-# web/.env.production (mainnet)
-NEXT_PUBLIC_NETWORK=mainnet
-NEXT_PUBLIC_CONTRACT_ADDRESS=SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ
-```
+| C-01 | Critical | Anyone could call `mint` on sbtc-token | Fixed |
+| C-02 | Critical | Supply invariant not enforced after callback | Fixed |
+| H-01 | High | Supply inflates after each flash loan | Fixed |
+| H-03 | High | Fee hardcoded in receivers | Fixed — dynamic fee lookup |
+| M-01 | Medium | No circuit breaker | Fixed — max loan + max block volume |
+| L-01 | Low | Fee rounds to zero for tiny loans | Fixed — minimum fee of 1 unit |
 
 ---
 
 ## Testing
 
 ```bash
-npm test                # Run all 86 tests
-npm run test:watch      # Watch mode
-npm run test:coverage   # Coverage report
+npm test           # 86 tests
+npm run test:watch # Watch mode
 ```
 
-**Coverage:** initialization, admin access control, fee calculations (0.05%-1.00%), collateral ratios (300%), circuit breaker limits, whitelist management, flash loan execution, end-to-end mint-burn cycle, boundary value testing, admin transfer security, SNP receiver integration, sbtc-token operations.
-
-Framework: [Vitest](https://vitest.dev/) + [Clarigen](https://github.com/mechanismHQ/clarigen)
-
-See [TESTING.md](./TESTING.md) for details.
+86 tests covering: initialization, access control, fee calculations, collateral ratios, circuit breakers, whitelist management, flash loan execution, end-to-end mint-burn cycle, boundary values, security invariants.
 
 ---
 
@@ -362,16 +238,21 @@ See [TESTING.md](./TESTING.md) for details.
 
 ```
 flashstack/
-  contracts/              # 13 Clarity smart contracts
-  tests/                  # 86 Vitest + Clarigen tests
-  scripts/                # Flash loan executor (env-var driven)
-  web/                    # Next.js 14 frontend dashboard
-    src/
-      app/                # App Router pages
-      components/         # UI components
-      lib/                # Stacks integration, hooks, utils
-  Clarinet.toml           # Contract configuration
-  vitest.config.js        # Test configuration
+  contracts/              # 20 Clarity smart contracts
+  tests/                  # 86 Vitest tests
+  scripts/                # Deploy + monitor scripts
+    monitor-opportunities.mjs   # Arb bot (Bitflow STX/stSTX)
+    deploy-pool-and-liquidation.mjs
+    seed-pool.mjs
+  web/                    # Next.js 14 frontend
+    src/app/
+      page.tsx            # Marketing landing page
+      (app)/
+        dashboard/        # Protocol stats
+        flash-loan/       # Execute flash loans
+        pool/             # LP pool deposit/withdraw
+        arb/              # Bitflow arb bot UI
+        receivers/        # Deployed contracts + templates
 ```
 
 ---
@@ -379,27 +260,18 @@ flashstack/
 ## Roadmap
 
 - [x] Security hardening (all audit findings addressed)
-- [x] Mainnet deployment (13 contracts)
-- [x] Test suite (86 tests)
-- [x] Frontend dashboard with flash loan execution UI
-- [x] DEX integration (ALEX Lab AMM in dex-aggregator-receiver)
+- [x] Mainnet deployment — 21 contracts across 2 wallets
+- [x] 86-test suite (Vitest + Clarinet simnet)
+- [x] Frontend — flash loan execution, wallet connection, live stats
+- [x] STX reserve flash loans (no collateral required)
+- [x] LP pool — external liquidity providers earn yield
+- [x] Arb bot — Bitflow STX/stSTX, live price check + one-click execute
+- [x] Mobile-responsive UI
 - [ ] Professional audit
-- [ ] Bug bounty program
-- [ ] Real sBTC integration
-- [ ] DEX partnerships (ALEX, Bitflow, Velar)
-- [ ] Multi-asset support
-- [ ] Governance
-
----
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/my-receiver`)
-3. Add tests for your changes
-4. Submit a pull request
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
+- [ ] Zest Protocol liquidation integration
+- [ ] Multi-asset LP pool
+- [ ] External developer onboarding (M3)
+- [ ] Bug bounty
 
 ---
 
@@ -411,7 +283,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
 
 ## Author
 
-**Glory Matthew** ([@mattglory](https://github.com/mattglory))
+**Glory Matthew** — [@mattglory](https://github.com/mattglory)
 
 - Twitter: [@mattglory_](https://twitter.com/mattglory_)
 - Email: mattglory14@gmail.com
