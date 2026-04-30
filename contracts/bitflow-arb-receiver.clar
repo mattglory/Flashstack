@@ -49,8 +49,10 @@
 ;; Bitflow STX/stSTX LP token (lp-token parameter)
 (define-constant BITFLOW-LP 'SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M.stx-ststx-lp-token-v-1-2)
 
-;; Slippage tolerance in basis points (default 100 = 1%)
-(define-data-var slippage-bp uint u100)
+;; Slippage tolerance in basis points (default 300 = 3%)
+;; 3% allows the swap to succeed even when stSTX trades at par with STX.
+;; The arb profit only materialises when stSTX > peg, but the tx must always repay.
+(define-data-var slippage-bp uint u300)
 
 ;; =============================================
 ;; Flash Loan Callback
@@ -72,12 +74,14 @@
     (min-stx   total-owed)
   )
     ;; Leg 1: STX -> stSTX on Bitflow
-    (unwrap! (contract-call? BITFLOW-POOL swap-x-for-y
+    ;; as-contract is required — STX sits in this contract's balance (sent by flashstack-stx-core),
+    ;; so tx-sender must be the receiver contract itself when calling the pool.
+    (unwrap! (as-contract (contract-call? BITFLOW-POOL swap-x-for-y
       STSTX        ;; y-token (stSTX SIP-010)
       BITFLOW-LP   ;; lp-token (LP token for this pool)
       amount       ;; STX amount in microstacks
       min-ststx    ;; minimum stSTX to receive
-    ) ERR-SWAP-FAILED)
+    )) ERR-SWAP-FAILED)
 
     ;; Get how much stSTX we received
     (let (
@@ -88,12 +92,13 @@
       (asserts! (> ststx-balance u0) ERR-SWAP-FAILED)
 
       ;; Leg 2: stSTX -> STX on Bitflow
-      (unwrap! (contract-call? BITFLOW-POOL swap-y-for-x
+      ;; as-contract required — stSTX is held by this contract, must spend as self.
+      (unwrap! (as-contract (contract-call? BITFLOW-POOL swap-y-for-x
         STSTX        ;; y-token (stSTX SIP-010)
         BITFLOW-LP   ;; lp-token (LP token for this pool)
         ststx-balance ;; all stSTX we hold
         min-stx      ;; minimum STX back (must cover repayment)
-      ) ERR-SWAP-FAILED)
+      )) ERR-SWAP-FAILED)
 
       ;; Repay STX + fee back to flashstack-stx-core
       (let ((stx-now (stx-get-balance (as-contract tx-sender))))
