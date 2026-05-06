@@ -2,13 +2,19 @@ import { STACKS_TESTNET, STACKS_MAINNET, StacksNetwork } from "@stacks/network";
 
 export type NetworkType = "testnet" | "mainnet";
 
-// sBTC flash loan core (original deployer — compromised but contracts still valid)
+// sBTC flash loan core (v1 — sBTC testnet/devnet contracts)
 export const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ?? "SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ";
 export const CONTRACT_NAME = "flashstack-core";
 
-// STX reserve flash loan core (new deployer)
+// STX flash loan core (v2 — mainnet, active deployer)
 export const STX_CONTRACT_ADDRESS = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
 export const STX_CONTRACT_NAME = "flashstack-stx-core";
+
+// sBTC flash loan core (canonical sBTC — mainnet)
+export const SBTC_CONTRACT_ADDRESS = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
+export const SBTC_CONTRACT_NAME = "flashstack-sbtc-core";
+export const SBTC_TOKEN_ADDRESS = "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4";
+export const SBTC_TOKEN_NAME = "sbtc-token";
 
 // LP Pool — external depositors earn yield from flash loan fees
 export const POOL_CONTRACT_ADDRESS = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
@@ -28,6 +34,10 @@ export const RECEIVER_CONTRACTS = [
 export const STX_RECEIVER_CONTRACTS = [
   { name: "stx-test-receiver", label: "STX Test Receiver", description: "Borrow STX, repay principal + fee", address: STX_CONTRACT_ADDRESS },
   { name: "bitflow-arb-receiver", label: "Bitflow Arbitrage", description: "STX/stSTX round-trip on Bitflow stableswap", address: STX_CONTRACT_ADDRESS },
+];
+
+export const SBTC_RECEIVER_CONTRACTS = [
+  { name: "sbtc-test-receiver", label: "sBTC Test Receiver", description: "Borrow canonical sBTC, repay principal + fee", address: SBTC_CONTRACT_ADDRESS },
 ];
 
 export const HIRO_API_URLS: Record<NetworkType, string> = {

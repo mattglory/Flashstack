@@ -94,7 +94,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Borrow any amount of STX with <strong className="text-white">zero collateral</strong> in a single atomic transaction.
+            Borrow <strong className="text-white">STX or canonical sBTC</strong> with zero collateral in a single atomic transaction.
             Repay in the same block or the whole thing reverts — trustless by design.
           </p>
 
@@ -120,8 +120,8 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             <LiveStat label="Flash Loans" value={loans !== null ? loans.toLocaleString() : "6+"} live={loans !== null} />
-            <LiveStat label="STX Reserves" value={`${pool !== null ? pool : "110"} STX`} live={pool !== null} />
-            <LiveStat label="Total Volume" value={volume !== null ? `${volume} STX` : "110+ STX"} live={volume !== null} />
+            <LiveStat label="STX Reserve" value={`${pool !== null ? pool : "30"} STX`} live={pool !== null} />
+            <LiveStat label="Assets" value="STX + sBTC" live />
             <LiveStat label="Fee Rate" value="0.05%" live />
           </div>
         </div>
@@ -145,20 +145,21 @@ export default function LandingPage() {
             <div>
               <h3 className="text-xl font-bold text-white mb-2">Flash Loans</h3>
               <p className="text-slate-400 text-sm leading-relaxed">
-                Borrow STX instantly with no collateral. Execute arbitrage, liquidations, or any on-chain strategy — the loan is atomic. No repayment = full revert. Zero risk to the protocol.
+                Borrow STX or canonical sBTC instantly with no collateral. Execute arbitrage, liquidations, or any on-chain strategy — the loan is atomic. No repayment = full revert. Zero risk to the protocol.
               </p>
             </div>
             <div className="space-y-2 text-sm">
               <Feature text="Zero collateral required" />
               <Feature text="0.05% flat fee per loan" />
-              <Feature text="Up to 5,000 STX per transaction" />
+              <Feature text="STX loans up to 5,000 STX" />
+              <Feature text="sBTC loans up to 0.1 BTC (canonical)" />
               <Feature text="Build any strategy with receiver contracts" />
             </div>
             <Link
               href="/flash-loan"
               className="mt-auto w-full text-center py-3 rounded-xl bg-brand-600/10 hover:bg-brand-600/20 border border-brand-600/20 text-brand-400 font-medium text-sm transition-colors"
             >
-              Borrow STX →
+              Borrow STX or sBTC →
             </Link>
           </div>
 
@@ -222,10 +223,10 @@ export default function LandingPage() {
           <div>
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Build your strategy</h2>
             <p className="text-slate-400 leading-relaxed mb-6">
-              Any Clarity contract can be a FlashStack receiver. Implement one function, deploy, get whitelisted, and you have access to up to 5,000 STX per transaction.
+              Any Clarity contract can be a FlashStack receiver. Implement one function, deploy, get whitelisted, and access up to 5,000 STX or 0.1 BTC per transaction.
             </p>
             <div className="space-y-3 mb-8">
-              <Feature text="STX arbitrage between DEXes" />
+              <Feature text="STX or sBTC arbitrage between DEXes" />
               <Feature text="Atomic collateral swaps" />
               <Feature text="Leveraged yield positions" />
               <Feature text="Self-liquidation to avoid penalties" />

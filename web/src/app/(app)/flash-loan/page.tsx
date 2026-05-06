@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FlashLoanForm } from "@/components/flash-loan/FlashLoanForm";
+import { SbtcFlashLoanForm } from "@/components/flash-loan/SbtcFlashLoanForm";
 import { StxFlashLoanForm } from "@/components/flash-loan/StxFlashLoanForm";
 
 export default function FlashLoanPage() {
@@ -33,7 +33,7 @@ export default function FlashLoanPage() {
         </button>
       </div>
 
-      {tab === "stx" ? <StxFlashLoanForm /> : <FlashLoanForm />}
+      {tab === "stx" ? <StxFlashLoanForm /> : <SbtcFlashLoanForm />}
     </div>
   );
 }
