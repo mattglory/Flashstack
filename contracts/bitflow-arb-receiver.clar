@@ -66,15 +66,17 @@
     (fee       (if (> raw-fee u0) raw-fee u1))
     (total-owed (+ amount fee))
 
-    ;; Min stSTX out from leg 1 (amount minus slippage)
-    (slip      (var-get slippage-bp))
-    (min-ststx (- amount (/ (* amount slip) u10000)))
+    ;; Min stSTX out from leg 1 - accept any amount; repayment check is the safety gate.
+    ;; stSTX currently trades at ~1.16x STX so a % floor based on STX amount always fails.
+    (min-ststx u1)
 
-    ;; Min STX back from leg 2 (must cover total-owed)
-    (min-stx   total-owed)
+    ;; Min STX back from leg 2 - accept any amount; repayment check below enforces the floor.
+    ;; Setting total-owed here causes the pool to reject the swap when DEX fees exceed the arb
+    ;; spread (which is most of the time). The repay assert is the actual safety gate.
+    (min-stx   u1)
   )
     ;; Leg 1: STX -> stSTX on Bitflow
-    ;; as-contract is required — STX sits in this contract's balance (sent by flashstack-stx-core),
+    ;; as-contract is required - STX sits in this contract's balance (sent by flashstack-stx-core),
     ;; so tx-sender must be the receiver contract itself when calling the pool.
     (unwrap! (as-contract (contract-call? BITFLOW-POOL swap-x-for-y
       STSTX        ;; y-token (stSTX SIP-010)
@@ -92,7 +94,7 @@
       (asserts! (> ststx-balance u0) ERR-SWAP-FAILED)
 
       ;; Leg 2: stSTX -> STX on Bitflow
-      ;; as-contract required — stSTX is held by this contract, must spend as self.
+      ;; as-contract required - stSTX is held by this contract, must spend as self.
       (unwrap! (as-contract (contract-call? BITFLOW-POOL swap-y-for-x
         STSTX        ;; y-token (stSTX SIP-010)
         BITFLOW-LP   ;; lp-token (LP token for this pool)
