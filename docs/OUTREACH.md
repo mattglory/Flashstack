@@ -41,6 +41,16 @@ Testing guide (sBTC): https://github.com/mattglory/Flashstack/blob/main/docs/TES
 DM or reply to get your receiver whitelisted.
 
 **Tweet 5**
+Balancer just shipped LP tokens as collateral on EVM.
+
+FlashStack LP shares are the same idea on Bitcoin L2 — but simpler to price:
+- Single asset (STX or sBTC)
+- Share price is a live on-chain read. No oracle. No manipulation surface.
+- Value only ever increases as fees accumulate.
+
+We deployed a collateral oracle contract so lending protocols can integrate directly.
+
+**Tweet 6**
 Try it now:
 https://flashstack.vercel.app/flash-loan
 
@@ -128,22 +138,38 @@ Frontend: https://flashstack.vercel.app
 ## Zest Protocol Outreach
 
 **To:** Zest Protocol team (X DM or Discord)
-**Subject/opener:** FlashStack — flash liquidation receiver for Zest
+**Subject/opener:** FlashStack LP shares as collateral + flash liquidations for Zest
 
 Hey Zest team,
 
-I'm building FlashStack — a flash loan protocol for STX and canonical sBTC on Stacks Mainnet. Both engines are live and confirmed on mainnet.
+I'm building FlashStack — the first flash loan protocol on Stacks, supporting both STX and canonical sBTC. Live on mainnet with confirmed transactions.
 
-Flash loans are a natural fit for Zest: when a borrowing position becomes undercollateralised, a liquidator can use a FlashStack flash loan to fund the liquidation without putting up their own capital — borrow sBTC, liquidate the Zest position, repay in one atomic tx.
+Two integrations that could be valuable for Zest:
 
-I'd love to:
-1. Build a Zest liquidation receiver for FlashStack (open-source, MIT)
-2. Understand your liquidation interface so the receiver targets it correctly
-3. Explore any joint announcement once it's working
+**1. FlashStack LP shares as collateral**
 
-This gives Zest a liquidation engine and gives FlashStack a compelling real-world use case.
+Balancer just shipped BPT-as-collateral on EVM. The same concept applies here — but our LP shares are actually *easier* to price than Balancer BPTs:
+
+- Single-asset backing (STX pool or sBTC pool)
+- Share price is a live on-chain read: `pool_balance / total_shares`
+- Monotonically increasing — flash loan fees only ever grow the pool
+- Zero external oracle required — no manipulation surface
+
+We've deployed a dedicated oracle contract at:
+`SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-pool-oracle`
+
+Call `get-lp-value(lp-principal)` to get any LP's collateral value in microstacks. Call `get-collateral-snapshot` for full pool health data.
+
+Full integration spec: https://github.com/mattglory/Flashstack/blob/main/docs/LP_COLLATERAL_INTEGRATION_SPEC.md
+
+**2. Zero-capital flash liquidations**
+
+When a Zest position goes undercollateralised, a liquidator can use a FlashStack flash loan to fund the liquidation with zero upfront capital — borrow STX/sBTC, liquidate the Zest position, receive collateral, repay flash loan + 0.05% fee, keep the bonus. All in one atomic tx.
+
+We can build the Zest liquidation receiver and open-source it. This makes Zest liquidations faster and more competitive.
 
 GitHub: https://github.com/mattglory/Flashstack
+Frontend: https://flashstack.vercel.app
 
 — Glory / @flashstackbtc
 
