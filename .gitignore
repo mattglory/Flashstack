@@ -145,3 +145,5 @@ deployments/testnet-*.yaml
 # ============================================
 web/.next/
 web/node_modules/
+docs/OUTREACH.md
+docs/archive/ANNOUNCEMENT_TEMPLATES.md

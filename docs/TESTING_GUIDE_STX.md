@@ -1,7 +1,7 @@
 # FlashStack STX Testing Guide
 
 **Last Updated:** April 2026  
-**For:** Hillary and external testers  
+**For:** External testers and developers  
 **Status:** STX is the active path — sBTC is legacy
 
 ---
