@@ -1,4 +1,4 @@
-;; FlashStack — Velar sBTC Arbitrage Receiver
+;; FlashStack  -  Velar sBTC Arbitrage Receiver
 ;;
 ;; Borrows canonical sBTC from flashstack-sbtc-core, swaps it for wSTX
 ;; on the Velar wSTX<>sBTC pool (pool ID 70), then swaps back to sBTC and repays.
@@ -17,10 +17,10 @@
 ;;   2. Leg 1: swap sBTC -> wSTX (sBTC is token1 in pool 70, wSTX is token0)
 ;;   3. Leg 2: swap wSTX -> sBTC
 ;;   4. Repay core: amount + 0.05% fee (min 1 sat)
-;;   5. Any surplus sBTC stays here — sweep via sweep-sbtc
+;;   5. Any surplus sBTC stays here  -  sweep via sweep-sbtc
 ;;
 ;; Note: must be whitelisted in flashstack-sbtc-core before borrowing.
-;; min-out is u1 on both legs — repayment invariant is the real safety gate.
+;; min-out is u1 on both legs  -  repayment invariant is the real safety gate.
 
 (impl-trait 'SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.sbtc-flash-receiver-trait.sbtc-flash-receiver-trait)
 
@@ -54,7 +54,7 @@
     (owed    (+ amount fee))
   )
     ;; Leg 1: sBTC -> wSTX
-    ;; Pool 70: token0=wSTX, token1=sBTC — swapping token1 for token0
+    ;; Pool 70: token0=wSTX, token1=sBTC  -  swapping token1 for token0
     (unwrap!
       (as-contract (contract-call? 'SP1Y5YSTAHZ88XYK1VPDH24GY0HPX5J4JECTMY4A1.univ2-router
         swap-exact-tokens-for-tokens

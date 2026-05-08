@@ -9,7 +9,7 @@
 ;;   - Pool balance only increases (fees flow in, verified by reserve invariant)
 ;;   - Flash loans cannot inflate the pool: the reserve invariant check inside
 ;;     flashstack-stx-pool ensures balance grows by >= fee after every loan
-;;   - No external price feeds required — purely on-chain, single-asset
+;;   - No external price feeds required  -  purely on-chain, single-asset
 ;;
 ;; Integration pattern for lending protocols:
 ;;   1. Call get-share-price to get current STX value per share (in microstacks)

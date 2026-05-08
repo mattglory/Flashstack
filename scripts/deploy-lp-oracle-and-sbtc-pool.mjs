@@ -74,8 +74,11 @@ async function waitForConfirm(txid, label) {
 }
 
 async function broadcast(tx) {
-  // tx.serialize() returns raw Uint8Array — always safe to POST as octet-stream
-  const bytes = tx.serialize();
+  // serialize() may return hex string or Uint8Array depending on SDK version
+  const raw = tx.serialize();
+  const bytes = typeof raw === "string"
+    ? Buffer.from(raw.replace(/^0x/, ""), "hex")
+    : raw;
   const res = await fetch(`${API}/v2/transactions`, {
     method:  "POST",
     headers: { "Content-Type": "application/octet-stream" },

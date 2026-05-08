@@ -2,7 +2,7 @@
 ;;
 ;; LP pool for canonical sBTC flash loans.
 ;; Depositors earn sBTC yield from every flash loan fee.
-;; Share value is denominated in sats — appreciates with BTC.
+;; Share value is denominated in sats  -  appreciates with BTC.
 ;;
 ;; Share model (identical to flashstack-stx-pool but in sats):
 ;;   shares_minted = deposit * total_shares / pool_balance
@@ -12,14 +12,14 @@
 ;;
 ;; Collateral oracle:
 ;;   get-share-price returns sats per share (scaled by SHARE-PRECISION)
-;;   Lending protocols can call this directly — no external oracle needed
+;;   Lending protocols can call this directly  -  no external oracle needed
 ;;   Flash loan manipulation-resistant: reserve invariant guarantees
 ;;   pool balance only ever grows by >= fee per loan
 ;;
 ;; Security model:
 ;;   - Receiver whitelist prevents arbitrary contracts from borrowing
 ;;   - Repayment verified by reserve balance before/after
-;;   - Admin cannot drain pool — only set parameters
+;;   - Admin cannot drain pool  -  only set parameters
 
 (use-trait sbtc-flash-receiver-trait 'SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.sbtc-flash-receiver-trait.sbtc-flash-receiver-trait)
 
@@ -52,7 +52,7 @@
 (define-data-var total-volume    uint      u0)
 (define-data-var total-fees      uint      u0)
 
-(define-constant SHARE-PRECISION u100000000) ;; 1e8 — matches sBTC sat precision
+(define-constant SHARE-PRECISION u100000000) ;; 1e8  -  matches sBTC sat precision
 
 (define-map approved-receivers principal bool)
 (define-map lp-shares          principal uint)
@@ -138,7 +138,7 @@
     ;; Invoke receiver callback
     (try! (contract-call? receiver execute-sbtc-flash amount (as-contract tx-sender)))
 
-    ;; Verify repayment — reserve must have grown by >= fee
+    ;; Verify repayment  -  reserve must have grown by >= fee
     (let ((reserve-after (unwrap!
             (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
               get-balance (as-contract tx-sender))
@@ -202,7 +202,7 @@
 )
 
 ;; =============================================
-;; Read-only — including collateral oracle
+;; Read-only  -  including collateral oracle
 ;; =============================================
 
 ;; Current value of one pool share in sats, scaled by SHARE-PRECISION (1e8).
