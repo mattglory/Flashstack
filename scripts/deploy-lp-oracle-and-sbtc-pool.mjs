@@ -16,7 +16,7 @@
 import {
   makeContractDeploy,
   makeContractCall,
-  broadcastTransaction,
+  serializeTransaction,
   PostConditionMode,
   ClarityVersion,
   Cl,
@@ -74,6 +74,20 @@ async function waitForConfirm(txid, label) {
   throw new Error(`Timeout waiting for "${label}"`);
 }
 
+async function broadcast(tx) {
+  const serialized = serializeTransaction(tx);
+  const res = await fetch(`${API}/v2/transactions`, {
+    method:  "POST",
+    headers: { "Content-Type": "application/octet-stream" },
+    body:    serialized,
+  });
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch { throw new Error(`Node response not JSON: ${text.slice(0, 200)}`); }
+  if (data.error) throw new Error(`${data.error} — ${data.reason ?? ""} ${data.reason_data ? JSON.stringify(data.reason_data) : ""}`);
+  return data; // { txid: "..." }
+}
+
 async function deployContract(privateKey, nonce, name, sourcePath) {
   const source = readFileSync(sourcePath, "utf8");
   const tx = await makeContractDeploy({
@@ -87,8 +101,7 @@ async function deployContract(privateKey, nonce, name, sourcePath) {
     fee:               500_000,
     nonce,
   });
-  const result = await broadcastTransaction({ transaction: tx, network });
-  if (result.error) throw new Error(`Deploy ${name}: ${result.error} — ${result.reason}`);
+  const result = await broadcast(tx);
   console.log(`  Broadcast: ${result.txid}`);
   return result.txid;
 }
@@ -106,8 +119,7 @@ async function callContract(privateKey, nonce, contractAddress, contractName, fn
     fee:               100_000,
     nonce,
   });
-  const result = await broadcastTransaction({ transaction: tx, network });
-  if (result.error) throw new Error(`${fn}: ${result.error} — ${result.reason}`);
+  const result = await broadcast(tx);
   console.log(`  Broadcast: ${result.txid}`);
   return result.txid;
 }
