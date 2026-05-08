@@ -16,7 +16,6 @@
 import {
   makeContractDeploy,
   makeContractCall,
-  serializeTransaction,
   PostConditionMode,
   ClarityVersion,
   Cl,
@@ -75,11 +74,12 @@ async function waitForConfirm(txid, label) {
 }
 
 async function broadcast(tx) {
-  const serialized = serializeTransaction(tx);
+  // tx.serialize() returns raw Uint8Array — always safe to POST as octet-stream
+  const bytes = tx.serialize();
   const res = await fetch(`${API}/v2/transactions`, {
     method:  "POST",
     headers: { "Content-Type": "application/octet-stream" },
-    body:    serialized,
+    body:    bytes,
   });
   const text = await res.text();
   let data;
