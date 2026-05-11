@@ -147,3 +147,23 @@ web/.next/
 web/node_modules/
 docs/OUTREACH.md
 docs/archive/ANNOUNCEMENT_TEMPLATES.md
+
+# Ethereum/Solidity contracts (not part of this Stacks protocol)
+contracts/*.sol
+
+# PM2 / server configs (deployment ops, not protocol code)
+ecosystem.config.cjs
+ecosystem.config.vps.cjs
+
+# Local dev scripts and experiments
+config/
+scripts/deploy-debug.mjs
+scripts/deploy-stub-test.mjs
+scripts/deploy-rescue.mjs
+scripts/estimate-vault-rescue.mjs
+scripts/run-vault-rescue.mjs
+scripts/usda-peg-trade.mjs
+scripts/check-bitflow-lp.mjs
+
+# Nova MCP config (local tooling)
+.mcp.json

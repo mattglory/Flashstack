@@ -13,6 +13,17 @@ function formatShares(shares: bigint) {
   return (Number(shares) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
+const SHARE_PRECISION = 1_000_000n;
+
+function computeShareValue(poolBalance: bigint, totalShares: bigint): string {
+  if (totalShares === 0n) return "1.000000";
+  // shareValue = poolBalance / (totalShares / SHARE_PRECISION)
+  // = poolBalance * SHARE_PRECISION / totalShares  (in micro-STX per share)
+  // display as STX per share
+  const microPerShare = (poolBalance * SHARE_PRECISION) / totalShares;
+  return (Number(microPerShare) / 1e6).toFixed(6);
+}
+
 export default function PoolPage() {
   const { isWalletConnected } = useStacks();
   const {
@@ -25,6 +36,10 @@ export default function PoolPage() {
   const [tab, setTab] = useState<"deposit" | "withdraw">("deposit");
   const [depositAmount, setDepositAmount] = useState("");
   const [withdrawPct, setWithdrawPct] = useState(100);
+
+  const shareValue = stats ? computeShareValue(stats.poolBalance, stats.totalShares) : "1.000000";
+  const shareValueNum = parseFloat(shareValue);
+  const yieldEarned = shareValueNum > 1 ? ((shareValueNum - 1) * 100).toFixed(4) : "0.0000";
 
   const fee = depositAmount
     ? ((parseFloat(depositAmount) * (stats?.feeBasisPoints ?? 5)) / 10000).toFixed(6)
@@ -74,9 +89,46 @@ export default function PoolPage() {
           value={loadingStats ? "..." : `${formatStx(stats?.totalFees ?? 0n)} STX`}
         />
         <StatCard
-          label="Fee Rate"
-          value={loadingStats ? "..." : `${((stats?.feeBasisPoints ?? 5) / 100).toFixed(2)}%`}
+          label="Share Value"
+          value={loadingStats ? "..." : shareValue}
+          highlight={!loadingStats && shareValueNum > 1}
+          sublabel={!loadingStats && shareValueNum > 1 ? `+${yieldEarned}% yield` : "at launch value"}
         />
+      </div>
+
+      {/* Vault Performance proof panel */}
+      <div className="bg-surface-card border border-surface-border rounded-xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-medium text-white">Vault Performance</p>
+          <span className="text-xs text-slate-500">Live from chain</span>
+        </div>
+        <div className="space-y-3">
+          <PerfRow
+            label="Launch share value"
+            value="1.000000 STX"
+            sub="Starting point"
+          />
+          <PerfRow
+            label="Current share value"
+            value={loadingStats ? "..." : `${shareValue} STX`}
+            sub={shareValueNum > 1 ? `+${yieldEarned}% total yield` : "No arbs compounded yet"}
+            highlight={!loadingStats && shareValueNum > 1}
+          />
+          <PerfRow
+            label="Flash loans executed"
+            value={loadingStats ? "..." : (stats?.totalLoans ?? 0).toString()}
+            sub="Each loan adds fees to the pool"
+          />
+          <PerfRow
+            label="Total fees accumulated"
+            value={loadingStats ? "..." : `${formatStx(stats?.totalFees ?? 0n)} STX`}
+            sub="Split proportionally across all shares"
+          />
+        </div>
+        <p className="text-xs text-slate-500 mt-4 pt-4 border-t border-surface-border">
+          Share value increases with every flash loan fee and every compounded arb profit.
+          Deposit now to earn from all future activity.
+        </p>
       </div>
 
       {/* Your Position */}
@@ -243,11 +295,34 @@ export default function PoolPage() {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function StatCard({ label, value, highlight, sublabel }: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+  sublabel?: string;
+}) {
   return (
-    <div className="bg-surface-card border border-surface-border rounded-xl p-4">
+    <div className={`border rounded-xl p-4 ${highlight ? "bg-green-900/10 border-green-800/30" : "bg-surface-card border-surface-border"}`}>
       <p className="text-xs text-slate-400">{label}</p>
-      <p className="text-lg font-bold text-white mt-1">{value}</p>
+      <p className={`text-lg font-bold mt-1 ${highlight ? "text-green-400" : "text-white"}`}>{value}</p>
+      {sublabel && <p className={`text-xs mt-0.5 ${highlight ? "text-green-500" : "text-slate-500"}`}>{sublabel}</p>}
+    </div>
+  );
+}
+
+function PerfRow({ label, value, sub, highlight }: {
+  label: string;
+  value: string;
+  sub: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="flex justify-between items-start">
+      <div>
+        <p className="text-sm text-slate-300">{label}</p>
+        <p className="text-xs text-slate-500">{sub}</p>
+      </div>
+      <p className={`text-sm font-medium ${highlight ? "text-green-400" : "text-white"}`}>{value}</p>
     </div>
   );
 }

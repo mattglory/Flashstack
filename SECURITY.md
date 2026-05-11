@@ -35,7 +35,7 @@ We appreciate responsible disclosure of security vulnerabilities.
 1. **DO NOT** create a public GitHub issue
 2. **Contact us privately** via:
    - Twitter DM: [@FlashStackBTC](https://twitter.com/FlashStackBTC)
-   - Email: [Coming soon - check repository for updates]
+   - GitHub: Open a private security advisory at [github.com/mattglory/flashstack/security/advisories](https://github.com/mattglory/flashstack/security/advisories)
 
 **For non-critical issues** (documentation, minor bugs):
 - Create a public issue on GitHub
@@ -210,7 +210,7 @@ We recognize and thank security researchers who help improve FlashStack:
 
 ---
 
-**Last Updated**: December 2025
+**Last Updated**: April 2026
 **Version**: 1.0
 
 Thank you for helping keep FlashStack and the Bitcoin DeFi ecosystem secure! 🛡️⚡

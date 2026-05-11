@@ -44,9 +44,10 @@ Canonical sBTC: `SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token` (~4,000 B
 | Contract | Description | Explorer |
 |----------|-------------|---------|
 | `flashstack-sbtc-core` | sBTC flash loan engine — holds canonical sBTC reserve | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-sbtc-core?chain=mainnet) |
-| `flashstack-sbtc-pool` | sBTC LP pool — depositors earn sBTC yield | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-sbtc-pool?chain=mainnet) |
+| `flashstack-sbtc-pool` | sBTC LP pool — depositors earn sBTC yield, built-in oracle | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-sbtc-pool?chain=mainnet) |
 | `sbtc-flash-receiver-trait` | Interface all sBTC receivers must implement | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.sbtc-flash-receiver-trait?chain=mainnet) |
 | `sbtc-test-receiver` | Basic sBTC receiver — borrow canonical sBTC, repay principal + fee | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.sbtc-test-receiver?chain=mainnet) |
+| `velar-sbtc-arb-receiver` | Velar wSTX↔sBTC arb receiver (pool 70, whitelisted) | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.velar-sbtc-arb-receiver?chain=mainnet) |
 
 ---
 
@@ -266,8 +267,8 @@ flashstack/
 - [x] Bitflow arb receiver — live DEX integration proven on mainnet
 - [x] LP collateral oracle — `get-share-price` for lending protocol integration
 - [x] sBTC LP pool — depositors earn sBTC yield, shares appreciate with BTC
-- [x] Velar sBTC arb receiver (contract written, pending deployment)
-- [ ] Deploy `flashstack-sbtc-pool` + `flashstack-pool-oracle` to mainnet
+- [x] Velar sBTC arb receiver — deployed and whitelisted on mainnet
+- [x] `flashstack-sbtc-pool` + `flashstack-pool-oracle` deployed to mainnet
 - [ ] Zest Protocol — LP shares as collateral integration
 - [ ] ALEX Lab — sBTC arb receiver integration
 - [ ] External developer onboarding (M3)

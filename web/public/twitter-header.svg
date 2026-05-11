@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 500" fill="none">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&amp;display=swap');
+  </style>
+
+  <!-- Background -->
+  <rect width="1500" height="500" fill="#07091f"/>
+
+  <!-- Bolt (centred vertically, left-aligned) -->
+  <path d="M157.5 163 L192.5 163 L152.5 249 L195 249 L162.5 337 L127.5 337 L157.5 249 L115 249 Z"
+        fill="#38bdf8"/>
+
+  <!-- Wordmark -->
+  <text x="232" y="278"
+    font-family="'Space Grotesk','SF Pro Display',-apple-system,'Helvetica Neue',Arial,sans-serif"
+    font-size="110" font-weight="700" letter-spacing="-4"
+    fill="#ffffff">FlashStack</text>
+
+  <!-- Tagline -->
+  <text x="235" y="328"
+    font-family="'Space Grotesk',-apple-system,Arial,sans-serif"
+    font-size="22" font-weight="400" letter-spacing="2"
+    fill="#38bdf8">FLASH LOANS ON BITCOIN L2</text>
+
+  <!-- URL -->
+  <text x="1462" y="468" text-anchor="end"
+    font-family="'Space Grotesk',-apple-system,sans-serif"
+    font-size="16" fill="#334155">flashstack.vercel.app</text>
+</svg>

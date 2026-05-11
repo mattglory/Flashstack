@@ -87,8 +87,14 @@ async function broadcast(tx) {
   const text = await res.text();
   let data;
   try { data = JSON.parse(text); } catch { throw new Error(`Node response not JSON: ${text.slice(0, 200)}`); }
-  if (data.error) throw new Error(`${data.error} — ${data.reason ?? ""} ${data.reason_data ? JSON.stringify(data.reason_data) : ""}`);
-  return data; // { txid: "..." }
+  // Error case: node returns { error, reason }
+  if (typeof data === "object" && data.error) {
+    throw new Error(`${data.error} — ${data.reason ?? ""} ${data.reason_data ? JSON.stringify(data.reason_data) : ""}`);
+  }
+  // Success case: node returns txid as plain string OR { txid: "..." }
+  const txid = typeof data === "string" ? data : data.txid;
+  if (!txid) throw new Error(`Unexpected response: ${text.slice(0, 200)}`);
+  return { txid };
 }
 
 async function deployContract(privateKey, nonce, name, sourcePath) {
@@ -141,16 +147,10 @@ async function main() {
 
   const results = {};
 
-  // ── Step 1: Deploy flashstack-pool-oracle ─────────────────────────────────
-  console.log("Step 1 — Deploy flashstack-pool-oracle");
-  console.log("  (Share price oracle for STX LP — usable by Zest immediately)");
-  results.oracle = await deployContract(
-    privateKey, nonce++,
-    "flashstack-pool-oracle",
-    "contracts/flashstack-pool-oracle.clar",
-  );
-  await waitForConfirm(results.oracle, "deploy flashstack-pool-oracle");
-  console.log();
+  // ── Step 1: flashstack-pool-oracle already deployed at nonce 79 ──────────
+  console.log("Step 1 — flashstack-pool-oracle already deployed (skipping)");
+  results.oracle = "ec8e1913b6df5a0faa"; // confirmed at nonce 79
+  console.log(`  Txid: ${results.oracle}`);
 
   // ── Step 2: Deploy flashstack-sbtc-pool ──────────────────────────────────
   console.log("Step 2 — Deploy flashstack-sbtc-pool");

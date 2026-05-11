@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 200" fill="none">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&amp;display=swap');
+  </style>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#7dd3fc"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Icon box -->
+  <rect x="10" y="10" width="180" height="180" rx="40" fill="#07091f"/>
+
+  <!-- Bolt scaled 0.45x into 180x180 box at (10,10) -->
+  <path d="M102.25 22.6 L123.75 22.6 L97.75 100 L136 100 L106.75 178.75 L75.25 178.75 L102.25 100 L64 100 Z"
+        fill="url(#g)"/>
+
+  <!-- Wordmark -->
+  <text x="218" y="130"
+    font-family="'Space Grotesk','SF Pro Display',-apple-system,'Helvetica Neue',Arial,sans-serif"
+    font-size="90" font-weight="700" letter-spacing="-3">
+    <tspan fill="#38bdf8">Flash</tspan><tspan fill="#ffffff">Stack</tspan>
+  </text>
+</svg>
