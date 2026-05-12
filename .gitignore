@@ -145,8 +145,25 @@ deployments/testnet-*.yaml
 # ============================================
 web/.next/
 web/node_modules/
+
+# ============================================
+# Internal docs — keep local only
+# ============================================
 docs/OUTREACH.md
-docs/archive/ANNOUNCEMENT_TEMPLATES.md
+docs/archive/
+docs/blog/
+docs/01-project/
+docs/02-technical/
+docs/03-grants/
+docs/04-deployment/
+docs/05-security/
+docs/06-community/
+docs/07-templates/
+docs/08-research/
+docs/SETUP_COMPLETE.md
+docs/BOT_DEPLOYMENT_GUIDE.md
+docs/INDEX.md
+docs/README.md
 
 # Ethereum/Solidity contracts (not part of this Stacks protocol)
 contracts/*.sol
@@ -155,8 +172,12 @@ contracts/*.sol
 ecosystem.config.cjs
 ecosystem.config.vps.cjs
 
-# Local dev scripts and experiments
+# ============================================
+# Internal / superseded scripts — keep local only
+# ============================================
 config/
+scripts/*.ps1
+scripts/*.sh
 scripts/deploy-debug.mjs
 scripts/deploy-stub-test.mjs
 scripts/deploy-rescue.mjs
@@ -164,6 +185,24 @@ scripts/estimate-vault-rescue.mjs
 scripts/run-vault-rescue.mjs
 scripts/usda-peg-trade.mjs
 scripts/check-bitflow-lp.mjs
+scripts/continue-stx-setup.mjs
+scripts/debug-deploy-pool.mjs
+scripts/deploy-and-test-stx.mjs
+scripts/deploy-compounder.mjs
+scripts/deploy-pool-and-liquidation.mjs
+scripts/deploy-stx-core-resume.mjs
+scripts/deploy-stx-core.mjs
+scripts/grant-milestone1.mjs
+scripts/grant-milestone1-sbtc.mjs
+scripts/run-flash-loan-tests.mjs
+scripts/run-stx-flash-loans.mjs
+scripts/seed-pool.mjs
+scripts/setup-pool-and-liquidation.mjs
+scripts/test5-stx-transfer.mjs
+scripts/admin-tests.clar
+scripts/admin-tests-quick.clar
+scripts/advanced-receiver-tests.clar
+scripts/quick-test-script.clar
 
 # Nova MCP config (local tooling)
 .mcp.json
