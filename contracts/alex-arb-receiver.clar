@@ -63,30 +63,31 @@
     (dx          (* amount WSTX-SCALE))
   )
     ;; Leg 1: wSTX -> ALEX
-    ;; The pool calls wSTX.transfer-fixed(dx, us, vault) which moves (amount) microSTX from us.
+    ;; Literal principals required for trait args so Clarity can verify impl-trait at compile time.
     ;; as-contract required: STX is held by this contract, not by the external caller.
-    (unwrap! (as-contract (contract-call? ALEX-POOL swap-x-for-y
-      WSTX         ;; token-x: wSTX-v2 (STX wrapper)
-      ALEX-TOKEN   ;; token-y: ALEX governance token
-      ALEX-FACTOR  ;; pool factor (wSTX/ALEX pool identifier)
-      dx           ;; dx in wSTX-v2 fixed-point (= amount * 100)
-      none         ;; min-dy: no slippage floor; repay check below is the safety gate
+    (unwrap! (as-contract (contract-call? 'SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.amm-pool-v2-01 swap-x-for-y
+      'SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.token-wstx-v2   ;; token-x: wSTX-v2 (STX wrapper)
+      'SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.token-alex        ;; token-y: ALEX governance token
+      ALEX-FACTOR                                                    ;; pool factor u100000000
+      dx                                                             ;; dx in wSTX-v2 fixed-point
+      none                                                           ;; min-dy: repay check is the gate
     )) ERR-SWAP-FAILED)
 
     ;; Read ALEX balance received from leg 1
     (let ((alex-bal (unwrap!
-            (as-contract (contract-call? ALEX-TOKEN get-balance tx-sender))
+            (as-contract (contract-call? 'SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.token-alex
+              get-balance tx-sender))
             ERR-SWAP-FAILED)))
       (asserts! (> alex-bal u0) ERR-SWAP-FAILED)
 
       ;; Leg 2: ALEX -> wSTX (back to STX)
-      ;; Pool calls ALEX.transfer-fixed(alex-bal, us, vault) and sends us wSTX (= STX).
-      (unwrap! (as-contract (contract-call? ALEX-POOL swap-y-for-x
-        WSTX         ;; token-x: wSTX-v2 (what we receive)
-        ALEX-TOKEN   ;; token-y: ALEX (what we spend)
-        ALEX-FACTOR  ;; pool factor
-        alex-bal     ;; dy: all ALEX we hold from leg 1
-        none         ;; min-dx: no slippage floor; repay check enforces the minimum
+      ;; Pool pulls ALEX from us and sends wSTX (= STX) back.
+      (unwrap! (as-contract (contract-call? 'SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.amm-pool-v2-01 swap-y-for-x
+        'SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.token-wstx-v2   ;; token-x: wSTX-v2 (what we receive)
+        'SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.token-alex        ;; token-y: ALEX (what we spend)
+        ALEX-FACTOR                                                    ;; pool factor
+        alex-bal                                                       ;; dy: all ALEX from leg 1
+        none                                                           ;; min-dx: repay check enforces floor
       )) ERR-SWAP-FAILED)
 
       ;; Verify we received enough STX to cover repayment
@@ -116,7 +117,8 @@
   (begin
     (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-OWNER)
     (unwrap!
-      (as-contract (contract-call? ALEX-TOKEN transfer amount tx-sender to none))
+      (as-contract (contract-call? 'SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.token-alex
+        transfer amount tx-sender to none))
       ERR-REPAY-FAILED)
     (ok true)
   )
@@ -154,5 +156,5 @@
 )
 
 (define-read-only (get-alex-balance)
-  (as-contract (contract-call? ALEX-TOKEN get-balance tx-sender))
+  (as-contract (contract-call? 'SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.token-alex get-balance tx-sender))
 )
