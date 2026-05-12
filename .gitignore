@@ -206,3 +206,17 @@ scripts/quick-test-script.clar
 
 # Nova MCP config (local tooling)
 .mcp.json
+
+# Clarinet / Clarigen local config
+.clarigen
+
+# Backup directories
+contracts-backup-NOW/
+
+# Build artifacts
+web/tsconfig.tsbuildinfo
+
+# Stale experiment contracts
+contracts/snp-flashstack-receiver.clar
+contracts/snp-flashstack-receiver-v3.clar
+contracts/bitflow-arb-compounder.clar

@@ -154,7 +154,9 @@ EXECUTE=true LOAN_STX=10 \
 
 (define-public (execute-stx-flash (amount uint) (core principal))
   (let (
-    (fee        (/ (* amount u5) u10000))  ;; 0.05% — minimum 1 microSTX
+    (fee-bp     (unwrap! (contract-call? 'SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-core get-fee-basis-points) (err u500)))
+    (raw-fee    (/ (* amount fee-bp) u10000))
+    (fee        (if (> raw-fee u0) raw-fee u1))  ;; minimum 1 microSTX
     (total-owed (+ amount fee))
   )
     ;; Your strategy here — (amount) STX is already in this contract
