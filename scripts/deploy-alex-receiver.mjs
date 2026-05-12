@@ -69,7 +69,7 @@ async function main() {
   let nonce   = await getNonce();
   console.log(`  Starting nonce: ${nonce}\n`);
 
-  const NAME     = "alex-arb-receiver";
+  const NAME     = "alex-arb-receiver-v2";
   const PATH     = "contracts/alex-arb-receiver.clar";
   const receiver = `${DEPLOYER}.${NAME}`;
 
