@@ -1,11 +1,11 @@
 ;; FlashStack - Zest Flash Liquidation Receiver
-;; Verified mainnet addresses — 2026-05-12
+;; Verified mainnet addresses - 2026-05-12
 ;;
 ;; Supports 4 liquidation modes:
-;;   1 — STX flash → wSTX debt + wSTX collateral (no swap)
-;;   2 — STX flash → wSTX debt + sBTC collateral (Velar sBTC→STX swap)
-;;   3 — sBTC flash → sBTC debt + sBTC collateral (no swap)
-;;   4 — sBTC flash → sBTC debt + wSTX collateral (Velar STX→sBTC swap)
+;;   1 - STX flash -> wSTX debt + wSTX collateral (no swap)
+;;   2 - STX flash -> wSTX debt + sBTC collateral (Velar sBTC->STX swap)
+;;   3 - sBTC flash -> sBTC debt + sBTC collateral (no swap)
+;;   4 - sBTC flash -> sBTC debt + wSTX collateral (Velar STX->sBTC swap)
 ;;
 ;; Usage:
 ;;   1. Call set-liquidation-target(borrower, debt-amount, mode)
@@ -16,7 +16,7 @@
 ;;
 ;; Requires: this contract must be whitelisted in both FlashStack and Zest.
 ;;
-;; Zest key: wSTX at SP2VCQJGH...wstx is a thin STX wrapper —
+;; Zest key: wSTX at SP2VCQJGH...wstx is a thin STX wrapper -
 ;; its transfer() calls stx-transfer? directly. No wrapping needed.
 
 (impl-trait 'SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.stx-flash-receiver-trait.stx-flash-receiver-trait)
@@ -63,7 +63,7 @@
 
     (if (is-eq mode u1)
 
-      ;; ── Mode 1: wSTX debt + wSTX collateral ──────────────────────────────
+      ;;  Mode 1: wSTX debt + wSTX collateral 
       ;; Zest wSTX is a thin STX wrapper: no swap needed, just check STX balance.
       (begin
         (unwrap!
@@ -116,8 +116,8 @@
         )
       )
 
-      ;; ── Mode 2: wSTX debt + sBTC collateral ──────────────────────────────
-      ;; After liquidation we hold sBTC. Swap sBTC→wSTX(=STX) on Velar pool 70.
+      ;;  Mode 2: wSTX debt + sBTC collateral 
+      ;; After liquidation we hold sBTC. Swap sBTC->wSTX(=STX) on Velar pool 70.
       (begin
         (unwrap!
           (as-contract (contract-call? 'SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.pool-borrow-v2-3
@@ -162,7 +162,7 @@
             borrower debt-amt false
           ))
           ERR-LIQUIDATION)
-        ;; Swap all sBTC received → Velar wSTX (= STX)
+        ;; Swap all sBTC received -> Velar wSTX (= STX)
         (let ((sbtc-bal (unwrap!
                 (as-contract (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
                   get-balance tx-sender))
@@ -209,7 +209,7 @@
 
     (if (is-eq mode u3)
 
-      ;; ── Mode 3: sBTC debt + sBTC collateral ──────────────────────────────
+      ;;  Mode 3: sBTC debt + sBTC collateral 
       (begin
         (unwrap!
           (as-contract (contract-call? 'SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.pool-borrow-v2-3
@@ -267,8 +267,8 @@
         )
       )
 
-      ;; ── Mode 4: sBTC debt + wSTX collateral ──────────────────────────────
-      ;; After liquidation we hold wSTX (= STX). Swap STX→sBTC on Velar pool 70.
+      ;;  Mode 4: sBTC debt + wSTX collateral 
+      ;; After liquidation we hold wSTX (= STX). Swap STX->sBTC on Velar pool 70.
       (begin
         (unwrap!
           (as-contract (contract-call? 'SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.pool-borrow-v2-3
@@ -313,7 +313,7 @@
             borrower debt-amt false
           ))
           ERR-LIQUIDATION)
-        ;; Swap all STX received → sBTC via Velar pool 70
+        ;; Swap all STX received -> sBTC via Velar pool 70
         (let ((stx-bal (stx-get-balance (as-contract tx-sender))))
           (unwrap!
             (as-contract (contract-call? 'SP1Y5YSTAHZ88XYK1VPDH24GY0HPX5J4JECTMY4A1.univ2-router

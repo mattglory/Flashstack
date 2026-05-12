@@ -168,6 +168,10 @@ docs/README.md
 # Ethereum/Solidity contracts (not part of this Stacks protocol)
 contracts/*.sol
 
+# EVM liquidation monitors (Aave/Venus) — not part of this Stacks protocol
+scripts/monitor-aave-liquidations.mjs
+scripts/monitor-venus-liquidations.mjs
+
 # PM2 / server configs (deployment ops, not protocol code)
 ecosystem.config.cjs
 ecosystem.config.vps.cjs
