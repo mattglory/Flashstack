@@ -51,6 +51,20 @@ Canonical sBTC: `SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token` (~4,000 B
 
 ---
 
+## Testnet
+
+The full STX flash loan system (core + LP pool + oracle + test receiver) can be deployed to Stacks testnet to produce independent on-chain evidence before mainnet.
+
+```bash
+# 1. Fund your testnet address at: https://explorer.hiro.so/sandbox/faucet?chain=testnet
+# 2. Deploy + execute a testnet flash loan:
+TESTNET_MNEMONIC="word1 ... word24" node scripts/deploy-testnet.mjs
+```
+
+The script derives your testnet address automatically, deploys all 5 contracts in order, whitelists the receiver, funds the reserve, and executes a flash loan — producing a testnet txid as evidence.
+
+---
+
 ## Confirmed Mainnet Flash Loans
 
 | # | Asset | Type | Tx |
