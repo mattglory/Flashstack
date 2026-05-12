@@ -149,7 +149,7 @@
 (define-public (execute-stx-flash (amount uint) (core principal))
   (let (
     ;; Calculate what we owe back to FlashStack
-    (fee-bp    (unwrap! (contract-call? 'SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-core get-fee-basis-points) ERR-REPAY-FAILED))
+    (fee-bp    (unwrap! (contract-call? .flashstack-stx-core get-fee-basis-points) ERR-REPAY-FAILED))
     (raw-fee   (/ (* amount fee-bp) u10000))
     (fee       (if (> raw-fee u0) raw-fee u1))
     (total-owed (+ amount fee))
@@ -214,7 +214,7 @@
     (var-set pending-vault-owner vault-owner)
 
     ;; Request flash loan - this triggers execute-stx-flash
-    (contract-call? 'SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-core flash-loan
+    (contract-call? .flashstack-stx-core flash-loan
       amount
       (as-contract tx-sender)
     )
