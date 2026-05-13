@@ -3,7 +3,7 @@
 **The First Flash Loan Protocol on Bitcoin Layer 2**
 
 [![Status](https://img.shields.io/badge/Status-Mainnet%20Live-brightgreen)]()
-[![Tests](https://img.shields.io/badge/Tests-86%20Passing-success)]()
+[![Tests](https://img.shields.io/badge/Tests-82%20Passing-success)]()
 [![Clarity](https://img.shields.io/badge/Clarity-3-blue)]()
 [![Live](https://img.shields.io/badge/Live-flashstack.vercel.app-blue)](https://flashstack.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-yellow)]()
@@ -254,7 +254,7 @@ The canonical sBTC implementation uses a reserve invariant model (not mint/burn)
 ## Testing
 
 ```bash
-npm test           # 86 tests
+npm test           # 82 tests
 npm run test:watch # Watch mode
 ```
 
