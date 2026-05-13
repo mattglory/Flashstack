@@ -55,6 +55,12 @@ Canonical sBTC: `SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token` (~4,000 B
 |----------|-------------|---------|
 | `zest-liquidation-receiver` | Zero-capital Zest liquidator — 4 modes (STX/sBTC debt × STX/sBTC collateral), Velar swap for cross-asset modes | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.zest-liquidation-receiver?chain=mainnet) |
 
+### ALEX Arbitrage
+
+| Contract | Description | Explorer |
+|----------|-------------|---------|
+| `alex-arb-receiver-v2` | ALEX STX/ALEX arb receiver — flash-borrow STX, swap wSTX->ALEX->wSTX on ALEX AMM, keep spread | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.alex-arb-receiver-v2?chain=mainnet) |
+
 ---
 
 ## Testnet
@@ -211,6 +217,8 @@ Full receiver templates: [docs/TESTING_GUIDE_SBTC.md](docs/TESTING_GUIDE_SBTC.md
 
 **Zero-Capital Zest Liquidations** — Flash-borrow STX or sBTC, liquidate an undercollateralised Zest position (5% bonus), repay the flash loan (0.05% fee), keep the ~4.95% spread — zero capital required. Supports all 4 debt×collateral combinations. Velar pool 70 handles cross-asset swaps atomically. Contract: [`zest-liquidation-receiver`](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.zest-liquidation-receiver?chain=mainnet). Requires Zest whitelist to execute.
 
+**ALEX STX/ALEX Arbitrage** — ALEX token accrues protocol revenue; before emissions or governance events it briefly trades above fair value. Flash-borrow STX, swap wSTX->ALEX->wSTX on the ALEX AMM (`amm-pool-v2-01`), repay FlashStack (0.05% fee), keep the spread. Contract: [`alex-arb-receiver-v2`](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.alex-arb-receiver-v2?chain=mainnet).
+
 **Collateral Swaps** — Flash-borrow to atomically swap one collateral type for another without closing your position.
 
 ---
@@ -261,6 +269,7 @@ flashstack/
     bitflow-arb-receiver.clar       # Live Bitflow arb receiver
     velar-sbtc-arb-receiver.clar    # Velar sBTC arb receiver
     zest-liquidation-receiver.clar  # Zest zero-capital liquidator (4 modes)
+    alex-arb-receiver.clar          # ALEX STX/ALEX arb receiver
   tests/                            # 86 Vitest + Clarinet simnet tests
   scripts/                          # Deploy + monitor scripts
   docs/                             # Guides and integration specs
@@ -293,6 +302,7 @@ flashstack/
 - [x] Velar sBTC arb receiver — deployed and whitelisted on mainnet
 - [x] `flashstack-sbtc-pool` + `flashstack-pool-oracle` deployed to mainnet
 - [x] Zest flash liquidation receiver — deployed, whitelisted in FlashStack, pending Zest whitelist
+- [x] ALEX STX/ALEX arb receiver — deployed and whitelisted in FlashStack, pending ALEX blocklist confirmation
 - [ ] Zest Protocol — LP shares as collateral integration
 - [ ] ALEX Lab — sBTC arb receiver integration
 - [ ] External developer onboarding (M3)
