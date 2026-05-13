@@ -38,7 +38,7 @@ All FlashStack contracts are under `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5`.
 | `sbtc-flash-receiver-trait` | sBTC callback interface |
 | `stx-test-receiver` | Minimal working STX receiver |
 | `sbtc-test-receiver` | Minimal working sBTC receiver |
-| `bitflow-arb-receiver` | Live STX/stSTX arb on Bitflow |
+| `bitflow-arb-receiver-v4` | Live STX/stSTX arb on Bitflow |
 | `velar-sbtc-arb-receiver` | Live sBTC/wSTX arb on Velar |
 
 Canonical sBTC token: `SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token`
@@ -132,7 +132,7 @@ Minimum working receiver:
 )
 ```
 
-Live example to read: [contracts/bitflow-arb-receiver.clar](../contracts/bitflow-arb-receiver.clar) and [contracts/alex-arb-receiver.clar](../contracts/alex-arb-receiver.clar).
+Live example to read: [contracts/bitflow-arb-receiver.clar](../contracts/bitflow-arb-receiver.clar) (deployed as `bitflow-arb-receiver-v4` on mainnet) and [contracts/alex-arb-receiver.clar](../contracts/alex-arb-receiver.clar).
 
 ---
 

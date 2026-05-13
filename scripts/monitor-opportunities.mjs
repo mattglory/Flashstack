@@ -51,7 +51,7 @@ function hiroFetch(url, opts = {}) {
 }
 
 // Receiver contract
-const RECEIVER_STANDARD = `${DEPLOYER}.bitflow-arb-receiver`;
+const RECEIVER_STANDARD = `${DEPLOYER}.bitflow-arb-receiver-v4`;
 
 // Bitflow STX/stSTX stableswap
 const BITFLOW_POOL   = "SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M";

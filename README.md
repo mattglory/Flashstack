@@ -35,7 +35,7 @@ All contracts deployed under `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5`.
 | `flashstack-stx-pool` | LP pool — anyone deposits STX, earns fees | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-pool?chain=mainnet) |
 | `flashstack-pool-oracle` | Collateral oracle — share price for lending protocols | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-pool-oracle?chain=mainnet) |
 | `stx-test-receiver` | Basic receiver — borrow STX, repay principal + fee | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.stx-test-receiver?chain=mainnet) |
-| `bitflow-arb-receiver` | Bitflow STX/stSTX arbitrage receiver | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.bitflow-arb-receiver?chain=mainnet) |
+| `bitflow-arb-receiver-v4` | Bitflow STX/stSTX arbitrage receiver | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.bitflow-arb-receiver-v4?chain=mainnet) |
 
 ### Canonical sBTC Flash Loan System
 
@@ -81,7 +81,7 @@ The script derives your testnet address automatically, deploys all 5 contracts i
 
 | # | Asset | Type | Tx |
 |---|-------|------|-----|
-| 1 | STX | Bitflow arb receiver — STX→stSTX→STX round-trip on Bitflow stableswap | [View](https://explorer.hiro.so/txid/0xabd33fc46ffa204ce61f25664f057e414063f28ce75c8387a6df9116453110cb?chain=mainnet) |
+| 1 | STX | `bitflow-arb-receiver-v4` — STX→stSTX→STX round-trip on Bitflow stableswap | [View](https://explorer.hiro.so/txid/0xabd33fc46ffa204ce61f25664f057e414063f28ce75c8387a6df9116453110cb?chain=mainnet) |
 | 2 | sBTC | Test receiver — canonical sBTC borrowed and repaid atomically | [View](https://explorer.hiro.so/txid/0x67f0c77d9d7ab9762c08a3638ba0990d5bbc3d19db8adc1a0d616cd7170f9baa?chain=mainnet) |
 | 3 | sBTC | Test receiver — executed via production frontend UI | [View](https://explorer.hiro.so/txid/0xc9d8e86f5ffcfc61537a25d6108a4b8ac0cf075568027a878cf2e9bcf6d53b4e?chain=mainnet) |
 
@@ -275,7 +275,7 @@ flashstack/
     flashstack-sbtc-core.clar       # sBTC flash loan engine
     flashstack-sbtc-pool.clar       # sBTC LP pool
     sbtc-flash-receiver-trait.clar  # sBTC receiver interface
-    bitflow-arb-receiver.clar       # Live Bitflow arb receiver
+    bitflow-arb-receiver.clar       # Bitflow arb receiver (v4 is the live deployed version)
     velar-sbtc-arb-receiver.clar    # Velar sBTC arb receiver
     zest-liquidation-receiver.clar  # Zest zero-capital liquidator (4 modes)
     alex-arb-receiver.clar          # ALEX STX/ALEX arb receiver

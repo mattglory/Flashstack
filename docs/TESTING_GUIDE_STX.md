@@ -1,8 +1,8 @@
 # FlashStack STX Testing Guide
 
-**Last Updated:** April 2026  
+**Last Updated:** May 2026  
 **For:** External testers and developers  
-**Status:** STX is the active path — sBTC is legacy
+**Status:** Both STX and canonical sBTC flash loans are live on mainnet
 
 ---
 
@@ -28,7 +28,7 @@ All active contracts are under deployer wallet `SP20XD46NGAX05ZQZDKFYCCX49A3852B
 | `flashstack-stx-core` | Flash loan engine — holds reserve, executes loans | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-core?chain=mainnet) |
 | `flashstack-stx-pool` | LP pool — anyone deposits STX, earns fees | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-pool?chain=mainnet) |
 | `stx-test-receiver` | Basic receiver — borrows and repays, no strategy | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.stx-test-receiver?chain=mainnet) |
-| `bitflow-arb-receiver` | DEX receiver — STX→stSTX→STX arb on Bitflow | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.bitflow-arb-receiver?chain=mainnet) |
+| `bitflow-arb-receiver-v4` | DEX receiver — STX→stSTX→STX arb on Bitflow | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.bitflow-arb-receiver-v4?chain=mainnet) |
 
 ---
 
@@ -37,7 +37,7 @@ All active contracts are under deployer wallet `SP20XD46NGAX05ZQZDKFYCCX49A3852B
 - **There is no testnet deployment.** All STX contract testing hits Stacks mainnet.
 - The frontend at [flashstack.vercel.app](https://flashstack.vercel.app) is connected to mainnet. Flash loans are atomic — if the receiver fails to repay, the entire tx reverts and you lose only the Stacks tx fee (~0.001 STX, ~$0.001). No other funds are at risk.
 - Do **not** run arbitrage scenarios via the UI without checking with Matt first — if the Bitflow spread is zero, the tx will revert cleanly but wastes gas.
-- The `bitflow-arb-receiver` is whitelisted in `flashstack-stx-core`. Any new receiver contract you deploy must be approved via `add-approved-receiver` (admin-only) before it can borrow.
+- The `bitflow-arb-receiver-v4` is whitelisted in `flashstack-stx-core`. Any new receiver contract you deploy must be approved via `add-approved-receiver` (admin-only) before it can borrow.
 
 ---
 
@@ -102,7 +102,7 @@ Call `get-reserve-balance` on `flashstack-stx-core`. The result must be ≥ your
 | `get-max-single-loan` | `(ok u5000000000)` — 5000 STX limit |
 | `get-admin` | `(ok SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5)` |
 | `is-approved-receiver` with `SP20XD46...stx-test-receiver` | `(ok true)` |
-| `is-approved-receiver` with `SP20XD46...bitflow-arb-receiver` | `(ok true)` |
+| `is-approved-receiver` with `SP20XD46...bitflow-arb-receiver-v4` | `(ok true)` |
 | `calculate-fee u10000000` | `(ok u5000)` — fee on 10 STX |
 
 ---
@@ -132,10 +132,10 @@ amount: u1000000   (1 STX)
 **What it tests:** Flash loan → Bitflow STX/stSTX swap → repayment in one tx.  
 **Contract:** `flashstack-stx-core`  
 **Function:** `flash-loan`  
-**Receiver:** `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.bitflow-arb-receiver`
+**Receiver:** `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.bitflow-arb-receiver-v4`
 
 **How the flow works:**
-1. `flashstack-stx-core` sends STX to `bitflow-arb-receiver`
+1. `flashstack-stx-core` sends STX to `bitflow-arb-receiver-v4`
 2. Receiver swaps STX → stSTX on Bitflow (`stableswap-stx-ststx-v-1-2`)
 3. Receiver swaps stSTX → STX on Bitflow
 4. Receiver repays `flashstack-stx-core` principal + 0.05% fee
@@ -144,11 +144,11 @@ amount: u1000000   (1 STX)
 **Parameters:**
 ```
 amount:   u10000000   (10 STX)
-receiver: SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.bitflow-arb-receiver
+receiver: SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.bitflow-arb-receiver-v4
 ```
 
 **Before running — check profitability:**
-Call `estimate-profit u10000000` on `bitflow-arb-receiver`. If it returns a positive number, the arb is live. If it returns 0 or errors, the spread is zero and the tx will revert — wait for a better moment.
+Call `estimate-profit u10000000` on `bitflow-arb-receiver-v4`. If it returns a positive number, the arb is live. If it returns 0 or errors, the spread is zero and the tx will revert — wait for a better moment.
 
 **What success looks like:**
 - Transaction confirmed
@@ -179,7 +179,7 @@ These should all fail cleanly with no fund loss:
 | Receiver | In scope | Notes |
 |----------|----------|-------|
 | `stx-test-receiver` | Yes — start here | Safe, always repays |
-| `bitflow-arb-receiver` | Yes — main DEX test | Check `estimate-profit` first |
+| `bitflow-arb-receiver-v4` | Yes — main DEX test | Check `estimate-profit` first |
 | `arkadiko-liquidation-receiver` | Optional | Requires an undercollateralised Arkadiko vault |
 | All sBTC receivers (`SP3TGRVG7...`) | No | Legacy — do not test |
 
@@ -187,7 +187,7 @@ These should all fail cleanly with no fund loss:
 
 ## Clarinet / Local Tests
 
-The 86 Clarinet tests in `tests/` cover the **sBTC path** on simnet. They are not relevant to STX testing.
+The 82 Clarinet tests in `tests/` cover the core protocol on simnet.
 
 There is no Clarinet setup for the STX contracts because the core dependency (`SP3TGRVG7...stx-flash-receiver-trait`) is a mainnet-deployed contract that Clarinet cannot resolve locally. STX contract testing is mainnet-only until a testnet deployment is set up.
 
