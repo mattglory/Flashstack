@@ -214,7 +214,7 @@ EXECUTE=true LOAN_STX=100 \
 
 Deploy to mainnet, then open a [GitHub issue](https://github.com/mattglory/Flashstack/issues) with your contract address to get whitelisted.
 
-Full receiver templates: [docs/TESTING_GUIDE_SBTC.md](docs/TESTING_GUIDE_SBTC.md) | [docs/TESTING_GUIDE_STX.md](docs/TESTING_GUIDE_STX.md)
+Full receiver templates: [docs/BUILD_A_RECEIVER.md](docs/BUILD_A_RECEIVER.md) | [docs/TESTING_GUIDE_STX.md](docs/TESTING_GUIDE_STX.md) | [docs/TESTING_GUIDE_SBTC.md](docs/TESTING_GUIDE_SBTC.md)
 
 ---
 
