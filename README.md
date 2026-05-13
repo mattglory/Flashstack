@@ -143,14 +143,23 @@ npm run dev       # http://localhost:3000
 ### Arb Bot
 
 ```bash
-# Dry-run — scan for arb every 30s, no execution
+# Bitflow STX/stSTX — dry-run, scan every 30s
 DEPLOYER_MNEMONIC="your 24 word mnemonic" \
   node scripts/monitor-opportunities.mjs
 
-# Live — auto-execute when profitable
+# Bitflow — live execution when profitable
 EXECUTE=true LOAN_STX=10 \
   DEPLOYER_MNEMONIC="your 24 word mnemonic" \
   node scripts/monitor-opportunities.mjs
+
+# ALEX STX/ALEX — dry-run, scan every 30s
+DEPLOYER_MNEMONIC="your 24 word mnemonic" \
+  node scripts/monitor-alex-arb.mjs
+
+# ALEX — live execution when profitable
+EXECUTE=true LOAN_STX=100 \
+  DEPLOYER_MNEMONIC="your 24 word mnemonic" \
+  node scripts/monitor-alex-arb.mjs
 ```
 
 > Never hardcode your mnemonic in source files or commit it to git.
