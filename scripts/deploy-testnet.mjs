@@ -29,6 +29,7 @@
 import {
   makeContractDeploy,
   makeContractCall,
+  makeSTXTokenTransfer,
   PostConditionMode,
   ClarityVersion,
   Cl,
@@ -49,6 +50,11 @@ const network   = STACKS_TESTNET;
 
 // How much STX to deposit as flash loan reserve (50 STX = 50_000_000 microSTX)
 const RESERVE_AMOUNT = 50_000_000;
+
+// stx-test-receiver repays principal + the 0.05% fee from its OWN balance, so a
+// freshly deployed receiver (0 STX) cannot cover the fee and the flash loan
+// reverts with (err u500). Seed it with a small amount first. (1 STX = 1_000_000)
+const RECEIVER_SEED_AMOUNT = 1_000_000;
 
 // ── Mainnet addresses that must be replaced for testnet ────────────────────────
 // These are hardcoded in contracts as use-trait / impl-trait / constant references.
@@ -185,6 +191,23 @@ async function callContract(privateKey, nonce, contractAddress, contractName, fn
   return txid;
 }
 
+async function transferStx(privateKey, nonce, recipient, amount, fee = 3_000) {
+  const tx = await makeSTXTokenTransfer({
+    recipient,
+    amount,
+    senderKey:  privateKey,
+    network,
+    anchorMode: 1,
+    fee,
+    nonce,
+    memo:       "seed receiver fee",
+  });
+  const txid = await broadcast(tx);
+  console.log(`  Broadcast: ${txid}`);
+  console.log(`  Explorer:  ${EXPLORER}/${txid}?chain=testnet`);
+  return txid;
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -303,10 +326,23 @@ async function main() {
   await waitForConfirm(results.fund, "deposit-reserve");
   console.log();
 
-  // ── Step 8: Execute test flash loan ──────────────────────────────────────
+  // ── Step 8: Seed the receiver so it can pay the flash loan fee ────────────
+  const seedSTX = RECEIVER_SEED_AMOUNT / 1_000_000;
+  console.log(`Step 8 — Seed stx-test-receiver with ${seedSTX} testnet STX`);
+  console.log("  (Receiver repays principal + 0.05% fee from its own balance; without");
+  console.log("   this, a fresh receiver has 0 STX and the flash loan fails with err u500)");
+  results.seed = await transferStx(
+    privateKey, nonce++,
+    `${DEPLOYER}.stx-test-receiver`,
+    RECEIVER_SEED_AMOUNT,
+  );
+  await waitForConfirm(results.seed, "seed stx-test-receiver");
+  console.log();
+
+  // ── Step 9: Execute test flash loan ──────────────────────────────────────
   // Borrow 10 STX (10_000_000 microSTX) via stx-test-receiver
   const LOAN_AMOUNT = 10_000_000; // 10 STX
-  console.log(`Step 8 — Execute flash loan: borrow ${LOAN_AMOUNT / 1_000_000} STX via stx-test-receiver`);
+  console.log(`Step 9 — Execute flash loan: borrow ${LOAN_AMOUNT / 1_000_000} STX via stx-test-receiver`);
   console.log("  (This is the testnet evidence txid — atomic borrow + repay in one tx)");
   results.flashLoan = await callContract(
     privateKey, nonce++,
@@ -336,6 +372,7 @@ async function main() {
   console.log("║  Actions:                                            ║");
   console.log(`  Whitelist receiver:       ${EXPLORER}/${results.whitelist}?chain=testnet`);
   console.log(`  Fund reserve (${reserveSTX} STX):  ${EXPLORER}/${results.fund}?chain=testnet`);
+  console.log(`  Seed receiver (${seedSTX} STX):    ${EXPLORER}/${results.seed}?chain=testnet`);
   console.log("╠══════════════════════════════════════════════════════╣");
   console.log("║  TESTNET FLASH LOAN EVIDENCE:                        ║");
   console.log(`  Flash loan (10 STX):      ${EXPLORER}/${results.flashLoan}?chain=testnet`);
