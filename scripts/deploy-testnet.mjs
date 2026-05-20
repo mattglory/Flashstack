@@ -191,7 +191,7 @@ async function callContract(privateKey, nonce, contractAddress, contractName, fn
   return txid;
 }
 
-async function transferStx(privateKey, nonce, recipient, amount, fee = 3_000) {
+async function transferStx(privateKey, nonce, recipient, amount, fee = 10_000) {
   const tx = await makeSTXTokenTransfer({
     recipient,
     amount,
