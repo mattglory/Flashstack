@@ -224,3 +224,8 @@ web/tsconfig.tsbuildinfo
 contracts/snp-flashstack-receiver.clar
 contracts/snp-flashstack-receiver-v3.clar
 contracts/bitflow-arb-compounder.clar
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
