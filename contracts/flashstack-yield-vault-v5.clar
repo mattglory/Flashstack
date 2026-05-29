@@ -2,12 +2,12 @@
 ;;
 ;; Auto-compounding STX vault powered by FlashStack flash loans.
 ;; v5 changes vs v4 (audit-driven):
-;;   [C-1/C-2] rescue-stx removed — was an unconstrained depositor drain vector
+;;   [C-1/C-2] rescue-stx removed - was an unconstrained depositor drain vector
 ;;   [H-1]     Deposit cooldown (LOCK-BLOCKS) blocks sandwich-deposit attacks
-;;   [H-2]     Repayment hardcoded to FLASH-CORE constant — ignores caller-supplied core
+;;   [H-2]     Repayment hardcoded to FLASH-CORE constant - ignores caller-supplied core
 ;;   [H-3]     Configurable slippage guard (max-slippage-bp) replaces u1 min-dy
 ;;   [M-1]     vault-owner migrated to data-var with two-step ownership transfer
-;;   [M-2]     Withdrawals allowed while paused — only deposits are blocked
+;;   [M-2]     Withdrawals allowed while paused - only deposits are blocked
 ;;   [M-4]     ERR-FEE-FETCH added for fee-read failures (was misusing ERR-REPAY-FAILED)
 ;;   [L-1]     Print events on deposit, withdraw, and compound
 ;;   [L-2]     BASIS-POINTS constant replaces magic u10000
@@ -55,7 +55,7 @@
 (define-constant MIN-DEPOSIT      u1000000) ;; 1 STX minimum deposit
 (define-constant LOCK-BLOCKS      u10)      ;; blocks between deposit and first withdrawal eligibility
 
-;; Hardcoded flash loan core — repayment never goes to a caller-supplied address
+;; Hardcoded flash loan core - repayment never goes to a caller-supplied address
 (define-constant FLASH-CORE 'SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-core)
 
 ;; Bitflow STX/stSTX stableswap pool
@@ -177,7 +177,7 @@
 )
 
 ;; Burn shares and receive proportional STX.
-;; Withdrawals are allowed even when paused — users can always exit.
+;; Withdrawals are allowed even when paused - users can always exit.
 ;; Cooldown: LOCK-BLOCKS must have elapsed since the user's last deposit.
 (define-public (withdraw (shares uint))
   (let (
@@ -244,7 +244,7 @@
         (let ((stx-now (stx-get-balance (as-contract tx-sender))))
           (asserts! (>= stx-now (+ pre-bal total-owed)) ERR-NO-PROFIT)
 
-          ;; Repay to hardcoded FLASH-CORE — never to caller-supplied core address
+          ;; Repay to hardcoded FLASH-CORE - never to caller-supplied core address
           (unwrap! (as-contract (stx-transfer? total-owed tx-sender FLASH-CORE)) ERR-REPAY-FAILED)
 
           (let ((net-yield (- (stx-get-balance (as-contract tx-sender)) pre-bal)))
@@ -273,7 +273,7 @@
   )
 )
 
-;; Slippage tolerance for Bitflow swaps (1–500 bps, i.e. 0.01%–5%).
+;; Slippage tolerance for Bitflow swaps (1-500 bps, i.e. 0.01%-5%).
 ;; Lower = stricter. Default 100 = 1%.
 (define-public (set-max-slippage-bp (bp uint))
   (begin
