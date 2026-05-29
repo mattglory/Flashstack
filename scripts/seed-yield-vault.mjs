@@ -1,5 +1,5 @@
 /**
- * Seed flashstack-yield-vault-v4 with an initial STX deposit.
+ * Seed flashstack-yield-vault-v5 with an initial STX deposit.
  *
  * Usage:
  *   DEPLOYER_MNEMONIC="..." node scripts/seed-yield-vault.mjs
@@ -17,7 +17,7 @@ const DEPOSIT_STX  = parseInt(process.env.DEPOSIT_STX ?? "5");
 const DEPOSIT_MICRO = DEPOSIT_STX * 1_000_000;
 
 const DEPLOYER = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
-const VAULT    = "flashstack-yield-vault-v4";
+const VAULT    = "flashstack-yield-vault-v5";
 const API      = "https://api.hiro.so";
 const EXPLORER = "https://explorer.hiro.so/txid";
 

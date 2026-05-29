@@ -64,7 +64,7 @@ async function getVaultStats() {
   try {
     const r = await fetchCallReadOnlyFunction({
       contractAddress: DEPLOYER,
-      contractName:    "flashstack-yield-vault-v4",
+      contractName:    "flashstack-yield-vault-v5",
       functionName:    "get-stats",
       functionArgs:    [],
       network,
@@ -166,7 +166,7 @@ async function executeCompound(loanMicro) {
     functionName:      "flash-loan",
     functionArgs:      [
       Cl.uint(loanMicro),
-      Cl.principal(`${DEPLOYER}.flashstack-yield-vault-v4`),
+      Cl.principal(`${DEPLOYER}.flashstack-yield-vault-v5`),
     ],
     senderKey:         pk,
     network,
@@ -255,7 +255,7 @@ async function main() {
   console.log("  FlashStack Yield Vault -- Compound Monitor");
   console.log("================================================");
   console.log(`  Mode:        ${EXECUTE ? "LIVE EXECUTION" : "dry-run (monitoring only)"}`);
-  console.log(`  Vault:       ${DEPLOYER}.flashstack-yield-vault-v4`);
+  console.log(`  Vault:       ${DEPLOYER}.flashstack-yield-vault-v5`);
   console.log(`  Loan size:   ${LOAN_MICRO / 1e6} STX per compound cycle`);
   console.log(`  Min profit:  ${MIN_PROFIT} microSTX (${MIN_PROFIT / 1e6} STX)`);
   console.log(`  Interval:    ${INTERVAL / 1000}s`);
