@@ -61,7 +61,7 @@ async function broadcast(tx) {
 
 async function main() {
   console.log("=======================================================");
-  console.log("  FlashStack -- Deploy ALEX STX/ALEX Arb Receiver v3  ");
+  console.log("  FlashStack -- Deploy ALEX STX/ALEX Arb Receiver v4  ");
   console.log("=======================================================");
   console.log(`  Deployer: ${DEPLOYER}\n`);
 
@@ -69,12 +69,12 @@ async function main() {
   let nonce   = await getNonce();
   console.log(`  Starting nonce: ${nonce}\n`);
 
-  const NAME     = "alex-arb-receiver-v3";
-  const PATH     = "contracts/alex-arb-receiver-v3.clar";
+  const NAME     = "alex-arb-receiver-v4";
+  const PATH     = "contracts/alex-arb-receiver-v4.clar";  // v3 is also deployed; v4 adds Nova audit fixes
   const receiver = `${DEPLOYER}.${NAME}`;
 
   // Step 1: Deploy
-  console.log("Step 1 -- Deploy alex-arb-receiver-v3");
+  console.log("Step 1 -- Deploy alex-arb-receiver-v4");
   const deployTx = await makeContractDeploy({
     contractName: NAME, codeBody: readFileSync(PATH, "utf8"),
     senderKey: pk, network, clarityVersion: ClarityVersion.Clarity3,
@@ -83,7 +83,7 @@ async function main() {
   const deployTxid = await broadcast(deployTx);
   console.log(`  Broadcast: ${deployTxid}`);
   console.log(`  Explorer:  ${EXPLORER}/${deployTxid}?chain=mainnet`);
-  await waitForConfirm(deployTxid, "deploy alex-arb-receiver-v3");
+  await waitForConfirm(deployTxid, "deploy alex-arb-receiver-v4");
   console.log();
 
   // Step 2: Whitelist in flashstack-stx-core
