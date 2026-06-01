@@ -2,13 +2,13 @@
  * FlashStack - ALEX STX/ALEX Arb Monitor
  *
  * Watches the ALEX AMM wSTX-v2/ALEX pool for profitable round-trip arb.
- * When profitable: flash-borrows STX from FlashStack, executes via alex-arb-receiver-v4.
+ * When profitable: flash-borrows STX from FlashStack, executes via alex-arb-receiver-v5.
  *
  * Pool:     SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.amm-pool-v2-01
  * Token X:  token-wstx-v2  (STX wrapper, 8 decimals; 1 microSTX = 100 units)
  * Token Y:  token-alex     (ALEX governance token, 8 decimals)
  * Factor:   u100000000
- * Receiver: SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.alex-arb-receiver-v4
+ * Receiver: SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.alex-arb-receiver-v5
  *
  * Arb opportunity:
  *   ALEX accrues protocol revenue. Before emissions or governance events it
@@ -64,7 +64,7 @@ const ALEX_FACTOR = 100_000_000n;
 const WSTX_SCALE = 100n;
 
 // FlashStack receiver
-const RECEIVER = `${DEPLOYER}.alex-arb-receiver-v4`;
+const RECEIVER = `${DEPLOYER}.alex-arb-receiver-v5`;
 
 if (EXECUTE && !MNEMONIC) {
   console.error("ERROR: Set DEPLOYER_MNEMONIC to execute transactions");

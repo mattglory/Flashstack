@@ -1,11 +1,11 @@
 /**
  * preflight-alex-arb.mjs
- * Pre-flight check + param setter for alex-arb-receiver-v4.
+ * Pre-flight check + param setter for alex-arb-receiver-v5.
  *
  * What it does:
  *   1. Queries ALEX AMM to get the live Leg 1 + Leg 2 quote for your loan size
  *   2. Computes min-alex-out = 99% of expected Leg 1 output (1% slippage tolerance)
- *   3. Calls set-min-alex-out and set-min-profit on alex-arb-receiver-v4
+ *   3. Calls set-min-alex-out and set-min-profit on alex-arb-receiver-v5
  *
  * After this script confirms, the receiver is armed. Run the monitor with EXECUTE=true.
  *
@@ -35,7 +35,7 @@ const LOAN_MICRO      = LOAN_STX * 1_000_000;
 const MIN_PROFIT_MICRO = Math.ceil(MIN_PROFIT_STX * 1_000_000);
 
 const DEPLOYER  = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
-const RECEIVER  = "alex-arb-receiver-v4";
+const RECEIVER  = "alex-arb-receiver-v5";
 const API       = "https://api.hiro.so";
 const EXPLORER  = "https://explorer.hiro.so/txid";
 const network   = STACKS_MAINNET;
@@ -116,7 +116,7 @@ async function getQuote(loanMicro) {
 
 async function main() {
   console.log("=======================================================");
-  console.log("  FlashStack -- ALEX Arb v4 Pre-flight");
+  console.log("  FlashStack -- ALEX Arb v5 Pre-flight");
   console.log("=======================================================");
   console.log(`  Loan size:    ${LOAN_STX} STX (${LOAN_MICRO} microSTX)`);
   console.log(`  Min profit:   ${MIN_PROFIT_STX} STX (${MIN_PROFIT_MICRO} microSTX)`);
@@ -179,7 +179,7 @@ async function main() {
   }
 
   // Step 4: set-min-alex-out
-  console.log("Step 2 -- Calling set-min-alex-out on alex-arb-receiver-v4...");
+  console.log("Step 2 -- Calling set-min-alex-out on alex-arb-receiver-v5...");
   const tx1 = await makeContractCall({
     contractAddress:   DEPLOYER,
     contractName:      RECEIVER,
@@ -198,7 +198,7 @@ async function main() {
   await waitForConfirm(txid1, "set-min-alex-out");
 
   // Step 5: set-min-profit
-  console.log("\nStep 3 -- Calling set-min-profit on alex-arb-receiver-v4...");
+  console.log("\nStep 3 -- Calling set-min-profit on alex-arb-receiver-v5...");
   const tx2 = await makeContractCall({
     contractAddress:   DEPLOYER,
     contractName:      RECEIVER,
