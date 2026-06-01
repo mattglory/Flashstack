@@ -42,6 +42,8 @@
 (define-constant ERR-BAD-MODE     (err u905))
 (define-constant ERR-SWAP-FAILED  (err u906))
 (define-constant ERR-NOT-CORE     (err u907))
+(define-constant ERR-SWEEP-FAILED (err u908))
+(define-constant ERR-NOT-PENDING  (err u909))
 
 ;; FlashStack STX core (hardcoded -- repayment never goes elsewhere)
 (define-constant FLASH-CORE 'SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-core)
@@ -74,6 +76,7 @@
 ;; =============================================
 
 (define-data-var owner           principal tx-sender)
+(define-data-var pending-owner   (optional principal) none)
 (define-data-var target-borrower principal tx-sender)
 (define-data-var target-debt     uint      u0)
 ;; Modes:
@@ -112,14 +115,16 @@
     (if (is-eq mode u1)
 
       ;; Mode 1: USDCx debt + sBTC collateral
-      ;; STX received -> swap STX->USDCx -> liquidate -> receive sBTC -> swap sBTC->STX -> repay
+      ;; NOTE: Velar has NO STX/USDCx pool (confirmed: pools 1-14 scanned, none match).
+      ;; This mode needs a different swap route before it can be used.
+      ;; Options to research: ALEX AMM STX/USDCx pair, or Bitflow if available.
+      ;; Until a valid swap route is identified, mode 1 will always revert here.
+      ;; The primary liquidation target ($250K USDH position) uses mode 2 -- not affected.
       (let (
-        ;; Step 1: Swap STX -> USDCx via Velar
-        ;; CONFIRM: Velar pool ID for STX/USDCx before deploying
         (min-usdcx (/ (* debt-amt (- BASIS-POINTS slip)) BASIS-POINTS))
       )
         (unwrap! (as-contract (contract-call? VELAR-ROUTER swap-exact-tokens-for-tokens
-          u5 VELAR-WSTX USDCX VELAR-WSTX USDCX VELAR-FEE-TO amount min-usdcx))
+          u2 VELAR-WSTX USDCX VELAR-WSTX USDCX VELAR-FEE-TO amount min-usdcx))
           ERR-SWAP-FAILED)
 
         (let ((usdcx-bal (unwrap! (as-contract (contract-call? USDCX get-balance tx-sender)) ERR-SWAP-FAILED)))
@@ -249,10 +254,20 @@
   )
 )
 
-(define-public (set-owner (new-owner principal))
+;; Two-step ownership transfer -- prevents locking out via typo
+(define-public (propose-owner (new-owner principal))
   (begin
     (asserts! (is-eq tx-sender (var-get owner)) ERR-NOT-OWNER)
-    (ok (var-set owner new-owner))
+    (ok (var-set pending-owner (some new-owner)))
+  )
+)
+
+(define-public (accept-ownership)
+  (let ((pending (unwrap! (var-get pending-owner) ERR-NOT-PENDING)))
+    (asserts! (is-eq tx-sender pending) ERR-NOT-PENDING)
+    (var-set owner pending)
+    (var-set pending-owner none)
+    (ok true)
   )
 )
 
@@ -260,7 +275,7 @@
 (define-public (sweep-stx (amount uint))
   (begin
     (asserts! (is-eq tx-sender (var-get owner)) ERR-NOT-OWNER)
-    (unwrap! (as-contract (stx-transfer? amount tx-sender (var-get owner))) ERR-REPAY-FAILED)
+    (unwrap! (as-contract (stx-transfer? amount tx-sender (var-get owner))) ERR-SWEEP-FAILED)
     (ok true)
   )
 )
@@ -268,7 +283,7 @@
 (define-public (sweep-sbtc (amount uint))
   (begin
     (asserts! (is-eq tx-sender (var-get owner)) ERR-NOT-OWNER)
-    (unwrap! (as-contract (contract-call? SBTC transfer amount tx-sender (var-get owner) none)) ERR-REPAY-FAILED)
+    (unwrap! (as-contract (contract-call? SBTC transfer amount tx-sender (var-get owner) none)) ERR-SWEEP-FAILED)
     (ok true)
   )
 )
@@ -303,5 +318,5 @@
 )
 
 (define-read-only (get-owner)
-  (ok (var-get owner))
+  (ok { owner: (var-get owner), pending-owner: (var-get pending-owner) })
 )
