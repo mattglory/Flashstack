@@ -67,6 +67,9 @@ settings/Testnet.toml
 secrets.json
 wallet.json
 mnemonics.txt
+# External-deployer mainnet mnemonic files (24-word secrets) — NEVER commit
+mbegu
+mbegu2
 
 # ============================================
 # Build Artifacts
