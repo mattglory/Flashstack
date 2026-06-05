@@ -28,7 +28,7 @@ entrypoint: true
 
 ## 2. Current Project Status
 
-**Overall completion: ~90% of Milestone 1.** Receiver designed, built, validated, deployed to mainnet, and pushed. Remaining 10% = whitelist (external, Matt) → seed → execute → collect proof.
+**Overall completion: 100% of Milestone 1 — COMPLETE (2026-06-06).** Receiver designed, built, validated, deployed, whitelisted, seeded, executed, and proven on mainnet. Full proof: [[Milestone-1-Execution-Evidence]].
 
 | Item | State |
 |---|---|
@@ -40,14 +40,15 @@ entrypoint: true
 | Mainnet preflight | ✅ core healthy, reserve 75 STX |
 | **Deployed to mainnet** | ✅ tx `7e5b3ec5…dea567`, block 8197121 |
 | Branch pushed to origin | ✅ `feature/hk-stx-bitflow-receiver-v1` |
-| **Whitelist by Matt** | ⛔ **BLOCKER — pending** |
-| Seed receiver (≥1 STX) | ⏳ after whitelist |
-| Execute `flash-loan(u1000000)` | ⏳ after seed |
-| Collect on-chain proof | ⏳ |
-| Milestone 1 closed | ⏳ |
+| **Whitelist by Matt** | ✅ tx `7ae15a50…370b`, block 8197338 (`is-approved-receiver → true`) |
+| Seed receiver (1 STX) | ✅ tx `732374df…732b4c`, block 8197525 |
+| Execute `flash-loan(u1000000)` | ✅ **`(ok true)`** tx `865df576…639737`, block 8197535 |
+| Collect on-chain proof | ✅ [[Milestone-1-Execution-Evidence]] |
+| Seed recovered (`rescue-stx`) | ✅ tx `f605a7bf…743d`, block 8197553 |
+| Milestone 1 closed | ✅ |
 
-**Blockers:** whitelist approval from Matt (admin-only `add-approved-receiver`).
-**Dependencies:** Matt's admin wallet `SP20XD46…`; our wallet `SP3NZYZA88…` has ~37.06 STX (ample).
+**Blockers:** none — all resolved.
+**Result:** flash loan executed `(ok true)`; Bitflow round-trip cleared (861,402 µstSTX mid); reserve +500 µSTX (fee); total-loans 8→9; total wallet spend 0.3215 STX; seed fully recovered. Our wallet `SP3NZYZA88…` now ~36.74 STX.
 
 ---
 
@@ -207,11 +208,7 @@ Full detail in [[Phase6-Validation]].
 
 ## 12. Current Blockers
 
-**Primary blocker: whitelist approval from Matt.**
-
-- **Why required:** the core's `flash-loan` asserts `(default-to false (map-get? approved-receivers receiver))` → `ERR-NOT-APPROVED (u306)` otherwise. A receiver cannot borrow until whitelisted.
-- **Contract action required:** Matt, from the admin wallet `SP20XD46…`, calls `flashstack-stx-core.add-approved-receiver('SP3NZYZA88ENNF0FCR57KBGPFY5RAXWHXXVSB6FBW.hk-stx-bitflow-receiver-v1)`.
-- **How verification is performed:** read-only `is-approved-receiver(receiver)` on the core must return `true` (or `get-stats` + a confirmed admin tx).
+**None — Milestone 1 is complete.** The former primary blocker (whitelist approval from Matt) was resolved: Matt called `add-approved-receiver` from the admin wallet `SP20XD46…` (tx `7ae15a50…370b`, block 8197338), confirmed by read-only `is-approved-receiver(receiver) → true`, after which the receiver was seeded and the flash loan executed `(ok true)`. See [[Milestone-1-Execution-Evidence]] and §21.
 
 ---
 
@@ -318,13 +315,42 @@ Relationships: handoff ↔ architecture ↔ design ↔ bitflow-analysis ↔ depl
 
 ---
 
+## 22. POST-M1 CONTINUATION — Matt requests #3 + #2 research/design (2026-06-06)
+
+After M1 closed, executed Matt's remaining requests in the recommended order (one milestone at a time). Beads epic `Flashstack-0w4` (children `.1`/`.2`/`.3` all closed, 3/3).
+
+- **Phase A — Documentation review (#3): DONE.** [[docs-feedback-report]] (repo `docs-feedback-report.md` + vault `Reviews/`). External-dev review, every claim source-verified. 9 confirmed factual errors (E1–E9), incl. max-single-loan documented as 5,000 STX but live = **500,000 STX** (100× off); `README.md:174` STX `impl-trait` points at the wrong contract (won't deploy); ONBOARDING error codes `u3/u4/u6` should be `u306/u304/u303`; `TESTING_GUIDE_STX` calls the **live** sBTC core "legacy/do-not-test". Plus missing-info (seed-before-loan absent from primary docs, external-principal rule, sBTC reserve size) and the STX-vs-sBTC "same interface" myth.
+- **Phase B — sBTC architecture research (#2 precursor): DONE.** [[sBTC-Architecture-Review]] (repo `sbtc-architecture-review.md` + `docs/` + vault `Architecture/`). `flashstack-sbtc-core` is **live** (reserve ~15,010 sats, 2 loans, fee 5 bps, max 0.1 BTC). Structurally == STX but SIP-010 sBTC token; differs in get-stats shape, `is-approved` return, withdraw-reserve args, admin model, error base. Found a latent core bug (`set-fee-basis-points` wrong error + no lower bound; the pool gets it right).
+- **Phase C — `hk-sbtc-real-receiver-v1` DESIGN (no implementation): DONE.** [[hk-sbtc-real-receiver-v1-Design]] (vault `Design/` + repo project-docs). Design = M1 skeleton ⊕ Velar sBTC→wSTX→sBTC legs ⊕ a **new caller gate** (the `velar-sbtc-arb-receiver` reference lacks one). ADR-S1…S7 (in [[ADR]]). **Key dependency:** needs a **real sBTC seed** + possibly a reserve top-up from Matt; loan capped at ~15k sats by current reserve.
+
+**Hard gate honored:** P3 implementation NOT started. Before implementing: approve the design, confirm target loan size / reserve top-up with Matt, acquire the sBTC seed.
+
+---
+
+## 21. MILESTONE 1 — COMPLETE (2026-06-06)
+
+**Milestone 1 is formally complete.** All success criteria met and proven on mainnet. Authoritative evidence: [[Milestone-1-Execution-Evidence]].
+
+- Whitelist: `7ae15a501a011710eeff0a4a330bab57e77d931296a4cf7a3659811ce108370b` (block 8197338) — `is-approved-receiver → true`.
+- Seed (1 STX): `732374dfb1f6123d41d8d872bcbc27e09a47ceb26da0dd95b3a43b1cdf732b4c` (block 8197525).
+- **Flash loan: `865df57633fd111c76df3db5caa73577093e91e967af901a89db8de9cf639737` — `(ok true)`, block 8197535.** Bitflow STX→stSTX→STX round-trip cleared; `bitflow-roundtrip` event emitted; core reserve +500 µSTX; total-loans 8→9.
+- Seed recovered (`rescue-stx`): `f605a7bf6c51b760e65cf87ea383c29a39f2726bd9f29f71e0be25b9d2de743d` (block 8197553).
+- Wallet spend: 0.3215 STX total; seed fully recovered; wallet now ~36.74 STX.
+
+**Next session — start the deferred Matt requests (M1 is closed, so these may now begin):**
+1. **P1 — Documentation feedback report (Matt request #3).** Lowest effort; material already accumulated (see §14, §18). No on-chain risk.
+2. **P2 → P3 — sBTC track (Matt request #2).** Research `flashstack-sbtc-core` path, then build `hk-sbtc-real-receiver-v1`. Treat as its own milestone.
+- Housekeeping carried forward: relocate `./mbegu` out of the repo root (or env-only); consider opening a PR for `feature/hk-stx-bitflow-receiver-v1`.
+
+---
+
 ## 19. START HERE NEXT SESSION
 
-**Current state.** `hk-stx-bitflow-receiver-v1` is **deployed and confirmed on mainnet** (`SP3NZYZA88ENNF0FCR57KBGPFY5RAXWHXXVSB6FBW.hk-stx-bitflow-receiver-v1`, deploy tx `7e5b3ec5…dea567`, block 8197121). Branch pushed. Milestone 1 is ~90% done.
+**Current state.** Milestone 1 is **COMPLETE** (see §21). `hk-stx-bitflow-receiver-v1` deployed, whitelisted, seeded, and the flash loan executed `(ok true)` on mainnet (`865df576…639737`, block 8197535). Branch pushed.
 
-**Highest-priority task.** Execute the flash loan and collect on-chain proof to close Milestone 1.
+**Highest-priority task.** Begin the deferred Matt requests — start with the documentation-feedback report (#3, cheapest), then the sBTC track (#2) as a new milestone. Do NOT re-run M1.
 
-**Current blocker.** Matt must whitelist the receiver (`add-approved-receiver` on `flashstack-stx-core`, admin-only). Nothing on our side proceeds until this lands.
+**Current blocker.** None.
 
 **Required verification steps (do first).**
 1. `is-approved-receiver(receiver)` → must be `(ok true)`.
