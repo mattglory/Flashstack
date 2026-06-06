@@ -67,7 +67,7 @@ No local environment setup is needed for mainnet testing.
 
 **Parameters:**
 ```
-amount:   u10000000   (10 STX — well within the 5000 STX limit)
+amount:   u10000000   (10 STX — well within the 500,000 STX limit)
 receiver: SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.stx-test-receiver
 ```
 
@@ -99,7 +99,7 @@ Call `get-reserve-balance` on `flashstack-stx-core`. The result must be ≥ your
 |----------|----------------|
 | `get-reserve-balance` | > 0 (currently ~80 STX) |
 | `get-fee-basis-points` | `(ok u5)` — 0.05% fee |
-| `get-max-single-loan` | `(ok u5000000000)` — 5000 STX limit |
+| `get-max-single-loan` | `(ok u500000000000)` — 500,000 STX limit |
 | `get-admin` | `(ok SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5)` |
 | `is-approved-receiver` with `SP20XD46...stx-test-receiver` | `(ok true)` |
 | `is-approved-receiver` with `SP20XD46...bitflow-arb-receiver-v4` | `(ok true)` |

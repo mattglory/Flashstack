@@ -134,7 +134,7 @@ Sets the maximum STX that can be borrowed in a single transaction.
 (response bool uint))
 ```
 
-Current value: `500,000,000,000` microSTX = 5,000 STX.
+Current value: `500,000,000,000` microSTX = 500,000 STX.
 
 ---
 

@@ -68,7 +68,7 @@ Caller → flashstack-stx-core.flash-loan(amount, your-receiver)
 
 **Fee:** 5 basis points (0.05%). On a 10 STX loan, the fee is 0.005 STX.  
 **Minimum fee:** 1 microSTX (for very small loans where 0.05% rounds to zero).  
-**Maximum loan:** 5,000 STX per transaction (current setting; readable via `get-max-single-loan`).  
+**Maximum loan:** 500,000 STX per transaction (current setting; readable via `get-max-single-loan`).  
 **Atomicity:** Clarity guarantees the entire transaction is one atomic unit. There is no way to receive the loan without repaying it in the same block.
 
 ---
@@ -380,7 +380,7 @@ curl -s -X POST "https://api.hiro.so/v2/contracts/call-read/SP20XD46NGAX05ZQZDKF
 | `(err u301)` | `ERR-ZERO-AMOUNT` | Loan amount is 0 | Pass a positive microSTX amount |
 | `(err u302)` | `ERR-REPAY-FAILED` | Reserve did not grow by the fee after your callback | Your strategy did not return enough STX/sBTC |
 | `(err u303)` | `ERR-INSUFFICIENT-RESERVE` | Loan amount exceeds available reserve | Borrow less or check `get-reserve-balance` first |
-| `(err u304)` | `ERR-EXCEEDS-LIMIT` | Loan amount exceeds `max-single-loan` | Check `get-max-single-loan`; currently 5,000 STX |
+| `(err u304)` | `ERR-EXCEEDS-LIMIT` | Loan amount exceeds `max-single-loan` | Check `get-max-single-loan`; currently 500,000 STX |
 | `(err u305)` | `ERR-PAUSED` | Protocol is paused | Check `get-stats` for paused status |
 | `(err u306)` | `ERR-NOT-APPROVED` | Receiver not on the allowlist | Request whitelisting via GitHub issue |
 | `(err u307)` | `ERR-INVALID-FEE` | Fee set outside 1–1000 basis points | Admin only; valid range is 0.01%–10% |
