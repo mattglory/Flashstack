@@ -325,4 +325,4 @@ flashstack/
 
 ---
 
-**Built by Glory Matthew** — [@flashstackbtc](https://x.com/flashstackbtc) | [GitHub](https://github.com/mattglory)
+**Built by Glory Matthew** — [@flashstackbtc](https://x.com/flashstackbtc) | [GitHub](https://github.com/mattglory) | [mattglory14@gmail.com](mailto:mattglory14@gmail.com)
