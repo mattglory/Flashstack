@@ -142,7 +142,10 @@ Only approved receivers can borrow from FlashStack. Open a GitHub issue at https
 curl -s -X POST \
   "https://api.hiro.so/v2/contracts/call-read/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5/flashstack-stx-core/is-approved-receiver" \
   -H "Content-Type: application/json" \
-  -d "{\"sender\":\"YOUR-ADDRESS\",\"arguments\":[\"0x$(printf 'YOUR-ADDRESS.my-receiver' | xxd -p)\"]}"
+  -d "{\"sender\":\"YOUR-ADDRESS\",\"arguments\":[\"<serialized-contract-principal>\"]}"
+# NOTE: the argument must be a Clarity-serialized contract-principal (hex starting 0x06...),
+# NOT the ascii-hex of the string. Generate it in JS:
+#   Cl.serialize(Cl.contractPrincipal("YOUR-ADDRESS", "my-receiver"))
 ```
 
 Or check on Hiro Explorer: navigate to your contract address and call `is-approved-receiver` with your receiver principal as argument.
@@ -266,7 +269,8 @@ Borrow the debt amount, call the lending protocol's liquidation function, receiv
   (let (
     (fee-bp    (unwrap! (contract-call? 'SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-core
                   get-fee-basis-points) ERR-REPAY))
-    (fee       (max (/ (* amount fee-bp) u10000) u1))
+    (raw-fee   (/ (* amount fee-bp) u10000))
+    (fee       (if (> raw-fee u0) raw-fee u1))
     (total-owed (+ amount fee))
   )
     ;; Repay borrower's debt to the lending protocol
