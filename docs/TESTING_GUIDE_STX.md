@@ -15,7 +15,7 @@ FlashStack has two generations of implementation in this repo:
 | sBTC flash loans (`flashstack-core`, `sbtc-token`) | Legacy — SP3TGRVG7... wallet | No — reference only |
 | STX flash loans (`flashstack-stx-core`, `flashstack-stx-pool`) | Active — SP20XD46... wallet | Yes — this is the focus |
 
-The Clarinet local tests and `docs/archive/` cover the sBTC path. Ignore them for active testing — they are kept for historical reference only.
+The Clarinet local tests and `docs/archive/` cover the **legacy** sBTC path (`flashstack-core`, SP3TGRVG7...) — kept for historical reference only. Note: the canonical sBTC engine `flashstack-sbtc-core` (SP20XD46...) is **live and active** (reserve ~15,010 sats, fee 5 bps; see `docs/TESTING_GUIDE_SBTC.md`). Only the old `flashstack-core` path is legacy.
 
 ---
 
@@ -74,9 +74,9 @@ receiver: SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.stx-test-receiver
 **What success looks like:**
 - Transaction confirmed (green checkmark in Explorer)
 - No error code in the result
-- `get-stats` on `flashstack-stx-core` shows `total-flash-mints` incremented by 1
+- `get-stats` on `flashstack-stx-core` shows `total-loans` incremented by 1
 - `get-stats` shows `total-volume` increased by 10000000
-- `get-stats` shows `total-fees-collected` increased by 5000 (0.05% of 10 STX)
+- `get-stats` shows `total-fees` increased by 5000 (0.05% of 10 STX)
 
 **What failure looks like:**
 - `(err u302)` — `ERR-REPAY-FAILED` — receiver didn't repay (shouldn't happen with stx-test-receiver)
@@ -101,8 +101,8 @@ Call `get-reserve-balance` on `flashstack-stx-core`. The result must be ≥ your
 | `get-fee-basis-points` | `(ok u5)` — 0.05% fee |
 | `get-max-single-loan` | `(ok u500000000000)` — 500,000 STX limit |
 | `get-admin` | `(ok SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5)` |
-| `is-approved-receiver` with `SP20XD46...stx-test-receiver` | `(ok true)` |
-| `is-approved-receiver` with `SP20XD46...bitflow-arb-receiver-v4` | `(ok true)` |
+| `is-approved-receiver` with `SP20XD46...stx-test-receiver` | `true` (STX core returns a bare bool, not `(ok ...)`) |
+| `is-approved-receiver` with `SP20XD46...bitflow-arb-receiver-v4` | `true` |
 | `calculate-fee u10000000` | `(ok u5000)` — fee on 10 STX |
 
 ---
@@ -168,7 +168,7 @@ These should all fail cleanly with no fund loss:
 | Test | How to trigger | Expected error |
 |------|---------------|----------------|
 | Loan exceeds reserve | `flash-loan` with amount > `get-reserve-balance` | `(err u303)` |
-| Loan exceeds max | `flash-loan` with amount > 5000000000 | `(err u304)` |
+| Loan exceeds max | `flash-loan` with amount > 500000000000 | `(err u304)` |
 | Unapproved receiver | `flash-loan` with your own unwhitelisted contract | `(err u306)` |
 | Zero amount | `flash-loan` with `u0` | `(err u301)` |
 

@@ -126,7 +126,7 @@ LP shares are yield-bearing collateral. The `flashstack-pool-oracle` exposes `ge
 git clone https://github.com/mattglory/Flashstack.git
 cd flashstack
 npm install
-npm test          # 86 tests passing
+npm test          # 82 tests passing
 npm run check     # Clarinet contract verification
 ```
 
@@ -171,7 +171,7 @@ EXECUTE=true LOAN_STX=100 \
 ### STX Receiver
 
 ```clarity
-(impl-trait 'SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-core.stx-flash-receiver-trait)
+(impl-trait 'SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.stx-flash-receiver-trait.stx-flash-receiver-trait)
 
 (define-public (execute-stx-flash (amount uint) (core principal))
   (let (
@@ -279,7 +279,7 @@ flashstack/
     velar-sbtc-arb-receiver.clar    # Velar sBTC arb receiver
     zest-liquidation-receiver.clar  # Zest zero-capital liquidator (4 modes)
     alex-arb-receiver.clar          # ALEX STX/ALEX arb receiver
-  tests/                            # 86 Vitest + Clarinet simnet tests
+  tests/                            # 82 Vitest + Clarinet simnet tests
   scripts/                          # Deploy + monitor scripts
   docs/                             # Guides and integration specs
     TESTING_GUIDE_STX.md
@@ -302,7 +302,7 @@ flashstack/
 
 - [x] Security hardening — all audit findings resolved
 - [x] Mainnet deployment — STX + canonical sBTC flash loan engines
-- [x] 86-test suite (Vitest + Clarinet simnet)
+- [x] 82-test suite (Vitest + Clarinet simnet)
 - [x] Production frontend — STX + sBTC flash loans, wallet connect, live stats
 - [x] LP pool — external liquidity providers earn STX yield
 - [x] Bitflow arb receiver — live DEX integration proven on mainnet
