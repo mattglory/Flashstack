@@ -24,7 +24,7 @@ const { generateWallet } = walletPkg;
 import { readFileSync, existsSync } from "fs";
 
 const CORE_ADDRESS = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
-const CORE_NAME    = "flashstack-stx-core";
+const CORE_NAME    = process.env.CORE ?? "flashstack-stx-core";
 const API          = "https://api.hiro.so";
 const EXPLORER     = "https://explorer.hiro.so/txid";
 const CALL_FEE     = 10_000;
@@ -158,7 +158,7 @@ async function main() {
   console.log("=======================================================");
   console.log(" WHITELIST COMPLETE");
   console.log("=======================================================");
-  console.log(` ${RECEIVER} is now approved on flashstack-stx-core`);
+  console.log(` ${RECEIVER} is now approved on ${CORE_NAME}`);
   console.log(` Tx: ${EXPLORER}/${txid}?chain=mainnet`);
   console.log();
   console.log(" Hillary can now:");
