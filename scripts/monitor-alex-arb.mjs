@@ -35,6 +35,7 @@ import {
   Cl,
   fetchCallReadOnlyFunction,
   cvToJSON,
+  getAddressFromPrivateKey,
 } from "@stacks/transactions";
 import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
@@ -202,7 +203,10 @@ async function checkAlexArb(loanMicro) {
 async function executeAlexArb(loanMicro) {
   const wallet = await generateWallet({ secretKey: MNEMONIC, password: "" });
   const pk     = wallet.accounts[0].stxPrivateKey;
-  const nonce  = await fetch(`${API}/v2/accounts/${DEPLOYER}?proof=0`)
+  // Signer address is derived from the mnemonic -- after the 2026-06-12 wallet
+  // rotation this is no longer the contract deployer address
+  const signer = getAddressFromPrivateKey(pk, "mainnet");
+  const nonce  = await fetch(`${API}/v2/accounts/${signer}?proof=0`)
     .then(r => r.json()).then(d => d.nonce);
 
   console.log(`  Executing ${loanMicro / 1e6} STX ALEX arb flash loan...`);

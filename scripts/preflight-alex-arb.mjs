@@ -20,7 +20,7 @@
  *   SLIPPAGE_PCT       slippage tolerance % for Leg 1 (default: 1)
  */
 
-import { makeContractCall, PostConditionMode, Cl, fetchCallReadOnlyFunction, cvToJSON } from "@stacks/transactions";
+import { makeContractCall, PostConditionMode, Cl, fetchCallReadOnlyFunction, cvToJSON, getAddressFromPrivateKey } from "@stacks/transactions";
 import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
@@ -166,11 +166,15 @@ async function main() {
   // Step 3: Get signer
   const wallet = await generateWallet({ secretKey: MNEMONIC, password: "" });
   const pk     = wallet.accounts[0].stxPrivateKey;
-  const acct   = await fetch(`${API}/v2/accounts/${DEPLOYER}?proof=0`).then(r => r.json());
+  // Signer address is derived from the mnemonic -- after the 2026-06-12 wallet
+  // rotation this is no longer the contract deployer address
+  const signer = getAddressFromPrivateKey(pk, "mainnet");
+  const acct   = await fetch(`${API}/v2/accounts/${signer}?proof=0`).then(r => r.json());
   let   nonce  = acct.nonce;
   const bal    = parseInt(acct.balance, 16) / 1e6;
 
-  console.log(`  Deployer balance: ${bal.toFixed(3)} STX`);
+  console.log(`  Signer:           ${signer}`);
+  console.log(`  Signer balance:   ${bal.toFixed(3)} STX`);
   console.log(`  Starting nonce:   ${nonce}\n`);
 
   if (bal < 0.5) {
