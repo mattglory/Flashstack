@@ -60,15 +60,38 @@ const TWO_STEP = [
 ];
 
 // One-step transfers -- IRREVERSIBLE, executed only in step 3
+// adminVar = data-var name holding the current admin/owner, used to skip
+// contracts already transferred when re-running after a partial failure
 const ONE_STEP = [
-  { name: "flashstack-stx-core",      fn: "transfer-admin", arg: "new-admin" },
-  { name: "flashstack-stx-pool",      fn: "transfer-admin", arg: "new-admin" },
-  { name: "flashstack-sbtc-core",     fn: "set-admin",      arg: "new-admin" },
-  { name: "flashstack-sbtc-pool",     fn: "transfer-admin", arg: "new-admin" },
-  { name: "velar-sbtc-arb-receiver",  fn: "set-owner",      arg: "new-owner" },
+  { name: "flashstack-stx-core",      fn: "transfer-admin", adminVar: "admin" },
+  { name: "flashstack-stx-pool",      fn: "transfer-admin", adminVar: "admin" },
+  { name: "flashstack-sbtc-core",     fn: "set-admin",      adminVar: "admin" },
+  { name: "flashstack-sbtc-pool",     fn: "transfer-admin", adminVar: "admin" },
+  { name: "velar-sbtc-arb-receiver",  fn: "set-owner",      adminVar: "owner" },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+// Transient network failures (DNS, reset connections) should not abort the
+// rotation mid-sequence -- retry reads up to 5 times with backoff.
+async function fetchRetry(url, opts) {
+  for (let i = 0; i < 5; i++) {
+    try {
+      return await fetch(url, opts);
+    } catch (e) {
+      if (i === 4) throw e;
+      process.stdout.write(` (retrying: ${e.message})`);
+      await new Promise(r => setTimeout(r, 3000 * (i + 1)));
+    }
+  }
+}
+
+async function readDataVarPrincipal(contractName, varName) {
+  const res = await fetchRetry(`${API}/v2/data_var/${OLD_DEPLOYER}/${contractName}/${varName}?proof=0`);
+  const data = await res.json();
+  if (!data?.data) return null;
+  return cvToJSON(hexToCV(data.data))?.value ?? null;
+}
 
 async function broadcast(tx, label) {
   const raw  = tx.serialize();
@@ -86,7 +109,7 @@ async function waitForConfirm(txid, label) {
   process.stdout.write(`  Waiting for ${label}`);
   for (let i = 0; i < 60; i++) {
     await new Promise(r => setTimeout(r, 10_000));
-    const res  = await fetch(`${API}/extended/v1/tx/0x${txid}`);
+    const res  = await fetchRetry(`${API}/extended/v1/tx/0x${txid}`);
     const data = await res.json();
     if (data.tx_status === "success") { console.log(" confirmed."); return; }
     if (data.tx_status?.startsWith("abort")) {
@@ -99,7 +122,7 @@ async function waitForConfirm(txid, label) {
 }
 
 async function getAccount(addr) {
-  const acct = await fetch(`${API}/v2/accounts/${addr}?proof=0`).then(r => r.json());
+  const acct = await fetchRetry(`${API}/v2/accounts/${addr}?proof=0`).then(r => r.json());
   return { nonce: acct.nonce, balance: parseInt(acct.balance, 16) };
 }
 
@@ -139,10 +162,7 @@ async function readOwner(contractName) {
     return j?.value?.value?.["contract-owner"]?.value ?? null;
   }
   // yield vault has no settings read-only -- read the vault-owner data var directly
-  const res = await fetch(`${API}/v2/data_var/${OLD_DEPLOYER}/${contractName}/vault-owner?proof=0`);
-  const data = await res.json();
-  if (!data?.data) return null;
-  return cvToJSON(hexToCV(data.data))?.value ?? null;
+  return readDataVarPrincipal(contractName, "vault-owner");
 }
 
 // ── Steps ─────────────────────────────────────────────────────────────────────
@@ -226,6 +246,11 @@ async function step3() {
   }
 
   for (const c of ONE_STEP) {
+    const current = await readDataVarPrincipal(c.name, c.adminVar);
+    if (current === NEW_OWNER) {
+      console.log(`\nStep 3b -- ${c.name}: already transferred, skipping.`);
+      continue;
+    }
     console.log(`\nStep 3b -- ${c.name}.${c.fn}(${NEW_OWNER})...`);
     await contractCall(pk, c.name, c.fn, [Cl.principal(NEW_OWNER)], nonce++);
   }
@@ -267,8 +292,20 @@ async function main() {
   if (!["1", "2", "3"].includes(STEP)) {
     console.error("ERROR: set STEP=1, STEP=2, or STEP=3"); process.exit(1);
   }
-  if (!NEW_OWNER || !validateStacksAddress(NEW_OWNER) || !NEW_OWNER.startsWith("SP")) {
-    console.error("ERROR: NEW_OWNER must be a valid mainnet (SP...) address. The c32 checksum catches typos.");
+  if (!NEW_OWNER) {
+    console.error("ERROR: NEW_OWNER is not set. The command line may have been mangled by quoting --");
+    console.error("export the variables first instead:");
+    console.error("  export NEW_OWNER=SP...");
+    console.error("  read -s OLD_MNEMONIC   (paste the 24 words, press enter -- input stays hidden)");
+    console.error("  export OLD_MNEMONIC");
+    console.error("  STEP=1 node scripts/rotate-owner.mjs");
+    process.exit(1);
+  }
+  if (!NEW_OWNER.startsWith("SP") || !validateStacksAddress(NEW_OWNER)) {
+    console.error(`ERROR: NEW_OWNER "${NEW_OWNER}" is not a valid mainnet Stacks address.`);
+    console.error("Expected: starts with SP, ~41 characters, all uppercase (c32 checksum catches typos).");
+    if (NEW_OWNER.startsWith("ST"))  console.error("ST... is a TESTNET address -- switch your wallet to mainnet.");
+    if (/^(bc1|3|1)/.test(NEW_OWNER)) console.error("That looks like a BITCOIN address -- use the STX address from your wallet.");
     process.exit(1);
   }
   if (NEW_OWNER === OLD_DEPLOYER) {
