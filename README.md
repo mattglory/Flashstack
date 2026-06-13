@@ -168,6 +168,8 @@ EXECUTE=true LOAN_STX=100 \
 
 ## Build a Receiver
 
+**New to Clarity or Stacks?** Follow the [New Developer Walkthrough](docs/NEW_DEVELOPER_WALKTHROUGH.md) — from installing Node.js to executing your first mainnet flash loan in ~45 minutes, no prior experience needed.
+
 ### STX Receiver
 
 ```clarity
