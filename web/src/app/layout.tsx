@@ -4,7 +4,7 @@ import { StacksProvider } from "@/lib/providers/StacksProvider";
 
 export const metadata: Metadata = {
   title: "FlashStack — Flash Loans on Bitcoin",
-  description: "The first trustless flash loan protocol on Stacks. Borrow any amount of STX with zero collateral, repay in the same transaction.",
+  description: "Open flash-loan infrastructure on Stacks. Borrow STX or canonical sBTC with zero collateral and repay in the same transaction.",
 };
 
 export default function RootLayout({

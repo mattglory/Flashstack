@@ -40,6 +40,7 @@ export async function fetchProtocolStats(
     currentFeeBp: parseInt(val["current-fee-bp"].value, 10),
     paused: val.paused.value,
     maxSingleLoan: BigInt(maxLoanJson.value.value),
+    reserve: val["reserve"] ? BigInt(val["reserve"].value) : 0n,
   };
 }
 

@@ -5,6 +5,7 @@ export interface ProtocolStats {
   currentFeeBp: number;
   paused: boolean;
   maxSingleLoan: bigint;
+  reserve: bigint;
 }
 
 export interface UserStats {

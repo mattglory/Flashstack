@@ -150,6 +150,7 @@ web/node_modules/
 # Internal docs — keep local only
 # ============================================
 docs/OUTREACH.md
+docs/TRACTION.md
 docs/archive/
 docs/blog/
 docs/01-project/
@@ -164,6 +165,13 @@ docs/SETUP_COMPLETE.md
 docs/BOT_DEPLOYMENT_GUIDE.md
 docs/INDEX.md
 docs/README.md
+
+# ============================================
+# Target/candidate lists — contain real user wallet addresses, keep local only
+# ============================================
+*-candidates-*.csv
+arb-candidates-*.csv
+zest-candidates-*.csv
 
 # Ethereum/Solidity contracts (not part of this Stacks protocol)
 contracts/*.sol

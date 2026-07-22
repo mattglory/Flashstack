@@ -1,6 +1,6 @@
 # FlashStack
 
-**The First Flash Loan Protocol on Bitcoin Layer 2**
+**Open Flash-Loan Infrastructure for Bitcoin Layer 2**
 
 [![Status](https://img.shields.io/badge/Status-Mainnet%20Live-brightgreen)]()
 [![Tests](https://img.shields.io/badge/Tests-82%20Passing-success)]()

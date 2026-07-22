@@ -3,51 +3,37 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { fetchPoolStats } from "@/lib/stacks/pool-client";
+import { fetchStxProtocolStats } from "@/lib/stacks/stx-client";
 
 const DEPLOYER = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
 
 function useLiveStats() {
   const [loans, setLoans] = useState<number | null>(null);
   const [volume, setVolume] = useState<string | null>(null);
-  const [pool, setPool] = useState<string | null>(null);
+  const [reserve, setReserve] = useState<string | null>(null);
+  const [maxLoan, setMaxLoan] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       try {
-        // STX core stats
-        const coreRes = await fetch(
-          `https://api.hiro.so/v2/contracts/call-read/${DEPLOYER}/flashstack-stx-core/get-stats`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sender: DEPLOYER, arguments: [] }),
-          }
-        );
-        const coreData = await coreRes.json();
-        // Parse result — cv tuple
-        if (coreData.result) {
-          const hex = coreData.result;
-          // Fallback: use Hiro API read-only via fetchCallReadOnlyFunction
-        }
-
-        // Pool stats
-        const poolStats = await fetchPoolStats("mainnet");
-        setPool((Number(poolStats.poolBalance) / 1e6).toFixed(0));
-        setLoans(poolStats.totalLoans);
-        setVolume((Number(poolStats.totalVolume) / 1e6).toFixed(0));
+        // Read live figures straight from flashstack-stx-core.get-stats
+        const stats = await fetchStxProtocolStats("mainnet");
+        setLoans(stats.totalFlashMints);
+        setVolume((Number(stats.totalVolume) / 1e6).toFixed(0));
+        setReserve((Number(stats.reserve) / 1e6).toFixed(0));
+        setMaxLoan((Number(stats.maxSingleLoan) / 1e6).toLocaleString());
       } catch {
-        // show static fallbacks if API fails
+        // leave nulls; UI shows non-live fallbacks
       }
     }
     load();
   }, []);
 
-  return { loans, volume, pool };
+  return { loans, volume, reserve, maxLoan };
 }
 
 export default function LandingPage() {
-  const { loans, volume, pool } = useLiveStats();
+  const { loans, volume, reserve, maxLoan } = useLiveStats();
 
   return (
     <div className="min-h-screen bg-surface text-slate-100 flex flex-col">
@@ -119,8 +105,8 @@ export default function LandingPage() {
       <section className="border-y border-surface-border bg-surface-card">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-            <LiveStat label="Flash Loans" value={loans !== null ? loans.toLocaleString() : "6+"} live={loans !== null} />
-            <LiveStat label="STX Reserve" value={`${pool !== null ? pool : "30"} STX`} live={pool !== null} />
+            <LiveStat label="Flash Loans" value={loans !== null ? loans.toLocaleString() : "—"} live={loans !== null} />
+            <LiveStat label="STX Reserve" value={reserve !== null ? `${reserve} STX` : "—"} live={reserve !== null} />
             <LiveStat label="Assets" value="STX + sBTC" live />
             <LiveStat label="Fee Rate" value="0.05%" live />
           </div>
@@ -151,7 +137,7 @@ export default function LandingPage() {
             <div className="space-y-2 text-sm">
               <Feature text="Zero collateral required" />
               <Feature text="0.05% flat fee per loan" />
-              <Feature text="STX loans up to 5,000 STX" />
+              <Feature text={`STX loans up to ${maxLoan ?? "500,000"} STX`} />
               <Feature text="sBTC loans up to 0.1 BTC (canonical)" />
               <Feature text="Build any strategy with receiver contracts" />
             </div>
@@ -223,7 +209,7 @@ export default function LandingPage() {
           <div>
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Build your strategy</h2>
             <p className="text-slate-400 leading-relaxed mb-6">
-              Any Clarity contract can be a FlashStack receiver. Implement one function, deploy, get whitelisted, and access up to 5,000 STX or 0.1 BTC per transaction.
+              Any Clarity contract can be a FlashStack receiver. Implement one function, deploy, get whitelisted, and access the full STX reserve or up to 0.1 BTC per transaction.
             </p>
             <div className="space-y-3 mb-8">
               <Feature text="STX or sBTC arbitrage between DEXes" />

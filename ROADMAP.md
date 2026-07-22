@@ -7,8 +7,8 @@
 - [x] sBTC flash loan core deployed
 - [x] LP pool contract — external depositors earn yield from fees
 - [x] Flash receiver trait standard (SIP-compatible)
-- [x] 21 contracts deployed and verified on mainnet
-- [x] 86 passing tests across all contracts
+- [x] Core contracts deployed and verified on mainnet (STX + sBTC engines, LP pools, oracle, receivers)
+- [x] 82 passing tests (Vitest + Clarinet simnet)
 
 ### Receiver Ecosystem
 - [x] Bitflow STX/stSTX arbitrage receiver
@@ -26,7 +26,7 @@
 - [x] Cross-DEX price monitoring (ALEX, Velar, Arkadiko)
 
 ### Frontend
-- [x] Next.js dashboard live at flashstack.xyz
+- [x] Next.js dashboard live at flashstack.vercel.app
 - [x] Flash loan execution UI
 - [x] LP pool deposit/withdraw UI
 - [x] Arbitrage bot UI
@@ -71,13 +71,19 @@
 
 ## Long Term Vision
 
-FlashStack aims to be the **primary flash loan infrastructure layer for Bitcoin DeFi** — on Stacks today, expanding to other Bitcoin L2s as the ecosystem matures.
+FlashStack aims to be the **neutral flash-liquidity rail for Bitcoin DeFi** — on Stacks today, expanding to other Bitcoin L2s as the ecosystem matures.
+
+Flash loans already exist on Stacks inside lending markets (Zest, since Dec 2024). FlashStack's role is different and complementary: standalone, open liquidity any Clarity contract can integrate without joining a lending market. Receivers are approval-gated during the unaudited beta (defense-in-depth); the core enforces solvency with an Aave-style live-reserve invariant, so it is designed to go fully permissionless after a security audit.
+
+**The flywheel:** its first customer is [DeepStack](https://github.com/mattglory/deepstack), our market-making agent, which rebalances through flash loans — *DeepStack volume → FlashStack fees → LP yield → deeper reserves → more DeepStack capacity.*
+
+**Reality check (2026-07-16):** the STX reserve is ~75 STX and the LP pool is effectively unfunded. Reserve size is the hard ceiling on what FlashStack can serve, so the ordering that matters is: **security audit → LP deposits → reserves → capacity.** The 100,000 STX target above is aspirational, not a forecast.
 
 The protocol is designed to be:
-- **Permissionless** — anyone can borrow, anyone can provide liquidity
-- **Composable** — any Clarity contract can be a receiver
+- **Open & composable** — any Clarity contract can be a receiver; approval-gated during the unaudited beta, permissionless after a security audit
+- **Solvency-safe by design** — the core measures its reserve balance before and after every callback and reverts unless it grows by the fee (Aave-style invariant)
 - **Capital efficient** — zero idle capital for borrowers, continuous yield for LPs
-- **Bitcoin-native** — secured by Bitcoin's proof of work
+- **Bitcoin-native** — settles in STX and canonical sBTC on Stacks
 
 ---
 

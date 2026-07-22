@@ -31,5 +31,6 @@ export async function fetchStxProtocolStats(network: NetworkType): Promise<Proto
     currentFeeBp:    parseInt(v["fee-basis-points"].value, 10),
     paused:          v["paused"].value,
     maxSingleLoan:   BigInt(v["max-single-loan"].value),
+    reserve:         BigInt(v["reserve"].value),
   };
 }
