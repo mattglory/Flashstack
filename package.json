@@ -29,7 +29,7 @@
     "@clarigen/core": "^4.0.1",
     "@clarigen/test": "^4.0.1",
     "@stacks/clarinet-sdk": "3.22.0",
-    "vitest": "^1.0.0"
+    "vitest": "^3.2.6"
   },
   "dependencies": {
     "@stacks/transactions": "^7.5.0",
