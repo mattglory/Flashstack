@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "Flashstack",
+  "project_id": "e447095d-7552-46f4-b146-acf955ee30d9"
+}
