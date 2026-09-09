@@ -169,15 +169,18 @@ clarity_version = 3
 epoch = "3.0"
 
 # --- flashstack-pool-v3: generic multi-asset flash-loan + LP pool ---
-# Built on Clarity 3 for now: verified 2026-08-01 that `as-contract` (used by
-# every deposit/withdraw/flash-loan) does not resolve at clarity_version=6 in
-# clarinet-sdk 3.22/3.23 or clarinet CLI 3.22. Re-verified 2026-09-09 on the
-# latest toolchain (clarinet CLI + SDK 3.23.2) with a fresh minimal probe
-# contract (clarity_version=6, epoch="4.0") -- same failure: "use of
-# unresolved function 'as-contract'". Still a genuine toolchain gap two
-# releases later, not a workaround-able code issue or a version-specific
-# fluke. Bump to clarity_version=6 (one-line change here + in the .clar
-# headers) once clarinet/SDK fix this.
+# Built on Clarity 3 for now. CORRECTION (2026-09-09): earlier notes here
+# called the clarity_version=6 "use of unresolved function 'as-contract'"
+# error a toolchain gap -- that was wrong. `as-contract` is a hard error by
+# design as of Clarity 4: deprecated in favor of `as-contract?`, which takes
+# an explicit allowance list (with-stx / with-ft / with-nft / with-stacking /
+# with-staking / with-pox) and returns (response A uint) instead of the bare
+# inner value. Re-verified empirically on clarinet CLI+SDK 3.23.2 that the
+# error is exactly this, not a resolver bug -- confirmed against the actual
+# Clarity 4 spec (SIP-033) and docs.stacks.co. This is a real, scoped code
+# migration (every deposit/withdraw/flash-loan call site), not a wait-for-
+# upstream item. Bump to clarity_version=6 once that migration is done and
+# re-tested.
 [contracts.sip-010-trait-ft-standard]
 path = "contracts/test/sip-010-trait-ft-standard.clar"
 clarity_version = 3
