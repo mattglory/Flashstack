@@ -128,9 +128,27 @@ The adversary in these is a real deployed-to-simnet contract, not a mock:
 `test-pool-v3-receiver-bad.clar` (keeps the funds) and
 `test-pool-v3-receiver-reentrant.clar` (re-enters during the callback).
 
-> **Verification debt (UNVERIFIED):** I have not yet demonstrated that each of these
-> tests actually fails when the `asserts!` is deleted. Until that mutation check is
-> run, "tests exist" is not the same as "tests prove". Tracked in `Flashstack-ajv.1.3`.
+### Mutation check — which of those tests are actually load-bearing
+
+**VERIFIED 2026-09-15.** I replaced the solvency assertion with a tautology
+(`(asserts! true ERR-REPAY-FAILED)`) in the simnet copies of `flashstack-stx-core`,
+`flashstack-sbtc-core` and `flashstack-pool-v3`, re-ran their suites, and restored the
+files. Result: **3 failed, 34 passed.**
+
+The three that failed are exactly the adversarial ones:
+
+- `flashstack-stx-core-reserve.test.ts` — "repay-or-revert: a receiver that keeps the funds reverts, and the reserve is untouched"
+- `flashstack-sbtc-core-reserve.test.ts` — "repay-or-revert: a receiver that keeps the sBTC reverts, and the reserve is untouched"
+- `flashstack-pool-v3.test.ts` — "a receiver that never repays reverts the whole transaction"
+
+**The "happy path: reserve grows by exactly the fee" tests did NOT fail.** That is the
+useful part of this exercise: a well-behaved receiver repays whether or not the protocol
+checks, so happy-path tests observe the invariant without proving it. Only three tests
+in the entire 165-test suite actually hold this property up. That is thin coverage for
+the single property the protocol's safety rests on, and it is a concrete, cheap thing to
+deepen before the audit — partial repayment (short by one unit), over-repayment, repayment
+by a third party rather than the receiver, and repayment of the wrong asset are all
+untested. Tracked in `Flashstack-ajv.1.3`.
 
 ## 6. What the invariant assumes — and therefore does not protect
 
