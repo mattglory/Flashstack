@@ -23,7 +23,7 @@ jobs:
 
       - name: Install Clarinet
         run: |
-          curl -L https://github.com/hirosystems/clarinet/releases/download/v3.13.0/clarinet-linux-x64-glibc.tar.gz -o clarinet.tar.gz
+          curl -L https://github.com/stx-labs/clarinet/releases/download/v3.23.2/clarinet-linux-x64-glibc.tar.gz -o clarinet.tar.gz
           tar -xzf clarinet.tar.gz
           chmod +x ./clarinet
           sudo mv ./clarinet /usr/local/bin/
