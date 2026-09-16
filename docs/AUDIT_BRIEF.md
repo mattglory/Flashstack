@@ -8,7 +8,7 @@ an auditor will ask about first.
 ## Where the real docs live
 
 - Protocol overview, mainnet contract addresses, security posture: `README.md`
-  (see the **Security** section — solvency invariant, 128-test suite, access
+  (see the **Security** section — solvency invariant, 176-test suite, access
   control model).
 - Multi-asset core redesign: `docs/02-technical/MULTI_ASSET_CORE_DESIGN.md`
 - LP/collateral integration surface for third parties: `docs/LP_COLLATERAL_INTEGRATION_SPEC.md`
@@ -33,9 +33,11 @@ an auditor will ask about first.
    repo settings — that's a settings-UI/admin-token change this checkout
    can't make; confirm it's on before treating it as enforced.
 4. **v1 vs v2 pools.** v1 STX/sBTC pools are deprecated in favor of virtual-shares
-   v2 pools (ERC-4626-style) but both are listed as live in the README's
-   mainnet contract table — worth flagging to the auditor which surface is
-   actually in scope.
+   v2 pools (ERC-4626-style). *Corrected 2026-09-16:* this item previously said both
+   generations were listed as live in the README's mainnet contract table. That is no
+   longer true — the README lists only the v2 pools. The v1 pools are still live on
+   chain (paused, drained) and are in scope for the auditor as immutable legacy; see
+   `docs/security/CONTRACT_INVENTORY.md` §3 and finding **F-6**.
 
 ## Contract inventory at a glance
 
