@@ -429,10 +429,13 @@ path = "contracts/bitflow-arb-receiver.clar"
 clarity_version = 3
 epoch = "latest"
 
-[contracts.crosspool-ststx-receiver]
-path = "contracts/crosspool-ststx-receiver.clar"
-clarity_version = 3
-epoch = "latest"
+# crosspool-ststx-receiver: NOT registered. The file exists locally
+# (headed "DRAFT, NOT YET DEPLOYED", no secrets) but was never committed to
+# git -- zero history on any branch -- and is specifically named in
+# .git/info/exclude (a personal, local-only ignore list, separate from the
+# repo's shared .gitignore). That looks like a deliberate choice, not an
+# accident, so not force-adding it here without knowing why. Matt: is this
+# meant to be committed, or left as a local draft?
 
 [contracts.hk-sbtc-real-receiver-v1]
 path = "contracts/hk-sbtc-real-receiver-v1.clar"
