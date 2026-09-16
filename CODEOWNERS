@@ -1,0 +1,6 @@
+# Security & Contract Lead is required as a reviewer on anything that can
+# change protocol behavior or touch a mainnet deployment.
+/contracts/                    @unixwhisperer
+/deployments/                  @unixwhisperer
+/.github/workflows/            @unixwhisperer
+/Clarinet.toml                 @unixwhisperer
