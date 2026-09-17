@@ -40,6 +40,7 @@ const { STACKS_TESTNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
 import { readFileSync } from "fs";
+import { localize, assertFullyLocalized } from "./lib/testnet-localize.mjs";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -56,12 +57,6 @@ const RESERVE_AMOUNT = 50_000_000;
 // reverts with (err u500). Seed it with a small amount first. (1 STX = 1_000_000)
 const RECEIVER_SEED_AMOUNT = 1_000_000;
 
-// ── Mainnet addresses that must be replaced for testnet ────────────────────────
-// These are hardcoded in contracts as use-trait / impl-trait / constant references.
-const MAINNET_ADDRS = [
-  "SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ", // old deployer (stx-flash-receiver-trait)
-  "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5", // current deployer (sbtc-flash-receiver-trait, pool)
-];
 
 if (!MNEMONIC) {
   console.error("ERROR: Set TESTNET_MNEMONIC");
@@ -85,13 +80,15 @@ function deriveTestnetAddress(privateKey) {
   return getAddressFromPrivateKey(privateKey, STACKS_TESTNET);
 }
 
-function patchSource(source, deployerAddress) {
-  // Replace all mainnet addresses with the testnet deployer address so
-  // use-trait / impl-trait / constant references resolve correctly on testnet.
-  let patched = source;
-  for (const addr of MAINNET_ADDRS) {
-    patched = patched.replaceAll(addr, deployerAddress);
-  }
+function patchSource(source, deployerAddress, label = "contract") {
+  // Rewrite every FlashStack-published principal to the testnet deployer, then
+  // REFUSE to proceed if any mainnet principal survives. Previously this
+  // function knew about two principals and silently left the rest in place, so a
+  // contract referencing a third would be broadcast and abort at publish time
+  // with an unresolved contract. See scripts/lib/testnet-localize.mjs and
+  // docs/TESTNET_STAGING.md §5.1.
+  const patched = localize(source, deployerAddress);
+  assertFullyLocalized(patched, label);
   return patched;
 }
 
@@ -154,7 +151,7 @@ async function broadcast(tx) {
 
 async function deployContract(privateKey, nonce, name, sourcePath, deployer) {
   const raw    = readFileSync(sourcePath, "utf8");
-  const source = patchSource(raw, deployer);
+  const source = patchSource(raw, deployer, name);
   const tx = await makeContractDeploy({
     contractName:      name,
     codeBody:          source,
