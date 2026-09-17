@@ -145,11 +145,34 @@ readable without an admin token. Separate these four states and do not conflate 
 | 3 | CI job is *required* by branch protection | **No** — admin-side |
 | 4 | Code-owner review is *required* | **No** — admin-side |
 
-The repository's own history is evidence that (3) and (4) were **not** enforced for
-most of its life: 141 of 148 first-parent commits on `main` are direct non-merge
-commits, with 8 merge commits total. **Action for Matt:** confirm in Settings →
-Branches whether `main` requires the `Test Smart Contracts` check and Code Owner
-review, and say so; until then this document treats the gate as unenforced.
+**Partially resolved 2026-09-17**, once the Security & Contract Lead had `gh` access.
+Some protection on `main` is now **demonstrated, not assumed**: PR #53 has every
+check green (`Test Smart Contracts`, `Build Frontend`, `Dependency Audit`, `CodeQL`
+all SUCCESS) and is still `mergeStateStatus: BLOCKED` with
+`reviewDecision: REVIEW_REQUIRED`. A PR cannot be green-and-blocked unless branch
+protection is enforcing something. So **review is required on `main` today**, and
+state (2) above is confirmed on real CI rather than only locally.
+
+Two things remain genuinely unreadable without admin, and should not be inferred
+from the above:
+
+- **Whether `Test Smart Contracts` is a *required status check*.** Every entry in the
+  PR's `statusCheckRollup` reports `isRequired: null`, which is what the API returns
+  to a non-admin. A check can pass without being a merge gate.
+- **Whether the required review must come from a Code Owner.** The PRs that
+  demonstrated the block touch only `docs/`, `tests/` and `README.md` — none of the
+  CODEOWNERS paths — so they show ordinary required review, not code-owner review.
+
+`GET /repos/mattglory/Flashstack/rulesets` and `/rules/branches/main` both return
+`[]`, so no **ruleset** protects `main`; the enforcement is classic branch
+protection, which a non-admin cannot read (404, not 403). The Lead's access level is
+`push`/`triage`, not `admin`.
+
+The repository's history still shows this was **not** enforced for most of its life:
+141 of 148 first-parent commits on `main` are direct non-merge commits, with 8 merge
+commits total. **Action for Matt:** confirm in Settings → Branches whether `main`
+requires the `Test Smart Contracts` check specifically, and whether review must come
+from a Code Owner. Until then, treat only *required review* as established.
 
 ### 7.2 Disposition of `deployments/default.mainnet-plan.yaml` (D5)
 
