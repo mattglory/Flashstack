@@ -48,9 +48,6 @@ import {
   PostConditionMode,
   ClarityVersion,
   Cl,
-  cvToHex,
-  cvToString,
-  hexToCV,
   getAddressFromPrivateKey,
 } from "@stacks/transactions";
 import networkPkg from "@stacks/network";
@@ -59,6 +56,13 @@ import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
 import { readFileSync } from "fs";
 import { localize, assertFullyLocalized } from "./lib/testnet-localize.mjs";
+import { callReadOnly as callReadOnlyRaw, assertEqual } from "./lib/testnet-readonly.mjs";
+
+// Thin wrapper so call sites keep their original signature (the API base is a
+// module-level constant here, but a parameter in the lib so tests can point it
+// elsewhere).
+const callReadOnly = (sender, contractAddress, contractName, fn, args = []) =>
+  callReadOnlyRaw(API, sender, contractAddress, contractName, fn, args);
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -204,37 +208,6 @@ async function callContract(privateKey, nonce, contractAddress, contractName, fn
   console.log(`  Broadcast: ${txid}`);
   console.log(`  Explorer:  ${EXPLORER}/${txid}?chain=testnet`);
   return txid;
-}
-
-// Reads a read-only function and returns a clean, directly-comparable string
-// (the response unwrapped, e.g. "ST3XQ5…", "(some ST3XQ5…)", "none") -- not
-// raw hex. The deploy script had zero read-only calls before this, so every
-// prior "evidence" step could only show a transaction succeeded, never assert
-// what state actually resulted. See docs/TESTNET_STAGING.md §6 (source and
-// interface read-back) and the BC1 verification below, the reason this exists.
-async function callReadOnly(sender, contractAddress, contractName, fn, args = []) {
-  const res  = await fetch(`${API}/v2/contracts/call-read/${contractAddress}/${contractName}/${fn}`, {
-    method:  "POST",
-    headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify({ sender, arguments: args.map(a => cvToHex(a)) }),
-  });
-  const data = await res.json();
-  if (!data.okay) throw new Error(`callReadOnly ${contractName}.${fn} failed: ${JSON.stringify(data)}`);
-  const decoded = hexToCV(data.result);
-  if (decoded.type === "err") {
-    throw new Error(`${contractName}.${fn} returned (err ${cvToString(decoded.value)})`);
-  }
-  // decoded.type === "ok" for every read-only in this codebase (all wrap
-  // their return in (ok ...)) -- unwrap it so callers compare a clean value,
-  // not "(ok X)" every time.
-  return cvToString(decoded.type === "ok" ? decoded.value : decoded);
-}
-
-function assertEqual(label, actual, expected) {
-  if (actual !== expected) {
-    throw new Error(`ASSERTION FAILED — ${label}: expected "${expected}", got "${actual}"`);
-  }
-  console.log(`  OK: ${label} = ${actual}`);
 }
 
 async function transferStx(privateKey, nonce, recipient, amount, fee = 10_000) {
