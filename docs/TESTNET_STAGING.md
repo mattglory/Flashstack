@@ -262,6 +262,58 @@ simnet suite did not already cover. Record a txid for each:
 
 ---
 
+## 6a. First testnet run — 2026-09-18
+
+`scripts/deploy-testnet.mjs` run against `flashstack-stx-core-v2` + `stx-test-receiver-v2`
+(#56). Deployer: `ST3XQ5DMH4BRXVZWAHKJFBNND17CPCSAYMV4T0NFT`. Every item below was
+independently re-verified against the live testnet API after the run, not taken from
+the script's own success output.
+
+**Proven, with evidence:**
+- [x] All three publishes `success`: [`stx-flash-receiver-trait`](https://explorer.hiro.so/txid/5949a87346009951f1975a52bd59f92e32934d2371a667ca31aa77c85da769e4?chain=testnet), [`flashstack-stx-core-v2`](https://explorer.hiro.so/txid/fe11c31edcaf368f8b9e0efc3447565ce2509793e243145e4a6295c901462209?chain=testnet), [`stx-test-receiver-v2`](https://explorer.hiro.so/txid/d81602ea5785eb2983894474da28d03b9f9fd5ec0a0070ad834d958f6b5a2d90?chain=testnet)
+- [x] Source fetched back from `/v2/contracts/source/…` for `flashstack-stx-core-v2`
+      matches `localize(local-source, deployer)` **exactly** — byte-for-byte
+      comparison, not eyeballed
+- [x] Flash loan happy path: reserve went from `50,000,000` (post-fund) to
+      `50,005,000` post-loan — **exactly** the 0.05% fee on a 10 STX loan (5,000
+      µSTX), read back and decoded from `get-reserve-balance`, not assumed.
+      [Evidence tx](https://explorer.hiro.so/txid/6edae18d820a4819178d22634351273e9d59015d2735fd312cef006992aa208d?chain=testnet)
+- [x] Two-step admin happy path: [`transfer-admin`](https://explorer.hiro.so/txid/23c454f6030b86a94d450ce4e20fd62585a2d82ae87f7f5f5081a1ec0bdab9f2?chain=testnet)
+      (propose to self) then [`accept-admin`](https://explorer.hiro.so/txid/b8f7fdffcdc60728d79272421537d5495ea1bd85f6b3ff335bbdc04d0951b414?chain=testnet)
+      both `success`; `get-admin` decodes to `(ok ST3XQ5DM…)`, confirmed against
+      the deployer, not just a non-error response
+- [x] Interface check: public and read-only function sets on the deployed
+      `flashstack-stx-core-v2` match the local source exactly, in both
+      directions — 10 public, 8 read-only, zero unexpected on-chain functions.
+      `transfer-admin` and `accept-admin` both present, confirming the BC1
+      shape on chain. This is the check that would have caught F-7 had it
+      existed then. (Verified independently on review, not part of the
+      original run.)
+
+**NOT proven by this run — genuinely open, not implied by the above:**
+- [ ] Flash loan with a non-repaying receiver reverts
+- [ ] Unapproved receiver is rejected
+- [ ] **The actual negative case BC1 exists to prevent**: that `transfer-admin`
+      alone does not move authority, and that `accept-admin` from a non-pending
+      principal fails. This run proposed and accepted from the *same* principal
+      in immediate succession, which proves the happy path works, not that the
+      failure mode is blocked. A follow-up run needs a second key to test this
+      properly.
+- [ ] Recorded in `deployments/` alongside a plan file; block heights not
+      captured
+
+**Note on staleness:** this run predates `a92fb8e` (the fix landed on #56
+after this evidence was recorded). It used the *old* Step 8 — propose-to-self
+then accept, with no read-only assertions — not the corrected sequence that
+proposes to a principal the key doesn't control and asserts `get-admin`
+unchanged in between. The two-step admin happy-path evidence above still
+holds (both txs did succeed and the end state is correct), but it does not
+carry the assertion strength `a92fb8e` added. **A re-run against the current
+script is required before this document can be treated as current BC1
+evidence, not optional.**
+
+---
+
 ## 7. What is deliberately not in this document
 
 Fees, nonce handling and batch ordering are **not** specified here. They should be
