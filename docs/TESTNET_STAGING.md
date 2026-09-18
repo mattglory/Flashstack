@@ -112,7 +112,10 @@ reference `snp-flashstack-receiver`, whose source is not in this repo (**D7**).
 
 ---
 
-## 5. Three things that must be solved before the current generation can be staged
+## 5. Three things that had to be solved before the current generation could be staged
+
+> **All three are now resolved (2026-09-17).** Kept in full rather than deleted: each
+> records a real constraint an auditor or future maintainer will otherwise re-derive.
 
 These are **open technical questions**, recorded rather than guessed. Each is a real
 blocker found by reading the contracts, not a hypothetical.
@@ -152,21 +155,47 @@ Net effect: §5.1 collapses to adding `SP3FBR2AGK5H9…` and `SPR9PQAN…` to th
 list and publishing our trait copy first. The only dependency with **no** testnet
 substitute is canonical sBTC — which is §5.2, and is a genuinely different problem.
 
-### 5.2 The sBTC contracts cannot be staged faithfully
+### 5.2 ~~The sBTC contracts cannot be staged faithfully~~ — RESOLVED 2026-09-17
 
-Canonical sBTC (`SM3VDXK3…sbtc-token`) is mainnet-only. Staging
-`flashstack-sbtc-core-v2` or `flashstack-sbtc-pool-v3` on testnet therefore requires
-pointing them at a mock SIP-010 — which means **the bytes staged on testnet are not
-the bytes going to mainnet**, and the test loses most of its value for exactly the
-integration risk it was meant to cover.
+The original concern was that canonical sBTC (`SM3VDXK3…sbtc-token`) is mainnet-only,
+so staging `flashstack-sbtc-core-v2` / `flashstack-sbtc-pool-v3` would require a mock
+— meaning the bytes staged are not the bytes shipped, which destroys the value for
+exactly the integration risk being tested.
 
-`scripts/deploy-testnet.mjs` already acknowledges this and deploys the STX system
-only.
+**A real sBTC deployment exists on testnet, and its source is byte-identical to
+mainnet.** Verified read-only; nothing deployed:
 
-**Decision needed:** either accept a mock-backed testnet run for the sBTC line as
-partial evidence (explicitly labelled as such), or confirm whether a canonical sBTC
-testnet deployment exists to point at. Do not let a mock-backed run be recorded as if
-it were a faithful stage.
+`ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM` carries the complete sBTC contract set,
+and every contract matches mainnet exactly (SHA-256 over
+`/v2/contracts/source`, both chains):
+
+| Contract | Bytes | Result |
+|---|---|---|
+| `sbtc-token` | 4,759 | **identical** (`sha256 8f0a0edd…`) |
+| `sbtc-registry` | 11,209 | **identical** |
+| `sbtc-deposit` | 4,151 | **identical** |
+| `sbtc-withdrawal` | 12,264 | **identical** |
+| `sbtc-bootstrap-signers` | 5,801 | **identical** |
+
+`sbtc-token`'s only internal dependency is `.sbtc-registry`, which is present and
+also identical. A live `get-decimals()` read returns `(ok u8)`, matching mainnet — so
+`share-scale` calibration (pv3-F2) would be exercised against the real value.
+
+**Consequence:** staging the sBTC line is a *faithful* stage, not a mock-backed one.
+The localizer maps `SM3VDXK3…` to this principal rather than to a hand-written mock.
+
+**One caveat to record rather than gloss.** That address is the well-known Clarinet
+default deployer, whose key is public. The *code* is provably canonical; the
+*deployment* is not authoritative, and anyone can exercise its protocol roles. On
+testnet that is acceptable — no value is at stake and the point is integration
+mechanics, not custody — but the evidence should say "staged against a byte-identical
+sBTC deployment at the public Clarinet deployer address", never "staged against
+canonical sBTC".
+
+**Still open (practical, not blocking design):** how the staging deployer obtains a
+testnet sBTC balance. `protocol-mint` is gated to the protocol contracts, so this
+needs either the public deployer key or a testnet sBTC faucet/bridge. To be settled
+when the plan file is written.
 
 ### 5.3 ~~`flashstack-pool-v3` needs epoch 4.0 on testnet~~ — RESOLVED 2026-09-17
 
@@ -251,10 +280,14 @@ document. Writing one requires resolving §5.1–5.3 first.
 | # | Action | Blocked on |
 |---|---|---|
 | 1 | ~~Confirm testnet epoch/clarity-version support for pool-v3 (§5.3)~~ | **DONE 2026-09-17 — testnet accepts Clarity 6** |
-| 2 | Decide the sBTC mock question (§5.2) | Project owner — **the only remaining blocker of substance** |
-| 3 | Extend the patcher: add the two missing own-principals, publish our SIP-010 trait copy first (§5.1) | Nothing — decision 2 only affects the sBTC line |
-| 4 | Write `deployments/testnet-current-gen-plan.yaml` for the STX + pool-v3 line | 3 |
-| 5 | Execute the stage and record evidence | A funded testnet deployer — **operator only** |
+| 2 | ~~Decide the sBTC mock question (§5.2)~~ | **DONE 2026-09-17 — byte-identical sBTC exists on testnet; no mock needed** |
+| 3 | ~~Extend the patcher (§5.1)~~ | **DONE — PR #55**, `scripts/lib/testnet-localize.mjs` |
+| 4 | Map `SM3VDXK3…` → `ST1PQHQ…` in the localizer and move it from `THIRD_PARTY` to a new `TESTNET_EQUIVALENT` set | Nothing |
+| 5 | Determine how the deployer obtains a testnet sBTC balance (§5.2 caveat) | Nothing — public API / faucet research |
+| 6 | Write `deployments/testnet-current-gen-plan.yaml` | 4, 5 |
+| 7 | Execute the stage and record evidence | A funded testnet deployer — **operator only** |
 
-**The STX line and `flashstack-pool-v3` are now unblocked end-to-end.** Only the sBTC
-line (`flashstack-sbtc-core-v2`, `flashstack-sbtc-pool-v3`) waits on decision 2.
+**All three original blockers are now closed.** The entire current generation — the
+STX line, `flashstack-pool-v3`, *and* the sBTC line — can be staged faithfully. What
+remains is mechanical work plus one practical unknown (obtaining testnet sBTC), none
+of which needs an owner decision.
