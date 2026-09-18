@@ -144,7 +144,7 @@ The three that failed are exactly the adversarial ones:
 **The "happy path: reserve grows by exactly the fee" tests did NOT fail.** That is the
 useful part of this exercise: a well-behaved receiver repays whether or not the protocol
 checks, so happy-path tests observe the invariant without proving it. Only three tests
-in the entire 165-test suite actually hold this property up. That is thin coverage for
+in the entire suite actually hold this property up (165 tests when this mutation run was done; 176 as of 2026-09-16 — the three adversarial tests are unchanged). That is thin coverage for
 the single property the protocol's safety rests on, and it is a concrete, cheap thing to
 deepen before the audit — partial repayment (short by one unit), over-repayment, repayment
 by a third party rather than the receiver, and repayment of the wrong asset are all
