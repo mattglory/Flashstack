@@ -282,9 +282,15 @@ the script's own success output.
       (propose to self) then [`accept-admin`](https://explorer.hiro.so/txid/b8f7fdffcdc60728d79272421537d5495ea1bd85f6b3ff335bbdc04d0951b414?chain=testnet)
       both `success`; `get-admin` decodes to `(ok ST3XQ5DM…)`, confirmed against
       the deployer, not just a non-error response
+- [x] Interface check: public and read-only function sets on the deployed
+      `flashstack-stx-core-v2` match the local source exactly, in both
+      directions — 10 public, 8 read-only, zero unexpected on-chain functions.
+      `transfer-admin` and `accept-admin` both present, confirming the BC1
+      shape on chain. This is the check that would have caught F-7 had it
+      existed then. (Verified independently on review, not part of the
+      original run.)
 
 **NOT proven by this run — genuinely open, not implied by the above:**
-- [ ] Interface check (no unexpected exposed functions)
 - [ ] Flash loan with a non-repaying receiver reverts
 - [ ] Unapproved receiver is rejected
 - [ ] **The actual negative case BC1 exists to prevent**: that `transfer-admin`
@@ -295,6 +301,16 @@ the script's own success output.
       properly.
 - [ ] Recorded in `deployments/` alongside a plan file; block heights not
       captured
+
+**Note on staleness:** this run predates `a92fb8e` (the fix landed on #56
+after this evidence was recorded). It used the *old* Step 8 — propose-to-self
+then accept, with no read-only assertions — not the corrected sequence that
+proposes to a principal the key doesn't control and asserts `get-admin`
+unchanged in between. The two-step admin happy-path evidence above still
+holds (both txs did succeed and the end state is correct), but it does not
+carry the assertion strength `a92fb8e` added. **A re-run against the current
+script is required before this document can be treated as current BC1
+evidence, not optional.**
 
 ---
 
