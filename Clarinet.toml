@@ -314,23 +314,26 @@ path = "contracts/test/flashstack-stx-core-v2.clar"
 clarity_version = 3
 epoch = "3.0"
 
-# stx-test-receiver / sbtc-test-receiver: in the original D6 registration batch
-# but never actually landed in this file. Fixed while adding the v2 receiver.
-[contracts.stx-test-receiver]
-path = "contracts/stx-test-receiver.clar"
-clarity_version = 3
-epoch = "latest"
-
-[contracts.sbtc-test-receiver]
-path = "contracts/sbtc-test-receiver.clar"
-clarity_version = 3
-epoch = "latest"
-
-# stx-test-receiver targets flashstack-stx-core-v2, not the deployed v1 core --
+# stx-test-receiver / sbtc-test-receiver are now registered via #48's D6 batch
+# (merged into main -- see below in this file). This PR only adds the new v2
+# receiver on top of that.
+#
+# stx-test-receiver-v2 targets flashstack-stx-core-v2, not the deployed v1 core --
 # Clarity requires a statically-known contract-call? target, so a receiver
 # can't dynamically call the `core` principal it receives in the callback.
 # New contract, not an edit, for the same reason every other successor here is
 # a new contract. See docs/TESTNET_STAGING.md.
+#
+# epoch = "latest", not "3.0": tried pinning this (and stx-test-receiver,
+# sbtc-test-receiver below) to match clarity_version = 3, per review on #56.
+# Reverted after actually testing it -- all three impl-trait the live-fetched
+# SP3TGRVG….stx-flash-receiver-trait / sbtc-flash-receiver-trait, which
+# resolves to epoch 3.4 on fetch, not 3.0. Pinning to "3.0" produces "X is
+# deployed at epoch 3.0, but dependency … requires epoch 3.4" -- reproduced,
+# not assumed: clarinet check passed at 3.0 but the simnet-backed test suite
+# failed on exactly this for both files. "latest" is the verified-working
+# choice for anything depending on this externally-fetched trait; explicit
+# pinning stays correct for contracts whose full dependency chain is ours.
 [contracts.stx-test-receiver-v2]
 path = "contracts/stx-test-receiver-v2.clar"
 clarity_version = 3

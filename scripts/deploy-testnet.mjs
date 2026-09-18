@@ -48,6 +48,9 @@ import {
   PostConditionMode,
   ClarityVersion,
   Cl,
+  cvToHex,
+  cvToString,
+  hexToCV,
   getAddressFromPrivateKey,
 } from "@stacks/transactions";
 import networkPkg from "@stacks/network";
@@ -203,6 +206,37 @@ async function callContract(privateKey, nonce, contractAddress, contractName, fn
   return txid;
 }
 
+// Reads a read-only function and returns a clean, directly-comparable string
+// (the response unwrapped, e.g. "ST3XQ5…", "(some ST3XQ5…)", "none") -- not
+// raw hex. The deploy script had zero read-only calls before this, so every
+// prior "evidence" step could only show a transaction succeeded, never assert
+// what state actually resulted. See docs/TESTNET_STAGING.md §6 (source and
+// interface read-back) and the BC1 verification below, the reason this exists.
+async function callReadOnly(sender, contractAddress, contractName, fn, args = []) {
+  const res  = await fetch(`${API}/v2/contracts/call-read/${contractAddress}/${contractName}/${fn}`, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ sender, arguments: args.map(a => cvToHex(a)) }),
+  });
+  const data = await res.json();
+  if (!data.okay) throw new Error(`callReadOnly ${contractName}.${fn} failed: ${JSON.stringify(data)}`);
+  const decoded = hexToCV(data.result);
+  if (decoded.type === "err") {
+    throw new Error(`${contractName}.${fn} returned (err ${cvToString(decoded.value)})`);
+  }
+  // decoded.type === "ok" for every read-only in this codebase (all wrap
+  // their return in (ok ...)) -- unwrap it so callers compare a clean value,
+  // not "(ok X)" every time.
+  return cvToString(decoded.type === "ok" ? decoded.value : decoded);
+}
+
+function assertEqual(label, actual, expected) {
+  if (actual !== expected) {
+    throw new Error(`ASSERTION FAILED — ${label}: expected "${expected}", got "${actual}"`);
+  }
+  console.log(`  OK: ${label} = ${actual}`);
+}
+
 async function transferStx(privateKey, nonce, recipient, amount, fee = 10_000) {
   const tx = await makeSTXTokenTransfer({
     recipient,
@@ -345,19 +379,46 @@ async function main() {
   console.log();
 
   // ── Step 8: Prove BC1 — the two-step admin transfer this line exists for ─
-  // transfer-admin alone must NOT move authority (that's the v1 bug this
-  // whole successor line fixes); accept-admin must be required, and only
-  // the pending principal may call it. Proves the fix on-chain, not just
-  // in simnet, before this pattern is trusted for a real admin rotation.
-  console.log("Step 8 — Prove BC1: propose an admin transfer to self, then accept");
-  console.log("  (Two-step: transfer-admin alone must not move authority)");
+  // A propose-to-self-then-accept sequence is NOT evidence of anything: if
+  // transfer-admin secretly set admin directly (the exact v1 bug this line
+  // fixes), the txids would look identical, both success, admin unchanged
+  // throughout. Read-only calls between each step are what makes this real
+  // evidence instead of "two functions executed without erroring" (caught in
+  // review — the earlier version of this step had exactly that gap).
+  //
+  // OTHER is the well-known public Clarinet default testnet deployer (also
+  // used as sBTC's TESTNET_EQUIVALENT target in #55) — a real, distinct
+  // testnet principal the deployer key does not control.
+  const OTHER = "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM";
+  console.log("Step 8 — Prove BC1: two-step admin transfer, with state asserted at each step");
+  console.log(`  (Proposing to ${OTHER}, a principal this key does not control)`);
+
+  results.proposeOther = await callContract(
+    privateKey, nonce++,
+    DEPLOYER, "flashstack-stx-core-v2", "transfer-admin",
+    [Cl.principal(OTHER)],
+    100_000,
+  );
+  await waitForConfirm(results.proposeOther, "transfer-admin (propose to OTHER)");
+
+  const adminAfterPropose = await callReadOnly(DEPLOYER, DEPLOYER, "flashstack-stx-core-v2", "get-admin");
+  assertEqual("admin after propose (must NOT have moved)", adminAfterPropose, DEPLOYER);
+
+  const pendingAfterPropose = await callReadOnly(DEPLOYER, DEPLOYER, "flashstack-stx-core-v2", "get-pending-admin");
+  assertEqual("pending-admin after propose", pendingAfterPropose, `(some ${OTHER})`);
+
+  console.log("  (Re-proposing to self — demonstrates recovery from a fat-fingered address)");
   results.proposeAdmin = await callContract(
     privateKey, nonce++,
     DEPLOYER, "flashstack-stx-core-v2", "transfer-admin",
     [Cl.principal(DEPLOYER)],
     100_000,
   );
-  await waitForConfirm(results.proposeAdmin, "transfer-admin (propose, to self — evidence only)");
+  await waitForConfirm(results.proposeAdmin, "transfer-admin (re-propose to self)");
+
+  const pendingAfterRepropose = await callReadOnly(DEPLOYER, DEPLOYER, "flashstack-stx-core-v2", "get-pending-admin");
+  assertEqual("pending-admin after re-propose", pendingAfterRepropose, `(some ${DEPLOYER})`);
+
   results.acceptAdmin = await callContract(
     privateKey, nonce++,
     DEPLOYER, "flashstack-stx-core-v2", "accept-admin",
@@ -365,6 +426,9 @@ async function main() {
     100_000,
   );
   await waitForConfirm(results.acceptAdmin, "accept-admin");
+
+  const adminAfterAccept = await callReadOnly(DEPLOYER, DEPLOYER, "flashstack-stx-core-v2", "get-admin");
+  assertEqual("admin after accept", adminAfterAccept, DEPLOYER);
   console.log();
 
   // ── Summary ───────────────────────────────────────────────────────────────
@@ -386,9 +450,10 @@ async function main() {
   console.log("║  TESTNET FLASH LOAN EVIDENCE:                        ║");
   console.log(`  Flash loan (10 STX):      ${EXPLORER}/${results.flashLoan}?chain=testnet`);
   console.log("╠══════════════════════════════════════════════════════╣");
-  console.log("║  BC1 EVIDENCE (two-step admin transfer):             ║");
-  console.log(`  transfer-admin (propose): ${EXPLORER}/${results.proposeAdmin}?chain=testnet`);
-  console.log(`  accept-admin:              ${EXPLORER}/${results.acceptAdmin}?chain=testnet`);
+  console.log("║  BC1 EVIDENCE (two-step admin transfer, state asserted): ║");
+  console.log(`  transfer-admin (to OTHER):  ${EXPLORER}/${results.proposeOther}?chain=testnet`);
+  console.log(`  transfer-admin (re-to self):${EXPLORER}/${results.proposeAdmin}?chain=testnet`);
+  console.log(`  accept-admin:               ${EXPLORER}/${results.acceptAdmin}?chain=testnet`);
   console.log("╠══════════════════════════════════════════════════════╣");
   console.log("║  Address activity (all txids):                       ║");
   console.log(`  https://explorer.hiro.so/address/${DEPLOYER}?chain=testnet`);
