@@ -293,12 +293,8 @@ the script's own success output.
 **NOT proven by this run — genuinely open, not implied by the above:**
 - [ ] Flash loan with a non-repaying receiver reverts
 - [ ] Unapproved receiver is rejected
-- [ ] **The actual negative case BC1 exists to prevent**: that `transfer-admin`
-      alone does not move authority, and that `accept-admin` from a non-pending
-      principal fails. This run proposed and accepted from the *same* principal
-      in immediate succession, which proves the happy path works, not that the
-      failure mode is blocked. A follow-up run needs a second key to test this
-      properly.
+- [x] ~~**The actual negative case BC1 exists to prevent**~~ — proven separately,
+      with a second key. See §6b.
 - [ ] Recorded in `deployments/` alongside a plan file; block heights not
       captured
 
@@ -310,7 +306,61 @@ unchanged in between. The two-step admin happy-path evidence above still
 holds (both txs did succeed and the end state is correct), but it does not
 carry the assertion strength `a92fb8e` added. **A re-run against the current
 script is required before this document can be treated as current BC1
-evidence, not optional.**
+evidence, not optional.** (§6b below proves the negative case with a
+different, purpose-built script — it does not substitute for this re-run.)
+
+---
+
+## 6b. BC1 negative-path proof — 2026-09-18
+
+`scripts/deploy-testnet-bc1-negative.mjs`, a second, purpose-built script —
+not `deploy-testnet.mjs` — run against the already-deployed
+`flashstack-stx-core-v2` from §6a. Two independent keys: the original
+deployer `ST3XQ5DMH4BRXVZWAHKJFBNND17CPCSAYMV4T0NFT` (current admin) and a
+freshly generated, faucet-funded second wallet
+`ST2YZPFDGFZH37GTRG2RA7WME4QWTC3KNAP1SB96D`. Every item below was
+independently re-verified against the live testnet API — sender, function,
+args, and result decoded from each tx directly, plus a fresh `get-admin` /
+`get-pending-admin` read after the run — not taken from the script's own
+console output.
+
+**Proven, with evidence:**
+- [x] `transfer-admin` (deployer proposes second key):
+      [`4a9f4aad…`](https://explorer.hiro.so/txid/4a9f4aad4955898999f07427d64238c3775cc6e0abe7fcf5576b87d8f8b6b2e2?chain=testnet)
+      `success`, `(ok true)`, block 409791. Confirmed `get-admin` unchanged
+      (deployer) and `get-pending-admin` = `(some ST2YZPFDGFZH…)` immediately
+      after.
+- [x] **The negative case itself**: deployer — the *old* admin, not the
+      pending one — calls `accept-admin`:
+      [`9107e675…`](https://explorer.hiro.so/txid/9107e6752e467ab16fb8d09888fc2684d63fb8ed15ca827381c81f1284dbd3ef?chain=testnet),
+      block 409793. `tx_status` is `abort_by_response`, `tx_result` is
+      `(err u309)` — `ERR-NOT-PENDING-ADMIN`, read directly from
+      `contracts/flashstack-stx-core-v2.clar:40`, not a generic failure.
+      `get-admin` re-checked immediately after: still the deployer, confirming
+      the rejected call had zero effect on state. This is `accept-admin` from
+      a non-pending principal actually failing on-chain, not merely untried.
+- [x] Legitimate acceptance: the second key — the real pending admin — calls
+      `accept-admin`:
+      [`aa6f8a14…`](https://explorer.hiro.so/txid/aa6f8a145503e99a4daa2cad54bfc0acc4ee18424fbcbbf5db92b13b79283775?chain=testnet),
+      block 409795, `success`, `(ok true)`. `get-admin` re-checked: now the
+      second key — authority genuinely moved, from the correct caller only.
+- [x] State restored: second key proposes back to the deployer
+      ([`79b759e3…`](https://explorer.hiro.so/txid/79b759e381a04b569bc38486e27d2b00fe7bc281d949e0072252e2711a79bfe9?chain=testnet),
+      block 409796), deployer accepts
+      ([`d6c8e7aa…`](https://explorer.hiro.so/txid/d6c8e7aa02df47a4f2ab6d159b30afc3ca9ad4b412d36676373fda7d17de72d1?chain=testnet),
+      block 409799). Final state independently re-read post-run: `get-admin`
+      decodes to the original deployer, `get-pending-admin` decodes to
+      `none` — the contract is back exactly where it started, so later runs
+      and this document can keep assuming the deployer is admin.
+- [x] Block ordering coherent throughout (409791 → 409793 → 409795 → 409796
+      → 409799), sender on each tx matches the principal the step claims made
+      the call.
+
+**Still open:** this proves the negative case for `flashstack-stx-core-v2`
+only. The v3-track successors (`flashstack-stx-pool-v3`,
+`flashstack-sbtc-pool-v3`, `flashstack-sbtc-core-v2`) share the same
+`transfer-admin`/`accept-admin` shape but are unstaged and untested — this
+result doesn't extend to them automatically.
 
 ---
 
