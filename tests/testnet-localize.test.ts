@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 // @ts-expect-error — plain .mjs helper, no types
-import { localize, residualMainnetRefs, OURS, THIRD_PARTY } from "../scripts/lib/testnet-localize.mjs";
+import {
+  localize,
+  residualMainnetRefs,
+  OURS,
+  THIRD_PARTY,
+  TESTNET_EQUIVALENT,
+} from "../scripts/lib/testnet-localize.mjs";
 
 /**
  * Guards the testnet address localizer (docs/TESTNET_STAGING.md §5.1).
@@ -22,7 +28,14 @@ const DEPLOYER = "ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8"; // shape-valid tes
 
 const read = (p: string) => readFileSync(join("contracts", p), "utf-8");
 
-/** The current-generation testnet staging set: STX line + the pool-v3 line. */
+/**
+ * The full current-generation testnet staging set.
+ *
+ * The sBTC pair was previously listed as NOT stageable: canonical sBTC is
+ * mainnet-only, so staging meant a mock. That turned out to be wrong — a
+ * byte-identical sBTC deployment exists on testnet (TESTNET_STAGING.md §5.2), so
+ * they localize cleanly via TESTNET_EQUIVALENT and are stageable faithfully.
+ */
 const STAGEABLE = [
   "stx-flash-receiver-trait.clar",
   "flashstack-stx-core-v2.clar",
@@ -30,18 +43,33 @@ const STAGEABLE = [
   "flashstack-v3-receiver-trait.clar",
   "flashstack-pool-v3.clar",
   "test/sip-010-trait-ft-standard.clar",
-];
-
-/** Depends on canonical sBTC, which is mainnet-only — TESTNET_STAGING.md §5.2. */
-const BLOCKED_BY_SBTC = [
   "flashstack-sbtc-core-v2.clar",
   "flashstack-sbtc-pool-v3.clar",
 ];
 
+/** Genuinely unstageable: real DeFi integrations with no testnet counterpart. */
+const NOT_STAGEABLE: Array<[string, string]> = [
+  ["zest-liquidation-receiver.clar", "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N"], // Zest
+  ["zest-v2-liquidation-receiver.clar", "SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR"], // Arkadiko
+  ["alex-arb-receiver-v5.clar", "SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM"], // ALEX
+];
+
 describe("testnet localizer", () => {
-  it("OURS and THIRD_PARTY are disjoint", () => {
-    const overlap = Object.keys(OURS).filter((a) => a in THIRD_PARTY);
-    expect(overlap, "a principal cannot be both ours and third-party").toEqual([]);
+  it("the three principal sets are mutually disjoint", () => {
+    const ours = Object.keys(OURS);
+    const eq = Object.keys(TESTNET_EQUIVALENT);
+    const third = Object.keys(THIRD_PARTY);
+    expect(ours.filter((a) => a in THIRD_PARTY), "ours vs third-party").toEqual([]);
+    expect(ours.filter((a) => a in TESTNET_EQUIVALENT), "ours vs testnet-equivalent").toEqual([]);
+    expect(eq.filter((a) => a in THIRD_PARTY), "testnet-equivalent vs third-party").toEqual([]);
+    expect(third.length).toBeGreaterThan(0);
+  });
+
+  it("every TESTNET_EQUIVALENT target is a testnet principal, not a mainnet one", () => {
+    for (const [mainnet, { testnet }] of Object.entries(TESTNET_EQUIVALENT) as any) {
+      expect(mainnet, `${mainnet} should be a mainnet principal`).toMatch(/^S[PM]/);
+      expect(testnet, `${testnet} should be a testnet principal`).toMatch(/^S[TN]/);
+    }
   });
 
   describe("current-generation contracts localize completely", () => {
@@ -56,14 +84,28 @@ describe("testnet localizer", () => {
     }
   });
 
-  describe("sBTC-dependent contracts are correctly reported as NOT stageable", () => {
-    for (const file of BLOCKED_BY_SBTC) {
-      it(`${file}: still references canonical sBTC after localization`, () => {
-        // Deliberately asserts a limitation. This should start failing the day a
-        // canonical sBTC testnet deployment exists and is added to the localizer —
-        // at which point §5.2 is resolved and this expectation is updated.
+  describe("sBTC is remapped to its verified testnet deployment, not to us and not to a mock", () => {
+    const SBTC_MAINNET = "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4";
+    const SBTC_TESTNET = "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM";
+
+    for (const file of ["flashstack-sbtc-core-v2.clar", "flashstack-sbtc-pool-v3.clar"]) {
+      it(`${file}: sBTC points at the testnet deployment, NOT at the deployer`, () => {
+        const out = localize(read(file), DEPLOYER);
+        expect(out, "mainnet sBTC must not survive").not.toContain(SBTC_MAINNET);
+        expect(out, "sBTC must resolve to the verified testnet set").toContain(SBTC_TESTNET);
+        // The load-bearing assertion: remapping sBTC to OUR deployer would make the
+        // contract publish successfully against a token we invented, which is the
+        // mock outcome §5.2 exists to avoid. It must resolve elsewhere.
+        expect(out.includes(`'${DEPLOYER}.sbtc-token`), "sBTC must not be aliased to our own deployer").toBe(false);
+      });
+    }
+  });
+
+  describe("contracts with real DeFi integrations are still correctly blocked", () => {
+    for (const [file, principal] of NOT_STAGEABLE) {
+      it(`${file}: still references a mainnet protocol, so is not stageable`, () => {
         const left = residualMainnetRefs(localize(read(file), DEPLOYER));
-        expect(left).toContain("SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4");
+        expect(left).toContain(principal);
       });
     }
   });
