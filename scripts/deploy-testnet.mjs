@@ -1,28 +1,43 @@
 /**
- * FlashStack — Testnet Deployment + Flash Loan Evidence
+ * FlashStack — Testnet Deployment + Flash Loan Evidence (current generation)
  *
- * Deploys the STX flash loan system to Stacks testnet and executes a real
- * flash loan, producing on-chain testnet txids as evidence.
+ * Deploys the BC1-fixed STX flash loan core to Stacks testnet and executes a
+ * real flash loan, producing on-chain testnet txids as evidence.
+ *
+ * UPDATED 2026-09-18: previously deployed the v1 line (flashstack-stx-core,
+ * flashstack-stx-pool, flashstack-pool-oracle) — none of which is what
+ * docs/TESTNET_STAGING.md's gate exists to protect. v1 is already live on
+ * mainnet; staging it again proves nothing new. This now targets
+ * flashstack-stx-core-v2, the undeployed BC1 two-step-admin successor, using
+ * scripts/lib/testnet-localize.mjs (fixed in #55) to rewrite mainnet
+ * principals correctly instead of the old two-address patcher that would
+ * have silently mis-published it.
  *
  * Setup:
- *   1. Get a testnet wallet address (any fresh Stacks wallet)
+ *   1. Create a FRESH wallet for testnet only — see docs/TESTNET_STAGING.md §3.
+ *      Never reuse a wallet that has ever held mainnet funds.
  *   2. Fund it at: https://explorer.hiro.so/sandbox/faucet?chain=testnet
  *      (1000 STX per request — run 3-4 times to cover deploy fees + reserve)
  *   3. Run:
  *      TESTNET_MNEMONIC="word1 ... word24" node scripts/deploy-testnet.mjs
  *      (testnet address is derived automatically from the mnemonic)
  *
- * Note on sBTC:
- *   The canonical sBTC token (SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token)
- *   only exists on mainnet. This script deploys the STX flash loan system only.
- *   STX flash loans demonstrate the full protocol end-to-end on testnet.
+ * Scope of this run — deliberately narrow:
+ *   Proves flashstack-stx-core-v2 end-to-end, including the BC1 two-step
+ *   admin transfer this whole successor line exists for. Does NOT include
+ *   flashstack-stx-pool-v3 (a separate flash-loan-capable contract, needs
+ *   its own receiver — stx-test-receiver-v2 hardcodes core-v2 by name, the
+ *   same static-reference constraint documented in that file) or pool-v3 /
+ *   sbtc-core-v2 (the generic multi-asset line — now stageable per #55's
+ *   sBTC TESTNET_EQUIVALENT work, but a materially bigger deploy: multiple
+ *   assets, add-asset calibration, its own receiver). Both are natural
+ *   follow-ups once this simpler line is proven, not folded in blind here.
  *
  * Deploys in order:
- *   1. stx-flash-receiver-trait    — trait interface
- *   2. flashstack-stx-core         — flash loan engine
- *   3. flashstack-stx-pool         — LP pool (fee accumulation)
- *   4. flashstack-pool-oracle      — share price oracle (Zest integration)
- *   5. stx-test-receiver           — minimal borrow-and-repay receiver
+ *   1. stx-flash-receiver-trait    — trait interface (testnet regenesised,
+ *                                    no prior deployment survives — fresh)
+ *   2. flashstack-stx-core-v2      — flash loan engine, BC1 two-step admin
+ *   3. stx-test-receiver-v2        — minimal borrow-and-repay receiver
  *   Then: whitelist receiver → fund reserve → execute flash loan → evidence
  */
 
@@ -253,104 +268,103 @@ async function main() {
   await waitForConfirm(results.trait, "deploy stx-flash-receiver-trait");
   console.log();
 
-  // ── Step 2: flashstack-stx-core ──────────────────────────────────────────
-  console.log("Step 2 — Deploy flashstack-stx-core");
-  console.log("  (Flash loan engine — reserve model, whitelist, 0.05% fee)");
+  // ── Step 2: flashstack-stx-core-v2 ───────────────────────────────────────
+  console.log("Step 2 — Deploy flashstack-stx-core-v2");
+  console.log("  (Flash loan engine — reserve model, BC1 two-step admin, 0.05% fee)");
   results.core = await deployContract(
     privateKey, nonce++,
-    "flashstack-stx-core",
-    "contracts/flashstack-stx-core.clar",
+    "flashstack-stx-core-v2",
+    "contracts/flashstack-stx-core-v2.clar",
     DEPLOYER,
   );
-  await waitForConfirm(results.core, "deploy flashstack-stx-core");
+  await waitForConfirm(results.core, "deploy flashstack-stx-core-v2");
   console.log();
 
-  // ── Step 3: flashstack-stx-pool ──────────────────────────────────────────
-  console.log("Step 3 — Deploy flashstack-stx-pool");
-  console.log("  (LP pool — external depositors earn yield from flash loan fees)");
-  results.pool = await deployContract(
-    privateKey, nonce++,
-    "flashstack-stx-pool",
-    "contracts/flashstack-stx-pool.clar",
-    DEPLOYER,
-  );
-  await waitForConfirm(results.pool, "deploy flashstack-stx-pool");
-  console.log();
-
-  // ── Step 4: flashstack-pool-oracle ───────────────────────────────────────
-  console.log("Step 4 — Deploy flashstack-pool-oracle");
-  console.log("  (Share price oracle — Zest LP-as-collateral integration target)");
-  results.oracle = await deployContract(
-    privateKey, nonce++,
-    "flashstack-pool-oracle",
-    "contracts/flashstack-pool-oracle.clar",
-    DEPLOYER,
-  );
-  await waitForConfirm(results.oracle, "deploy flashstack-pool-oracle");
-  console.log();
-
-  // ── Step 5: stx-test-receiver ────────────────────────────────────────────
-  console.log("Step 5 — Deploy stx-test-receiver");
-  console.log("  (Minimal receiver: borrow STX, repay principal + fee atomically)");
+  // ── Step 3: stx-test-receiver-v2 ─────────────────────────────────────────
+  console.log("Step 3 — Deploy stx-test-receiver-v2");
+  console.log("  (Minimal receiver targeting core-v2: borrow STX, repay principal + fee)");
   results.receiver = await deployContract(
     privateKey, nonce++,
-    "stx-test-receiver",
-    "contracts/stx-test-receiver.clar",
+    "stx-test-receiver-v2",
+    "contracts/stx-test-receiver-v2.clar",
     DEPLOYER,
   );
-  await waitForConfirm(results.receiver, "deploy stx-test-receiver");
+  await waitForConfirm(results.receiver, "deploy stx-test-receiver-v2");
   console.log();
 
-  // ── Step 6: Whitelist test receiver in stx-core ──────────────────────────
-  console.log("Step 6 — Whitelist stx-test-receiver in flashstack-stx-core");
+  // ── Step 4: Whitelist test receiver in stx-core-v2 ───────────────────────
+  console.log("Step 4 — Whitelist stx-test-receiver-v2 in flashstack-stx-core-v2");
   results.whitelist = await callContract(
     privateKey, nonce++,
-    DEPLOYER, "flashstack-stx-core", "add-approved-receiver",
-    [Cl.principal(`${DEPLOYER}.stx-test-receiver`)],
+    DEPLOYER, "flashstack-stx-core-v2", "add-approved-receiver",
+    [Cl.principal(`${DEPLOYER}.stx-test-receiver-v2`)],
   );
   await waitForConfirm(results.whitelist, "add-approved-receiver");
   console.log();
 
-  // ── Step 7: Fund reserve with testnet STX ────────────────────────────────
+  // ── Step 5: Fund reserve with testnet STX ────────────────────────────────
   const reserveSTX = RESERVE_AMOUNT / 1_000_000;
-  console.log(`Step 7 — Fund flashstack-stx-core reserve with ${reserveSTX} testnet STX`);
+  console.log(`Step 5 — Fund flashstack-stx-core-v2 reserve with ${reserveSTX} testnet STX`);
   results.fund = await callContract(
     privateKey, nonce++,
-    DEPLOYER, "flashstack-stx-core", "deposit-reserve",
+    DEPLOYER, "flashstack-stx-core-v2", "deposit-reserve",
     [Cl.uint(RESERVE_AMOUNT)],
     200_000,
   );
   await waitForConfirm(results.fund, "deposit-reserve");
   console.log();
 
-  // ── Step 8: Seed the receiver so it can pay the flash loan fee ────────────
+  // ── Step 6: Seed the receiver so it can pay the flash loan fee ──────────
   const seedSTX = RECEIVER_SEED_AMOUNT / 1_000_000;
-  console.log(`Step 8 — Seed stx-test-receiver with ${seedSTX} testnet STX`);
+  console.log(`Step 6 — Seed stx-test-receiver-v2 with ${seedSTX} testnet STX`);
   console.log("  (Receiver repays principal + 0.05% fee from its own balance; without");
   console.log("   this, a fresh receiver has 0 STX and the flash loan fails with err u500)");
   results.seed = await transferStx(
     privateKey, nonce++,
-    `${DEPLOYER}.stx-test-receiver`,
+    `${DEPLOYER}.stx-test-receiver-v2`,
     RECEIVER_SEED_AMOUNT,
   );
-  await waitForConfirm(results.seed, "seed stx-test-receiver");
+  await waitForConfirm(results.seed, "seed stx-test-receiver-v2");
   console.log();
 
-  // ── Step 9: Execute test flash loan ──────────────────────────────────────
-  // Borrow 10 STX (10_000_000 microSTX) via stx-test-receiver
+  // ── Step 7: Execute test flash loan ──────────────────────────────────────
+  // Borrow 10 STX (10_000_000 microSTX) via stx-test-receiver-v2
   const LOAN_AMOUNT = 10_000_000; // 10 STX
-  console.log(`Step 9 — Execute flash loan: borrow ${LOAN_AMOUNT / 1_000_000} STX via stx-test-receiver`);
+  console.log(`Step 7 — Execute flash loan: borrow ${LOAN_AMOUNT / 1_000_000} STX via stx-test-receiver-v2`);
   console.log("  (This is the testnet evidence txid — atomic borrow + repay in one tx)");
   results.flashLoan = await callContract(
     privateKey, nonce++,
-    DEPLOYER, "flashstack-stx-core", "flash-loan",
+    DEPLOYER, "flashstack-stx-core-v2", "flash-loan",
     [
       Cl.uint(LOAN_AMOUNT),
-      Cl.principal(`${DEPLOYER}.stx-test-receiver`),
+      Cl.principal(`${DEPLOYER}.stx-test-receiver-v2`),
     ],
     200_000,
   );
   await waitForConfirm(results.flashLoan, "flash-loan (testnet evidence)");
+  console.log();
+
+  // ── Step 8: Prove BC1 — the two-step admin transfer this line exists for ─
+  // transfer-admin alone must NOT move authority (that's the v1 bug this
+  // whole successor line fixes); accept-admin must be required, and only
+  // the pending principal may call it. Proves the fix on-chain, not just
+  // in simnet, before this pattern is trusted for a real admin rotation.
+  console.log("Step 8 — Prove BC1: propose an admin transfer to self, then accept");
+  console.log("  (Two-step: transfer-admin alone must not move authority)");
+  results.proposeAdmin = await callContract(
+    privateKey, nonce++,
+    DEPLOYER, "flashstack-stx-core-v2", "transfer-admin",
+    [Cl.principal(DEPLOYER)],
+    100_000,
+  );
+  await waitForConfirm(results.proposeAdmin, "transfer-admin (propose, to self — evidence only)");
+  results.acceptAdmin = await callContract(
+    privateKey, nonce++,
+    DEPLOYER, "flashstack-stx-core-v2", "accept-admin",
+    [],
+    100_000,
+  );
+  await waitForConfirm(results.acceptAdmin, "accept-admin");
   console.log();
 
   // ── Summary ───────────────────────────────────────────────────────────────
@@ -361,10 +375,8 @@ async function main() {
   console.log("╠══════════════════════════════════════════════════════╣");
   console.log("║  Contracts:                                          ║");
   console.log(`  stx-flash-receiver-trait: ${EXPLORER}/${results.trait}?chain=testnet`);
-  console.log(`  flashstack-stx-core:      ${EXPLORER}/${results.core}?chain=testnet`);
-  console.log(`  flashstack-stx-pool:      ${EXPLORER}/${results.pool}?chain=testnet`);
-  console.log(`  flashstack-pool-oracle:   ${EXPLORER}/${results.oracle}?chain=testnet`);
-  console.log(`  stx-test-receiver:        ${EXPLORER}/${results.receiver}?chain=testnet`);
+  console.log(`  flashstack-stx-core-v2:   ${EXPLORER}/${results.core}?chain=testnet`);
+  console.log(`  stx-test-receiver-v2:     ${EXPLORER}/${results.receiver}?chain=testnet`);
   console.log("╠══════════════════════════════════════════════════════╣");
   console.log("║  Actions:                                            ║");
   console.log(`  Whitelist receiver:       ${EXPLORER}/${results.whitelist}?chain=testnet`);
@@ -374,14 +386,21 @@ async function main() {
   console.log("║  TESTNET FLASH LOAN EVIDENCE:                        ║");
   console.log(`  Flash loan (10 STX):      ${EXPLORER}/${results.flashLoan}?chain=testnet`);
   console.log("╠══════════════════════════════════════════════════════╣");
+  console.log("║  BC1 EVIDENCE (two-step admin transfer):             ║");
+  console.log(`  transfer-admin (propose): ${EXPLORER}/${results.proposeAdmin}?chain=testnet`);
+  console.log(`  accept-admin:              ${EXPLORER}/${results.acceptAdmin}?chain=testnet`);
+  console.log("╠══════════════════════════════════════════════════════╣");
   console.log("║  Address activity (all txids):                       ║");
   console.log(`  https://explorer.hiro.so/address/${DEPLOYER}?chain=testnet`);
   console.log("╚══════════════════════════════════════════════════════╝");
   console.log();
   console.log("Next steps:");
-  console.log("  1. Add testnet txids to README.md testnet section");
-  console.log("  2. Share flash loan txid as testnet evidence with grant reviewers");
-  console.log("  3. Seed the LP pool: call deposit on flashstack-stx-pool");
+  console.log("  1. Add testnet txids to docs/TESTNET_STAGING.md as staging evidence");
+  console.log("  2. Security & Contract Lead review of the recorded evidence (gate step 6)");
+  console.log("  3. Follow-up deploy: flashstack-stx-pool-v3 (own receiver needed — see");
+  console.log("     stx-test-receiver-v2.clar's header for why one contract can't cover both)");
+  console.log("  4. Follow-up deploy: flashstack-pool-v3 + flashstack-sbtc-core-v2 (generic");
+  console.log("     multi-asset line — now stageable per #55's sBTC TESTNET_EQUIVALENT work)");
 }
 
 main().catch(e => {

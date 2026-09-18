@@ -4,8 +4,166 @@ description = "FlashStack - Trustless flash minting of sBTC against locked/stack
 authors = ["Glory Matthew"]
 telemetry = false
 cache_dir = "./.cache"
-requirements = []
 boot_contracts = []
+
+[[project.requirements ]]
+contract_id = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-core"
+
+[[project.requirements ]]
+contract_id = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-sbtc-core"
+
+[[project.requirements ]]
+contract_id = "SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.token-alex"
+
+[[project.requirements ]]
+contract_id = "SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M.stableswap-stx-ststx-v-1-1"
+
+[[project.requirements ]]
+contract_id = "SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M.stableswap-stx-ststx-v-1-2"
+
+[[project.requirements ]]
+contract_id = "SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.arkadiko-vaults-data-v1-1"
+
+[[project.requirements ]]
+contract_id = "SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.amm-pool-v2-01"
+
+[[project.requirements ]]
+contract_id = "SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.arkadiko-swap-v2-1"
+
+[[project.requirements ]]
+contract_id = "SP1Y5YSTAHZ88XYK1VPDH24GY0HPX5J4JECTMY4A1.univ2-router"
+
+[[project.requirements ]]
+contract_id = "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststx-token"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.pool-borrow-v2-3"
+
+[[project.requirements ]]
+contract_id = "SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx"
+
+[[project.requirements ]]
+contract_id = "SP1A27KFY4XERQCCRCARCYD1CC5N7M6688BSYADJ7.v0-4-market"
+
+[[project.requirements ]]
+contract_id = "SP1A27KFY4XERQCCRCARCYD1CC5N7M6688BSYADJ7.wstx"
+
+[[project.requirements ]]
+contract_id = "SP1Y5YSTAHZ88XYK1VPDH24GY0HPX5J4JECTMY4A1.univ2-share-fee-to"
+
+[[project.requirements ]]
+contract_id = "SP1Y5YSTAHZ88XYK1VPDH24GY0HPX5J4JECTMY4A1.wstx"
+
+[[project.requirements ]]
+contract_id = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.sbtc-flash-receiver-trait"
+
+[[project.requirements ]]
+contract_id = "SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.arkadiko-oracle-v2-3"
+
+[[project.requirements ]]
+contract_id = "SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.arkadiko-token"
+
+[[project.requirements ]]
+contract_id = "SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.arkadiko-vaults-helpers-v1-1"
+
+[[project.requirements ]]
+contract_id = "SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.arkadiko-vaults-manager-v1-2"
+
+[[project.requirements ]]
+contract_id = "SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.arkadiko-vaults-pool-active-v1-1"
+
+[[project.requirements ]]
+contract_id = "SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.arkadiko-vaults-pool-liq-v1-2"
+
+[[project.requirements ]]
+contract_id = "SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.arkadiko-vaults-sorted-v1-1"
+
+[[project.requirements ]]
+contract_id = "SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.arkadiko-vaults-tokens-v1-1"
+
+[[project.requirements ]]
+contract_id = "SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.usda-token"
+
+[[project.requirements ]]
+contract_id = "SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.wrapped-stx-token"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.aeusdc-oracle-v1-0"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.alex-oracle-v1-1"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.diko-oracle-v1-1"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.stx-btc-oracle-v1-4"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.susdt-oracle-v1-0"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.usda-oracle-v1-1"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.usdh-oracle-v1-0"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.wstx"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.zaeusdc-v2-0"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.zalex-v2-0"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.zdiko-v2-0"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.zsbtc-v2-0"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.zststx-v2-0"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.zststxbtc-v2_v2-0"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.zsusdt-v2-0"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.zusda-v2-0"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.zusdh-v2-0"
+
+[[project.requirements ]]
+contract_id = "SP2VCQJGH7PHP2DJK7Z0V48AGBHQAW3R3ZW1QF4N.zwstx-v2-0"
+
+[[project.requirements ]]
+contract_id = "SP2XD7417HGPRTREMKF748VNEQPDRR0RMANB7X1NK.token-susdt"
+
+[[project.requirements ]]
+contract_id = "SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.stx-flash-receiver-trait"
+
+[[project.requirements ]]
+contract_id = "SP3Y2ZSH8P7D50B0VBTSX11S7XSG24M1VB9YFQA4K.token-aeusdc"
+
+[[project.requirements ]]
+contract_id = "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststxbtc-token-v2"
+
+[[project.requirements ]]
+contract_id = "SPN5AKG35QZSK2M8GAMR4AFX45659RJHDW353HSG.usdh-token-v1"
+
+[[project.requirements ]]
+contract_id = "SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M.stx-ststx-lp-token-v-1-1"
+
+[[project.requirements ]]
+contract_id = "SPQC38PW542EQJ5M11CR25P7BS1CA6QT4TBXGB3M.stx-ststx-lp-token-v-1-2"
+
+[[project.requirements ]]
+contract_id = "SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.token-wstx-v2"
 
 [contracts.flashstack-core]
 path = "contracts/flashstack-core.clar"
@@ -155,6 +313,28 @@ epoch = "3.0"
 path = "contracts/test/flashstack-stx-core-v2.clar"
 clarity_version = 3
 epoch = "3.0"
+
+# stx-test-receiver / sbtc-test-receiver: in the original D6 registration batch
+# but never actually landed in this file. Fixed while adding the v2 receiver.
+[contracts.stx-test-receiver]
+path = "contracts/stx-test-receiver.clar"
+clarity_version = 3
+epoch = "latest"
+
+[contracts.sbtc-test-receiver]
+path = "contracts/sbtc-test-receiver.clar"
+clarity_version = 3
+epoch = "latest"
+
+# stx-test-receiver targets flashstack-stx-core-v2, not the deployed v1 core --
+# Clarity requires a statically-known contract-call? target, so a receiver
+# can't dynamically call the `core` principal it receives in the callback.
+# New contract, not an edit, for the same reason every other successor here is
+# a new contract. See docs/TESTNET_STAGING.md.
+[contracts.stx-test-receiver-v2]
+path = "contracts/stx-test-receiver-v2.clar"
+clarity_version = 3
+epoch = "latest"
 
 [contracts.flashstack-sbtc-pool-v3]
 path = "contracts/test/flashstack-sbtc-pool-v3.clar"
