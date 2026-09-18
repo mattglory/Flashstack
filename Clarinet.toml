@@ -407,6 +407,126 @@ path = "contracts/test/test-pool-v3-receiver-reentrant.clar"
 clarity_version = 3
 epoch = "4.0"
 
+# --- Standalone receiver/strategy contracts previously outside clarinet check ---
+# Found by the Security & Contract Lead (docs/security/CONTRACT_INVENTORY.md D6):
+# clarinet check covered 38 of 70 .clar files; the gap included several of these
+# that are live on mainnet. Registered so a syntax/type error here fails CI like
+# everywhere else. Three related files (bitflow-arb-compounder.clar,
+# snp-flashstack-receiver.clar, snp-flashstack-receiver-v3.clar) are deliberately
+# excluded -- they're gitignored "stale experiment" files, not tracked in git at
+# all, so registering them wouldn't work for any other checkout. That's the
+# subject of a separate finding (D7: source missing for a live contract), not this one.
+[contracts.alex-arb-receiver]
+path = "contracts/alex-arb-receiver.clar"
+clarity_version = 3
+epoch = "latest"
+
+[contracts.alex-arb-receiver-v3]
+path = "contracts/alex-arb-receiver-v3.clar"
+clarity_version = 3
+epoch = "latest"
+
+[contracts.alex-arb-receiver-v4]
+path = "contracts/alex-arb-receiver-v4.clar"
+clarity_version = 3
+epoch = "latest"
+
+[contracts.alex-arb-receiver-v5]
+path = "contracts/alex-arb-receiver-v5.clar"
+clarity_version = 3
+epoch = "latest"
+
+# arkadiko-liquidation-receiver: NOT registered. clarinet check fails once its
+# real Arkadiko dependencies resolve: "expecting read-only statements, detected
+# a writing operation" in check-vault (line 249), which only calls
+# VAULTS-DATA.get-vault -- conceptually a pure read. The contract is live on
+# mainnet (SP20XD46...), so it deployed successfully; this needs the Security
+# Lead's judgment on whether that's a real issue clarinet's analyzer is
+# correctly catching (something in the real get-vault call chain does write)
+# or a static-analysis limitation, before either fixing or excluding for real.
+# Filed, not resolved -- see docs/security/CONTRACT_INVENTORY.md D6 follow-up.
+
+[contracts.bitflow-arb-receiver]
+path = "contracts/bitflow-arb-receiver.clar"
+clarity_version = 3
+epoch = "latest"
+
+# crosspool-ststx-receiver: NOT registered. The file exists locally
+# (headed "DRAFT, NOT YET DEPLOYED", no secrets) but was never committed to
+# git -- zero history on any branch -- and is specifically named in
+# .git/info/exclude (a personal, local-only ignore list, separate from the
+# repo's shared .gitignore). That looks like a deliberate choice, not an
+# accident, so not force-adding it here without knowing why. Matt: is this
+# meant to be committed, or left as a local draft?
+
+[contracts.hk-sbtc-real-receiver-v1]
+path = "contracts/hk-sbtc-real-receiver-v1.clar"
+clarity_version = 3
+epoch = "latest"
+
+[contracts.hk-stx-bitflow-receiver-v1]
+path = "contracts/hk-stx-bitflow-receiver-v1.clar"
+clarity_version = 3
+epoch = "latest"
+
+[contracts.ian-stx-receiver-v1]
+path = "contracts/ian-stx-receiver-v1.clar"
+clarity_version = 3
+epoch = "latest"
+
+[contracts.sbtc-test-receiver]
+path = "contracts/sbtc-test-receiver.clar"
+clarity_version = 3
+epoch = "latest"
+
+[contracts.simple-receiver]
+path = "contracts/simple-receiver.clar"
+clarity_version = 3
+epoch = "latest"
+
+[contracts.stx-test-receiver]
+path = "contracts/stx-test-receiver.clar"
+clarity_version = 3
+epoch = "latest"
+
+[contracts.stx-receiver-template]
+path = "contracts/templates/stx-receiver-template.clar"
+clarity_version = 3
+epoch = "latest"
+
+# usda-vault-rescue-receiver: NOT registered. clarinet check fails at
+# estimate-stx-for-usda (line 168) with the same read-only/write error as
+# arkadiko-liquidation-receiver above -- also live on mainnet, same open
+# question, same reason for not guessing at a fix here. Filed, not resolved.
+
+[contracts.velar-sbtc-arb-receiver]
+path = "contracts/velar-sbtc-arb-receiver.clar"
+clarity_version = 3
+epoch = "latest"
+
+[contracts.zest-liquidation-receiver]
+path = "contracts/zest-liquidation-receiver.clar"
+clarity_version = 3
+epoch = "latest"
+
+# zest-v2-liquidation-receiver: NOT registered. clarinet check fails at line
+# 167 -- "expecting expression of type 'uint', found '(optional uint)'"
+# passing (some min-usdh) where a bare uint is expected. Unlike the two
+# read-only findings above, this looks like a straightforward type-mismatch
+# bug, not a static-analysis question -- but it's live on mainnet, so still
+# the Security Lead's call on whether it's a real bug in the deployed
+# contract or another source-drift case like F-7. Filed, not resolved.
+
+[contracts.flashstack-yield-vault]
+path = "contracts/flashstack-yield-vault.clar"
+clarity_version = 3
+epoch = "latest"
+
+[contracts.flashstack-yield-vault-v5]
+path = "contracts/flashstack-yield-vault-v5.clar"
+clarity_version = 3
+epoch = "latest"
+
 [repl.analysis]
 passes = ["check_checker"]
 
