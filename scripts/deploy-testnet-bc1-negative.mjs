@@ -38,10 +38,21 @@
  * Ends with the contract back in its original admin state so later runs and
  * docs can keep assuming DEPLOYER = admin.
  *
+ * WARNING — not idempotent mid-run: between step 3 (second key accepts) and
+ * the end of step 4 (transferred back), the contract's admin genuinely IS
+ * the second key, not the deployer. If the script dies in that window
+ * (timeout, fee too low, a dropped tx), flashstack-stx-core-v2 is left with
+ * an admin that §6a and every later run assume is the deployer. It's
+ * recoverable — the second key can still propose back — but only while
+ * TESTNET_MNEMONIC_2 still exists. If this aborts after step 3 completes,
+ * check get-admin before doing anything else, and re-run the restore
+ * (transfer-admin back to deployer, then accept-admin as deployer) using
+ * MNEMONIC_2 before any other script touches this contract.
+ *
  * NOTE: helpers below are intentionally self-contained, not imported from
  * deploy-testnet.mjs — Hillary is extracting callReadOnly/assertEqual into
- * scripts/lib/testnet-readonly.mjs separately (per #57 review); this script
- * can be pointed at that once it lands instead of carrying its own copies.
+ * scripts/lib/testnet-readonly.mjs separately (#58, open). This script can
+ * be pointed at that once it merges instead of carrying its own copies.
  */
 
 import {
@@ -90,27 +101,31 @@ async function getNonce(address) {
   return data.nonce;
 }
 
-// expectFailure=true means an on-chain abort IS the pass condition, and a
-// reported "success" is the actual test failure (the negative case broke).
-async function waitForConfirm(txid, label, expectFailure = false) {
+// expectedRejection: null means the tx must succeed. A string (e.g.
+// "(err u309)") means the tx must abort with EXACTLY that tx_result repr --
+// not just any abort. Rejected isn't the same as rejected for the right
+// reason: an unrelated runtime error, or a future refactor that changes the
+// guard, must not silently pass as "the BC1 negative case, proven".
+async function waitForConfirm(txid, label, expectedRejection = null) {
   process.stdout.write(`  Waiting for "${label}"`);
   for (let i = 0; i < 80; i++) {
     await new Promise(r => setTimeout(r, 8000));
     const res  = await fetch(`${API}/extended/v1/tx/0x${txid}`);
     const data = await res.json();
     if (data.tx_status === "success") {
-      if (expectFailure) {
+      if (expectedRejection) {
         console.log(" succeeded.");
-        throw new Error(`"${label}" was expected to be REJECTED on-chain but succeeded — the BC1 negative case is broken`);
+        throw new Error(`"${label}" was expected to be REJECTED on-chain (${expectedRejection}) but succeeded — the BC1 negative case is broken`);
       }
       console.log(" confirmed.");
       return data;
     }
     if (data.tx_status?.startsWith("abort")) {
       const reason = data.tx_result?.repr ?? "unknown";
-      if (expectFailure) {
-        console.log(`\n  Confirmed rejected on-chain (expected): ${reason}`);
+      if (expectedRejection) {
+        console.log(`\n  Rejected on-chain: ${reason}`);
         console.log(`  Tx: ${EXPLORER}/${txid}?chain=testnet`);
+        assertEqual(`"${label}" rejection reason`, reason, expectedRejection);
         return data;
       }
       console.log(`\n  FAILED: ${reason}`);
@@ -218,7 +233,7 @@ async function main() {
     deployer.privateKey, deployerNonce++,
     deployer.address, CONTRACT, "accept-admin", [],
   );
-  await waitForConfirm(results.wrongAccept, "accept-admin (wrong caller — expect rejection)", true);
+  await waitForConfirm(results.wrongAccept, "accept-admin (wrong caller — expect rejection)", "(err u309)");
 
   const adminAfterWrongAccept = await callReadOnly(deployer.address, deployer.address, CONTRACT, "get-admin");
   assertEqual("admin after rejected accept (must be unchanged)", adminAfterWrongAccept, deployer.address);
@@ -264,7 +279,7 @@ async function main() {
   console.log(`  5. Accept back (restored):         ${EXPLORER}/${results.acceptBack}?chain=testnet`);
   console.log("╚══════════════════════════════════════════════════════╝");
   console.log();
-  console.log("Add these 5 txids to docs/TESTNET_STAGING.md §6a as the negative-path proof,");
+  console.log("Add these 5 txids to docs/TESTNET_STAGING.md §6b as the negative-path proof,");
   console.log("and tick off: \"accept-admin from a non-pending principal fails\".");
 }
 
