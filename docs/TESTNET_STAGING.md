@@ -418,7 +418,7 @@ a broken one-step one. That is what has to be run.
 referenced back to the line of `deploy-testnet.mjs` it was read off, with empty
 `evidence:` slots to fill.
 
-### The execution decision, which is not mine
+### The execution decision — made: route A
 
 Live read of the §6a deployment on 2026-09-21 (sender `ST3XQ5DM…`): `get-admin`
 = the deployer, `get-pending-admin` = `none`, `get-reserve-balance` =
@@ -431,10 +431,17 @@ publish took effect (`CONTRACT_INVENTORY` §3, deployment scars). Two routes:
 
 | | Route | Cost | What it needs first |
 |---|---|---|---|
-| **A** | Admin steps only, against the existing deployment | 300,000 µSTX | `deploy-testnet.mjs` is linear with no step selection, so this needs a step flag or a purpose-built script (precedent: `scripts/deploy-testnet-bc1-negative.mjs`, which §6b used for this reason). Does not literally satisfy "a run of the current `deploy-testnet.mjs`". |
-| **B** | A fresh `-v3` line, full 10-step run | 53.31 STX | **Not a rename in the script.** `contracts/stx-test-receiver-v2.clar:16` calls `.flashstack-stx-core-v2` statically, so a `-v3` core needs a `-v3` receiver source too — new `.clar` files and a wider diff than this evidence gap warrants. |
+| **A** ✅ | Admin steps only, against the existing deployment | 300,000 µSTX | **Chosen.** Needed step selection, which `--steps=admin` now provides (PR #66). Note it is a run of `deploy-testnet.mjs`'s own Step 8 path — extracted, not copied — but not of the *whole* script; `Flashstack-ajv.6.3`'s acceptance criterion was amended to say so. |
+| **B** ❌ | A fresh `-v3` line, full 10-step run | 53.31 STX | **Not a rename in the script.** `contracts/stx-test-receiver-v2.clar:16` calls `.flashstack-stx-core-v2` statically, so a `-v3` core needs a `-v3` receiver source too — new `.clar` files and a wider diff than this evidence gap warrants. **Parked:** staging `flashstack-stx-pool-v3` is worth more than a `-v3` rename. |
 
-Owner's call. Until it is made, no txid belongs in the plan file or in §6a.
+**Decided 2026-09-21: route A.** §6b already proves the property on this
+deployment, so the gap is assertion strength on the positive path, not a
+deployment — and B would rewrite contracts to fix a documentation problem.
+`deploy-testnet.mjs --steps=admin` (PR #66) runs Step 8 and nothing else, and
+refuses unless the contract exists, admin is the signing deployer and
+pending-admin is `none` (`scripts/lib/testnet-preconditions.mjs`). Steps 1–7 of
+the plan file below therefore stay unexecuted for this line; only the 8a/8b/8c
+`evidence:` slots get filled.
 
 ### Drop-in replacement for §6a
 
@@ -531,7 +538,7 @@ would broadcast contracts still carrying mainnet principals (§5.1).
 | 5 | ~~Determine how the deployer obtains a testnet sBTC balance~~ | **DONE 2026-09-18 — SIP-010 `transfer` from `ST1PQHQ…`, which holds 80 sBTC. Minting is unreachable and unnecessary (§5.2)** |
 | 6 | ~~Write `deployments/testnet-current-gen-plan.yaml`~~ | **DONE 2026-09-21** — written from `deploy-testnet.mjs`, `evidence:` slots empty pending a run |
 | 7 | Execute the stage and record evidence | A funded testnet deployer — **operator only** |
-| 8 | Re-run §6a against the corrected Step 8 (`a92fb8e`) | The route A/B decision in §6c, then 7 |
+| 8 | Re-run §6a against the corrected Step 8 (`a92fb8e`) | **Route A chosen**; `--steps=admin` in PR #66. Then a funded key — operator only |
 
 **All three original blockers are now closed.** The entire current generation — the
 STX line, `flashstack-pool-v3`, *and* the sBTC line — can be staged faithfully. What

@@ -234,11 +234,13 @@ totals:
 #
 #   A. Admin steps only, against the existing deployment.
 #      Costs 300000 microSTX and touches nothing else — but deploy-testnet.mjs
-#      is linear and has no step selection, so it needs either a step flag or a
+#      is linear and had no step selection, so it needed either a step flag or a
 #      purpose-built script (the precedent is scripts/deploy-testnet-bc1-negative.mjs,
 #      which §6b used for exactly this reason). Note Flashstack-ajv.6.3's
 #      acceptance criterion asks for "a run of the CURRENT deploy-testnet.mjs",
-#      which this route does not literally satisfy.
+#      which this route does not literally satisfy — ajv.6.3's criterion was
+#      amended to say so openly. --steps=admin runs that script's own Step 8
+#      path, extracted rather than copied, but not the whole script.
 #
 #   B. A fresh -v3 line, full 10-step run.
 #      Costs 53.31 STX (affordable at the current balance, though the script's
@@ -247,7 +249,16 @@ totals:
 #      a -v3 core needs a -v3 receiver source too. New .clar files, review, and a
 #      wider diff than the BC1 evidence gap warrants.
 #
-# Owner decision. Until it is made, no txid belongs in this file.
+# DECIDED 2026-09-21: route A. `deploy-testnet.mjs --steps=admin` (PR #66) runs
+# Step 8 and nothing else against the existing deployment, and refuses unless the
+# contract exists, admin is the signing deployer and pending-admin is none
+# (scripts/lib/testnet-preconditions.mjs). B is parked: staging
+# flashstack-stx-pool-v3 is worth more than a -v3 rename.
+#
+# CONSEQUENCE FOR THIS FILE: steps 1-7 stay unexecuted for this line — they are
+# already on chain from the §6a run. Only the 8a / 8b / 8c evidence: slots get
+# filled by the re-run. The steps above remain the written record of how that
+# deployment was produced, and the plan a NEW line (pool-v3, sbtc) would follow.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Not covered by this plan
