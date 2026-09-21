@@ -398,6 +398,117 @@ result doesn't extend to them automatically.
 
 ---
 
+## 6c. §6a re-run — PREPARED, NOT EXECUTED
+
+> **This section contains no evidence.** It is a form. Every value in the block
+> below is a placeholder, and the checkboxes are inside a fenced code block
+> precisely so they cannot be read as ticked. Nothing here has happened.
+
+§6a's BC1 rows come from the *pre-`a92fb8e`* Step 8 — propose-to-self, then
+accept, with no read-only assertions — and §6a says outright that a re-run
+against the current script is required, not optional. §6b proves the negative
+case with a second key and explicitly does not substitute. The current Step 8
+(`scripts/deploy-testnet.mjs:354-405`) proposes to `ST1PQHQ…`, a principal the
+signing key does not control, and asserts `get-admin` is **unchanged** in
+between — the one assertion that distinguishes a correct two-step contract from
+a broken one-step one. That is what has to be run.
+
+**The plan it runs is now written**: `deployments/testnet-current-gen-plan.yaml`
+— contract set, order, fees, nonce discipline and arguments, each field
+referenced back to the line of `deploy-testnet.mjs` it was read off, with empty
+`evidence:` slots to fill.
+
+### The execution decision — made: route A
+
+Live read of the §6a deployment on 2026-09-21 (sender `ST3XQ5DM…`): `get-admin`
+= the deployer, `get-pending-admin` = `none`, `get-reserve-balance` =
+`u50005000`, `is-approved-receiver` = `true`, deployer nonce 12, balance
+`946490000` µSTX. The deployment is intact and §6b's restore held.
+
+So Steps 1–3 of the plan would publish contract names that **already exist** at
+that address, and a name is consumed permanently there whether or not the
+publish took effect (`CONTRACT_INVENTORY` §3, deployment scars). Two routes:
+
+| | Route | Cost | What it needs first |
+|---|---|---|---|
+| **A** ✅ | Admin steps only, against the existing deployment | 300,000 µSTX | **Chosen.** Needed step selection, which `--steps=admin` now provides (PR #66). Note it is a run of `deploy-testnet.mjs`'s own Step 8 path — extracted, not copied — but not of the *whole* script; `Flashstack-ajv.6.3`'s acceptance criterion was amended to say so. |
+| **B** ❌ | A fresh `-v3` line, full 10-step run | 53.31 STX | **Not a rename in the script.** `contracts/stx-test-receiver-v2.clar:16` calls `.flashstack-stx-core-v2` statically, so a `-v3` core needs a `-v3` receiver source too — new `.clar` files and a wider diff than this evidence gap warrants. **Parked:** staging `flashstack-stx-pool-v3` is worth more than a `-v3` rename. |
+
+**Decided 2026-09-21: route A.** §6b already proves the property on this
+deployment, so the gap is assertion strength on the positive path, not a
+deployment — and B would rewrite contracts to fix a documentation problem.
+`deploy-testnet.mjs --steps=admin` (PR #66) runs Step 8 and nothing else, and
+refuses unless the contract exists, admin is the signing deployer and
+pending-admin is `none` (`scripts/lib/testnet-preconditions.mjs`). Steps 1–7 of
+the plan file below therefore stay unexecuted for this line; only the 8a/8b/8c
+`evidence:` slots get filled.
+
+### Drop-in replacement for §6a
+
+On a successful run, this replaces §6a in full — including deleting §6a's
+staleness note, which no longer applies — and §6c goes away with it.
+
+```markdown
+## 6a. Testnet run — <DATE>
+
+`scripts/deploy-testnet.mjs` at `<COMMIT-SHA>` run against `<CONTRACT-SET>`.
+Deployer: `<DEPLOYER>`. Plan: `deployments/testnet-current-gen-plan.yaml`.
+Every item below was independently re-verified against the live testnet API
+after the run — sender, function, args and decoded result read off each tx —
+not taken from the script's own success output.
+
+**Proven, with evidence:**
+- [ ] All three publishes `success`: trait `<TXID-1>` (block `<H>`), core
+      `<TXID-2>` (block `<H>`), receiver `<TXID-3>` (block `<H>`)
+- [ ] Source fetched back from `/v2/contracts/source/…` for `<CORE>` matches
+      `localize(local-source, deployer)` byte-for-byte — compared, not eyeballed
+- [ ] Interface check: public and read-only function sets on the deployed
+      `<CORE>` match the local source in both directions — `<N>` public,
+      `<M>` read-only, zero unexpected on-chain functions. This is the check
+      that would have caught F-7.
+- [ ] Flash loan happy path: reserve `<BEFORE>` → `<AFTER>`, exactly the 0.05%
+      fee (5,000 µSTX on a 10 STX loan at `fee-bp` = `u5`), decoded from
+      `get-reserve-balance`, not assumed. `<TXID-7>` (block `<H>`)
+- [ ] **BC1 with assertion strength** — the corrected Step 8 (`a92fb8e`),
+      proposing to a principal this key does not control:
+  - [ ] `transfer-admin` → `ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM`:
+        `<TXID-8a>` (block `<H>`), `success`
+  - [ ] `get-admin` read immediately after: **still `<DEPLOYER>`** — admin did
+        not move on propose. *This is the assertion the pre-fix run could not
+        make: propose-to-self leaves admin equal to the deployer either way.*
+  - [ ] `get-pending-admin` = `(some ST1PQHQ…)` — the proposal landed, and
+        landed on someone else
+  - [ ] `transfer-admin` → self (re-propose): `<TXID-8b>` (block `<H>`);
+        `get-pending-admin` = `(some <DEPLOYER>)` — the earlier proposal was
+        overwritten, so a mis-addressed proposal is recoverable before anyone
+        accepts it
+  - [ ] `accept-admin`: `<TXID-8c>` (block `<H>`), `success`; `get-admin` =
+        `<DEPLOYER>`, `get-pending-admin` = `none`
+- [ ] Recorded in `deployments/testnet-current-gen-plan.yaml`: every
+      `evidence:` slot filled with txid, block height and status, alongside the
+      commit SHA staged
+
+**NOT proven by this run — genuinely open, not implied by the above:**
+- [ ] Flash loan with a non-repaying receiver reverts — **no non-repaying
+      receiver contract exists for this core.** One has to be written and
+      published before this item can be attempted at all.
+- [ ] Unapproved receiver is rejected — needs no new contract, but no step in
+      the plan performs it
+- [x] ~~The negative case BC1 exists to prevent~~ — proven separately with a
+      second key. See §6b.
+```
+
+### Verification protocol for the filled-in version
+
+Each txid is checked against `/extended/v1/tx/0x<txid>`: `tx_status`, `sender_address`,
+`contract_call.function_name`, decoded `function_args`, `tx_result.repr`, and
+`block_height`. Each state claim is a fresh `/v2/contracts/call-read` **after**
+the run, decoded through `scripts/lib/testnet-readonly.mjs` — not the value the
+script printed during it. A row whose evidence cannot be reproduced that way
+does not get ticked.
+
+---
+
 ## 7. What is deliberately not in this document
 
 Fees, nonce handling and batch ordering are **not** specified here. They should be
@@ -406,8 +517,13 @@ against a real chain, rather than invented in prose. Writing plausible-looking
 operational numbers that have never been executed would be worse than leaving the gap
 visible.
 
-Likewise, no deployment plan file for the current generation is committed by this
-document. Writing one requires resolving §5.1–5.3 first.
+A deployment plan for the current generation **is** now committed, at
+`deployments/testnet-current-gen-plan.yaml` — §5.1–5.3 are all resolved, so the
+precondition for writing one is met. It derives every fee, nonce and ordering
+decision from `scripts/deploy-testnet.mjs` with per-field line references, rather
+than restating them here. It is deliberately **not** a Clarinet plan and must not
+be run with `clarinet deployments apply`: Clarinet publishes source verbatim, which
+would broadcast contracts still carrying mainnet principals (§5.1).
 
 ---
 
@@ -418,10 +534,11 @@ document. Writing one requires resolving §5.1–5.3 first.
 | 1 | ~~Confirm testnet epoch/clarity-version support for pool-v3 (§5.3)~~ | **DONE 2026-09-17 — testnet accepts Clarity 6** |
 | 2 | ~~Decide the sBTC mock question (§5.2)~~ | **DONE 2026-09-17 — byte-identical sBTC exists on testnet; no mock needed** |
 | 3 | ~~Extend the patcher (§5.1)~~ | **DONE — PR #55**, `scripts/lib/testnet-localize.mjs` |
-| 4 | Map `SM3VDXK3…` → `ST1PQHQ…` in the localizer and move it from `THIRD_PARTY` to a new `TESTNET_EQUIVALENT` set | Nothing |
+| 4 | ~~Map `SM3VDXK3…` → `ST1PQHQ…` in the localizer and move it from `THIRD_PARTY` to a new `TESTNET_EQUIVALENT` set~~ | **DONE — PR #55**, `TESTNET_EQUIVALENT` in `scripts/lib/testnet-localize.mjs` |
 | 5 | ~~Determine how the deployer obtains a testnet sBTC balance~~ | **DONE 2026-09-18 — SIP-010 `transfer` from `ST1PQHQ…`, which holds 80 sBTC. Minting is unreachable and unnecessary (§5.2)** |
-| 6 | Write `deployments/testnet-current-gen-plan.yaml` | 4, 5 |
+| 6 | ~~Write `deployments/testnet-current-gen-plan.yaml`~~ | **DONE 2026-09-21** — written from `deploy-testnet.mjs`, `evidence:` slots empty pending a run |
 | 7 | Execute the stage and record evidence | A funded testnet deployer — **operator only** |
+| 8 | Re-run §6a against the corrected Step 8 (`a92fb8e`) | **Route A chosen**; `--steps=admin` in PR #66. Then a funded key — operator only |
 
 **All three original blockers are now closed.** The entire current generation — the
 STX line, `flashstack-pool-v3`, *and* the sBTC line — can be staged faithfully. What
