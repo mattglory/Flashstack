@@ -49,25 +49,22 @@
  * (transfer-admin back to deployer, then accept-admin as deployer) using
  * MNEMONIC_2 before any other script touches this contract.
  *
- * NOTE: helpers below are intentionally self-contained, not imported from
- * deploy-testnet.mjs — Hillary is extracting callReadOnly/assertEqual into
- * scripts/lib/testnet-readonly.mjs separately (#58, open). This script can
- * be pointed at that once it merges instead of carrying its own copies.
+ * callReadOnly/assertEqual come from scripts/lib/testnet-readonly.mjs (#58),
+ * which has tests pinning both directions — this script previously carried its
+ * own untestable copies of both.
  */
 
 import {
   makeContractCall,
   PostConditionMode,
   Cl,
-  cvToHex,
-  cvToString,
-  hexToCV,
   getAddressFromPrivateKey,
 } from "@stacks/transactions";
 import networkPkg from "@stacks/network";
 const { STACKS_TESTNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { callReadOnly as callReadOnlyRaw, assertEqual } from "./lib/testnet-readonly.mjs";
 
 const MNEMONIC   = process.env.TESTNET_MNEMONIC;
 const MNEMONIC_2 = process.env.TESTNET_MNEMONIC_2;
@@ -170,27 +167,10 @@ async function callContract(privateKey, nonce, contractAddress, contractName, fn
   return txid;
 }
 
-async function callReadOnly(sender, contractAddress, contractName, fn, args = []) {
-  const res  = await fetch(`${API}/v2/contracts/call-read/${contractAddress}/${contractName}/${fn}`, {
-    method:  "POST",
-    headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify({ sender, arguments: args.map(a => cvToHex(a)) }),
-  });
-  const data = await res.json();
-  if (!data.okay) throw new Error(`callReadOnly ${contractName}.${fn} failed: ${JSON.stringify(data)}`);
-  const decoded = hexToCV(data.result);
-  if (decoded.type === "err") {
-    throw new Error(`${contractName}.${fn} returned (err ${cvToString(decoded.value)})`);
-  }
-  return cvToString(decoded.type === "ok" ? decoded.value : decoded);
-}
-
-function assertEqual(label, actual, expected) {
-  if (actual !== expected) {
-    throw new Error(`ASSERTION FAILED — ${label}: expected "${expected}", got "${actual}"`);
-  }
-  console.log(`  OK: ${label} = ${actual}`);
-}
+// Binds API so call sites keep their original signature (same wrapper as
+// deploy-testnet.mjs).
+const callReadOnly = (sender, contractAddress, contractName, fn, args = []) =>
+  callReadOnlyRaw(API, sender, contractAddress, contractName, fn, args);
 
 async function main() {
   const deployer = await keyAndAddress(MNEMONIC);
