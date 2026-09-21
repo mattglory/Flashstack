@@ -43,7 +43,10 @@
 ;; Constants -- all mainnet, verified live 2026-07-19
 ;; =============================================
 
-(define-constant CONTRACT-OWNER tx-sender) ;; the operator wallet
+;; The operator wallet. Deliberately no transfer path: it can't be bricked by a
+;; typo'd transfer-admin, but a lost operator key permanently strands whatever
+;; the rescue hatches hold. Fine at the 100 STX cap; decide before raising it.
+(define-constant CONTRACT-OWNER tx-sender)
 
 ;; Used for the caller check only (a bare principal is fine here). Contract-call
 ;; targets and trait arguments below are written as inline literals on purpose.
@@ -140,6 +143,9 @@
       (let ((bal (stx-get-balance (as-contract tx-sender))))
         (asserts! (>= bal total-owed) ERR-REPAY-FAILED)
         (unwrap! (as-contract (stx-transfer? total-owed tx-sender core)) ERR-REPAY-FAILED)
+        ;; `profit` is the whole residual balance above total-owed, not this trade's
+        ;; gain -- it over-reports once profit accumulates or anyone sends STX here.
+        ;; Analytics only, not per-trade P&L; a losing trade reverts on the swap legs.
         (print {
           event: "crosspool-arb",
           borrowed: amount,
