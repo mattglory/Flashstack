@@ -4,7 +4,7 @@
 checked against the repository or the live chain on **2026-09-21**; the checks are
 named so they can be repeated. Where something is not done, it says so.
 
-**Reviewed state:** `main` @ `737c659`. The commit to audit will be frozen at kickoff.
+**Reviewed state:** `main` @ `e8e2497`. The commit to audit will be frozen at kickoff.
 
 ## What this is
 
@@ -19,7 +19,7 @@ is meant to happen **before** any TVL.
 
 | Tier | Contract | Lines¹ | Clarity / epoch | Status |
 |---|---|---|---|---|
-| **1 — primary** | `contracts/flashstack-pool-v3.clar` | 483 | 6 / 4.0 | Not deployed (mainnet 404 at both FlashStack principals; testnet 404) |
+| **1 — primary** | `contracts/flashstack-pool-v3.clar` | 483 | 6 / 4.0 | Not deployed (404 on mainnet at both FlashStack principals, and on testnet at the staging deployer) |
 | **1 — primary** | `contracts/flashstack-v3-receiver-trait.clar` | 22 | 3 / 3.0 | Not deployed |
 | 2 — optional, quote separately | `flashstack-stx-core-v2.clar` | 230 | 3 / 3.0 | Staged on testnet, see below |
 | 2 | `flashstack-sbtc-core-v2.clar` | 224 | 3 / 3.0 | Not deployed |
@@ -29,8 +29,11 @@ is meant to happen **before** any TVL.
 ¹ Physical lines (`wc -l`), comments and blank lines included. Tier 1 is **505**; Tier 2
 adds **1,096**. Please quote Tier 1 alone and Tier 1 + 2.
 
-Two language versions are in scope: pool-v3 targets **Clarity 6 / epoch 4.0**, which has
-been live on mainnet since burn height 960,230 (`GET /v2/pox`). Tier 2 targets Clarity 3.
+Two language versions are in scope: pool-v3 targets **Clarity 6 / epoch 4.0**. Epoch 4.0
+activated on mainnet at burn height 960,230 (`GET /v2/pox`), which is when Clarity 6 became
+deployable (stacks-core 4.0.0 release notes). Neither current FlashStack deployer principal
+has transacted since epoch 4.0 activated, so no FlashStack contract has been deployed on
+Clarity 6 yet. Tier 2 targets Clarity 3.
 
 **Out of scope:** the deployed contracts, the receiver library, `web/`, and third-party
 protocol contracts referenced by receivers.
