@@ -414,11 +414,14 @@ epoch = "4.0"
 # Found by the Security & Contract Lead (docs/security/CONTRACT_INVENTORY.md D6):
 # clarinet check covered 38 of 70 .clar files; the gap included several of these
 # that are live on mainnet. Registered so a syntax/type error here fails CI like
-# everywhere else. Three related files (bitflow-arb-compounder.clar,
-# snp-flashstack-receiver.clar, snp-flashstack-receiver-v3.clar) are deliberately
-# excluded -- they're gitignored "stale experiment" files, not tracked in git at
-# all, so registering them wouldn't work for any other checkout. That's the
-# subject of a separate finding (D7: source missing for a live contract), not this one.
+# everywhere else. Not registered here: bitflow-arb-compounder.clar, which is
+# gitignored as a "stale experiment" and not tracked, so registering it wouldn't work
+# for any other checkout; and snp-flashstack-receiver.clar / -v3.clar, which ARE
+# tracked now (D7 closed 2026-09-21) as verbatim copies of the deployed gen-1
+# contracts, pinned by tests/deployed-source-pins.test.ts. They are immutable and
+# already on chain, so a deployed contract has passed the chain's own analysis;
+# registering them would add nothing until someone changes them, and they must not
+# be changed.
 [contracts.alex-arb-receiver]
 path = "contracts/alex-arb-receiver.clar"
 clarity_version = 3

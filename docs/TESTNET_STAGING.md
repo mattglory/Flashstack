@@ -108,7 +108,7 @@ successor. Both committed testnet plans are gen-1: `deployments/testnet-plan.yam
 names `ST2X1GBHA2WJXREWP231EEQXZ1GDYZEEXYRAD1PA8`, which has **zero transactions** on
 testnet, and `deployments/default.testnet-plan.yaml` names the well-known Clarinet
 default deployer, whose two testnet contracts belong to unrelated third parties. Both
-reference `snp-flashstack-receiver`, whose source is not in this repo (**D7**).
+reference `snp-flashstack-receiver`, whose source was not in this repo when this was written (**D7**, closed 2026-09-21: now committed verbatim).
 
 ---
 

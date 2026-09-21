@@ -251,6 +251,4 @@ web/tsconfig.tsbuildinfo
 deployments/default.simnet-plan.yaml
 
 # Stale experiment contracts
-contracts/snp-flashstack-receiver.clar
-contracts/snp-flashstack-receiver-v3.clar
 contracts/bitflow-arb-compounder.clar
