@@ -1,0 +1,102 @@
+# Audit Scope — FlashStack `flashstack-pool-v3`
+
+**Purpose:** a scoping packet for a prospective Clarity auditor. Every figure below was
+checked against the repository or the live chain on **2026-09-21**; the checks are
+named so they can be repeated. Where something is not done, it says so.
+
+**Reviewed state:** `main` @ `737c659`. The commit to audit will be frozen at kickoff.
+
+## What this is
+
+FlashStack is a flash-loan protocol on Stacks. Its live contracts (STX and canonical
+sBTC) are immutable and out of scope — see
+[`CONTRACT_INVENTORY.md`](CONTRACT_INVENTORY.md) §2–3. `flashstack-pool-v3` is the
+**undeployed** successor: one generic contract that lists any admin-approved SIP-010
+token as both an LP asset and a flash-loan reserve. Nothing is at risk today; the audit
+is meant to happen **before** any TVL.
+
+## Scope
+
+| Tier | Contract | Lines¹ | Clarity / epoch | Status |
+|---|---|---|---|---|
+| **1 — primary** | `contracts/flashstack-pool-v3.clar` | 483 | 6 / 4.0 | Not deployed (mainnet 404 at both FlashStack principals; testnet 404) |
+| **1 — primary** | `contracts/flashstack-v3-receiver-trait.clar` | 22 | 3 / 3.0 | Not deployed |
+| 2 — optional, quote separately | `flashstack-stx-core-v2.clar` | 230 | 3 / 3.0 | Staged on testnet, see below |
+| 2 | `flashstack-sbtc-core-v2.clar` | 224 | 3 / 3.0 | Not deployed |
+| 2 | `flashstack-stx-pool-v3.clar` | 306 | 3 / 3.0 | Not deployed |
+| 2 | `flashstack-sbtc-pool-v3.clar` | 336 | 3 / 3.0 | Not deployed |
+
+¹ Physical lines (`wc -l`), comments and blank lines included. Tier 1 is **505**; Tier 2
+adds **1,096**. Please quote Tier 1 alone and Tier 1 + 2.
+
+Two language versions are in scope: pool-v3 targets **Clarity 6 / epoch 4.0**, which has
+been live on mainnet since burn height 960,230 (`GET /v2/pox`). Tier 2 targets Clarity 3.
+
+**Out of scope:** the deployed contracts, the receiver library, `web/`, and third-party
+protocol contracts referenced by receivers.
+
+## Where we would most want scrutiny
+
+These are the properties the contract's own header and
+[`MULTI_ASSET_CORE_DESIGN.md`](../02-technical/MULTI_ASSET_CORE_DESIGN.md) (§7, §13)
+declare load-bearing:
+
+- **The asset allow-list is load-bearing for solvency.** Clarity cannot persist a trait
+  reference, so every entry point takes the token as a `<sip-010-trait>` argument. A
+  malicious token that lies about `get-balance`/`transfer` must be unreachable; an
+  unlisted token is meant to be rejected before any token call is made.
+- **Per-asset balance invariant** across the flash-loan callback.
+- **Virtual shares** (first-depositor inflation defence), with `share-scale` read live from
+  each token's `get-decimals()` at listing time.
+- **Per-asset reentrancy lock**, deliberately not global so legitimate cross-asset flows
+  still work.
+- Pause semantics (global and per-asset), two-step admin transfer, and the receiver
+  whitelist (defence-in-depth during beta, not relied on for solvency).
+
+## Evidence to date
+
+- **Tests:** 221 passing across 20 files (`npm ci && npm test`). Pool-v3 specifically has
+  29 tests in `tests/flashstack-pool-v3.test.ts` and `tests/pool-v3-hillary-review.test.ts`,
+  including: an unlisted token rejected even when malicious, a non-repaying receiver
+  reverting the whole transaction, an unapproved receiver rejected, the donation/inflation
+  attack, a reentrant deposit blocked, per-asset decimals, and a non-pending principal
+  unable to `accept-admin`.
+- **Static check:** `clarinet check` passes with 0 errors. CI runs it and the suite on
+  every PR; `main` requires a code-owner review and both checks.
+- **Internal findings:** three Medium findings on pool-v3 (`pv3-F1` reentrant deposit
+  miscounted as fee revenue, `pv3-F2` share-scale not calibrated per decimals, `pv3-F3`
+  deposit not gated by pause). All fixed, each with a regression test. `pv3-F1` was found
+  by an external reviewer and independently reproduced before fixing. Full register:
+  [`FINDINGS_REGISTER.md`](FINDINGS_REGISTER.md).
+- **Testnet staging:** the gate is defined in [`../TESTNET_STAGING.md`](../TESTNET_STAGING.md).
+  `flashstack-stx-core-v2` (Tier 2) has been staged, including the two-step-admin happy path
+  and the negative case, verified against the live testnet API (§6a, §6b).
+
+## What is not done — please read
+
+- **No professional audit has been performed on any FlashStack contract.**
+- **Pool-v3 has not been staged on testnet.** That is a planned gate step, not a done one.
+- **The canonical file is not what `clarinet check` compiles.** Clarinet keys contracts by
+  name, so it compiles `contracts/test/flashstack-pool-v3.clar`, a localized copy. For
+  pool-v3 the two differ only in a 4-line header comment and two `use-trait` lines (local
+  mirrors instead of mainnet principals). `tests/canonical-copy-drift.test.ts` fails CI if
+  any of the 14 canonical/copy pairs drift, but that is a weaker guarantee than compiling
+  the canonical source. Tracked as D6 in [`CONTRACT_INVENTORY.md`](CONTRACT_INVENTORY.md) §5.
+  **Please audit `contracts/flashstack-pool-v3.clar`, not the copy.**
+- The four deployed contracts with a one-step admin transfer (finding `BC1`) stay that way;
+  the two-step fix exists only in the undeployed successors.
+
+## Reproducing
+
+Node 20 (what CI runs) and Clarinet. `npm ci && clarinet check && npm test`. The third-party contracts
+that receivers call are vendored under `.cache/requirements/`, so no network fetch is
+needed and CI does not depend on a rate-limited API.
+
+## Logistics
+
+- **Repository:** <https://github.com/mattglory/Flashstack> (public).
+- **Maintainer:** `@mattglory`. **Security & Contract Lead:** `@unixwhisperer`, who reviews
+  every contract change.
+- **Fixes** land as PRs against the frozen commit, each with a regression test.
+- **Timing:** we want the earliest available start, and an itemized quote for the two
+  scopes above.
