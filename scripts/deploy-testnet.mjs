@@ -22,6 +22,16 @@
  *      TESTNET_MNEMONIC="word1 ... word24" node scripts/deploy-testnet.mjs
  *      (testnet address is derived automatically from the mnemonic)
  *
+ * Modes:
+ *   --steps=all    (default) the full sequence below.
+ *   --steps=admin  Step 8 ONLY, against an already-deployed core. Publishes
+ *                  nothing, moves no STX, costs 3 x 100_000 uSTX. This is how
+ *                  §6a's BC1 rows get regenerated against the corrected Step 8
+ *                  without republishing a line that is already on chain
+ *                  (docs/TESTNET_STAGING.md §6c, route A). It refuses to run
+ *                  unless the contract exists, admin is the signing deployer and
+ *                  pending-admin is none — scripts/lib/testnet-preconditions.mjs.
+ *
  * Scope of this run — deliberately narrow:
  *   Proves flashstack-stx-core-v2 end-to-end, including the BC1 two-step
  *   admin transfer this whole successor line exists for. Does NOT include
@@ -57,6 +67,7 @@ const { generateWallet } = walletPkg;
 import { readFileSync } from "fs";
 import { localize, assertFullyLocalized } from "./lib/testnet-localize.mjs";
 import { callReadOnly as callReadOnlyRaw, assertEqual } from "./lib/testnet-readonly.mjs";
+import { assertAdminStepPreconditions } from "./lib/testnet-preconditions.mjs";
 
 // Thin wrapper so call sites keep their original signature (the API base is a
 // module-level constant here, but a parameter in the lib so tests can point it
@@ -68,6 +79,12 @@ const callReadOnly = (sender, contractAddress, contractName, fn, args = []) =>
 
 const MNEMONIC  = process.env.TESTNET_MNEMONIC;
 const API       = "https://api.testnet.hiro.so";
+// --steps=all (default) runs the whole line. --steps=admin re-runs Step 8 ONLY,
+// against an already-deployed core: the BC1 evidence in docs/TESTNET_STAGING.md
+// §6a predates a92fb8e's fix and needs regenerating, and re-publishing a whole
+// contract line to fix an assertion-strength gap would be the wrong shape of
+// change (§6c, route A). Guarded — see scripts/lib/testnet-preconditions.mjs.
+const STEPS     = (process.argv.find(a => a.startsWith("--steps="))?.split("=")[1] ?? "all").toLowerCase();
 const EXPLORER  = "https://explorer.hiro.so/txid";
 const network   = STACKS_TESTNET;
 
@@ -79,6 +96,11 @@ const RESERVE_AMOUNT = 50_000_000;
 // reverts with (err u500). Seed it with a small amount first. (1 STX = 1_000_000)
 const RECEIVER_SEED_AMOUNT = 1_000_000;
 
+
+if (!["all", "admin"].includes(STEPS)) {
+  console.error(`ERROR: --steps=${STEPS} is not a known mode. Use --steps=all (default) or --steps=admin.`);
+  process.exit(1);
+}
 
 if (!MNEMONIC) {
   console.error("ERROR: Set TESTNET_MNEMONIC");
@@ -227,6 +249,69 @@ async function transferStx(privateKey, nonce, recipient, amount, fee = 10_000) {
   return txid;
 }
 
+// ── Step 8: Prove BC1 — the two-step admin transfer this line exists for ─────
+// Extracted so `--steps=admin` runs THIS code and not a copy of it. A second
+// implementation of the assertion sequence is exactly how the two would drift,
+// and a drifted copy that still prints OK is the F-7 shape all over again.
+//
+// Returns the next unused nonce.
+async function proveBC1(privateKey, DEPLOYER, startNonce, results) {
+  let nonce = startNonce;
+  // A propose-to-self-then-accept sequence is NOT evidence of anything: if
+  // transfer-admin secretly set admin directly (the exact v1 bug this line
+  // fixes), the txids would look identical, both success, admin unchanged
+  // throughout. Read-only calls between each step are what makes this real
+  // evidence instead of "two functions executed without erroring" (caught in
+  // review — the earlier version of this step had exactly that gap).
+  //
+  // OTHER is the well-known public Clarinet default testnet deployer (also
+  // used as sBTC's TESTNET_EQUIVALENT target in #55) — a real, distinct
+  // testnet principal the deployer key does not control.
+  const OTHER = "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM";
+  console.log("Step 8 — Prove BC1: two-step admin transfer, with state asserted at each step");
+  console.log(`  (Proposing to ${OTHER}, a principal this key does not control)`);
+
+  results.proposeOther = await callContract(
+    privateKey, nonce++,
+    DEPLOYER, "flashstack-stx-core-v2", "transfer-admin",
+    [Cl.principal(OTHER)],
+    100_000,
+  );
+  await waitForConfirm(results.proposeOther, "transfer-admin (propose to OTHER)");
+
+  const adminAfterPropose = await callReadOnly(DEPLOYER, DEPLOYER, "flashstack-stx-core-v2", "get-admin");
+  assertEqual("admin after propose (must NOT have moved)", adminAfterPropose, DEPLOYER);
+
+  const pendingAfterPropose = await callReadOnly(DEPLOYER, DEPLOYER, "flashstack-stx-core-v2", "get-pending-admin");
+  assertEqual("pending-admin after propose", pendingAfterPropose, `(some ${OTHER})`);
+
+  console.log("  (Re-proposing to self — demonstrates recovery from a fat-fingered address)");
+  results.proposeAdmin = await callContract(
+    privateKey, nonce++,
+    DEPLOYER, "flashstack-stx-core-v2", "transfer-admin",
+    [Cl.principal(DEPLOYER)],
+    100_000,
+  );
+  await waitForConfirm(results.proposeAdmin, "transfer-admin (re-propose to self)");
+
+  const pendingAfterRepropose = await callReadOnly(DEPLOYER, DEPLOYER, "flashstack-stx-core-v2", "get-pending-admin");
+  assertEqual("pending-admin after re-propose", pendingAfterRepropose, `(some ${DEPLOYER})`);
+
+  results.acceptAdmin = await callContract(
+    privateKey, nonce++,
+    DEPLOYER, "flashstack-stx-core-v2", "accept-admin",
+    [],
+    100_000,
+  );
+  await waitForConfirm(results.acceptAdmin, "accept-admin");
+
+  const adminAfterAccept = await callReadOnly(DEPLOYER, DEPLOYER, "flashstack-stx-core-v2", "get-admin");
+  assertEqual("admin after accept", adminAfterAccept, DEPLOYER);
+  console.log();
+
+  return nonce;
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -242,11 +327,18 @@ async function main() {
   console.log(`  Explorer: https://explorer.hiro.so/address/${DEPLOYER}?chain=testnet`);
   console.log();
 
-  // Pre-flight: balance check
+  // Pre-flight: balance check. The thresholds below describe the FULL run;
+  // --steps=admin broadcasts three 100_000 uSTX calls and nothing else, so
+  // applying them there would warn about 5000 STX for a 0.3 STX job.
   const balanceMicro = await getBalance(DEPLOYER);
   const balanceSTX   = Number(balanceMicro) / 1_000_000;
   console.log(`  Balance: ${balanceSTX.toFixed(2)} STX`);
-  if (balanceMicro < BigInt(5_000_000_000)) {
+  if (STEPS === "admin" && balanceMicro < BigInt(300_000)) {
+    console.error("  ERROR: below the 300,000 uSTX the three admin calls cost.");
+    console.error(`  Fund at: https://explorer.hiro.so/sandbox/faucet?chain=testnet`);
+    process.exit(1);
+  }
+  if (STEPS === "all" && balanceMicro < BigInt(5_000_000_000)) {
     console.warn("  WARNING: Balance is below 5000 STX. Deploy fees + reserve require ~3000 STX.");
     console.warn(`  Fund at: https://explorer.hiro.so/sandbox/faucet?chain=testnet`);
     console.warn(`  Address to fund: ${DEPLOYER}`);
@@ -262,6 +354,36 @@ async function main() {
   console.log(`  Starting nonce: ${nonce}\n`);
 
   const results = {};
+
+  if (STEPS === "admin") {
+    // Route A (docs/TESTNET_STAGING.md §6c): regenerate §6a's BC1 rows against
+    // the corrected Step 8 without republishing a line that is already on chain.
+    // §6b already proved the negative case on this same deployment, so what is
+    // missing is assertion strength on the positive path, nothing else.
+    console.log("Mode — --steps=admin: Step 8 only, against the existing deployment.");
+    console.log("  Publishes, reserve funding, receiver seeding and the flash loan are SKIPPED.");
+    console.log("  Cost: 3 calls x 100,000 uSTX. Nothing is deployed and no STX moves.\n");
+
+    await assertAdminStepPreconditions(API, DEPLOYER, "flashstack-stx-core-v2");
+    console.log();
+
+    nonce = await proveBC1(privateKey, DEPLOYER, nonce, results);
+
+    console.log("╔══════════════════════════════════════════════════════╗");
+    console.log("║   BC1 RE-RUN COMPLETE (Step 8 only)                  ║");
+    console.log("╠══════════════════════════════════════════════════════╣");
+    console.log(`  Contract: ${DEPLOYER}.flashstack-stx-core-v2`);
+    console.log(`  transfer-admin (to OTHER):   ${EXPLORER}/${results.proposeOther}?chain=testnet`);
+    console.log(`  transfer-admin (re-to self): ${EXPLORER}/${results.proposeAdmin}?chain=testnet`);
+    console.log(`  accept-admin:                ${EXPLORER}/${results.acceptAdmin}?chain=testnet`);
+    console.log("╚══════════════════════════════════════════════════════╝");
+    console.log();
+    console.log("Next: fill the Step 8a/8b/8c evidence slots in");
+    console.log("  deployments/testnet-current-gen-plan.yaml, then regenerate §6a from");
+    console.log("  the §6c template. Re-verify every txid against the live API first —");
+    console.log("  the console output above is not evidence.");
+    return;
+  }
 
   // ── Step 1: stx-flash-receiver-trait ─────────────────────────────────────
   console.log("Step 1 — Deploy stx-flash-receiver-trait");
@@ -351,58 +473,7 @@ async function main() {
   await waitForConfirm(results.flashLoan, "flash-loan (testnet evidence)");
   console.log();
 
-  // ── Step 8: Prove BC1 — the two-step admin transfer this line exists for ─
-  // A propose-to-self-then-accept sequence is NOT evidence of anything: if
-  // transfer-admin secretly set admin directly (the exact v1 bug this line
-  // fixes), the txids would look identical, both success, admin unchanged
-  // throughout. Read-only calls between each step are what makes this real
-  // evidence instead of "two functions executed without erroring" (caught in
-  // review — the earlier version of this step had exactly that gap).
-  //
-  // OTHER is the well-known public Clarinet default testnet deployer (also
-  // used as sBTC's TESTNET_EQUIVALENT target in #55) — a real, distinct
-  // testnet principal the deployer key does not control.
-  const OTHER = "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM";
-  console.log("Step 8 — Prove BC1: two-step admin transfer, with state asserted at each step");
-  console.log(`  (Proposing to ${OTHER}, a principal this key does not control)`);
-
-  results.proposeOther = await callContract(
-    privateKey, nonce++,
-    DEPLOYER, "flashstack-stx-core-v2", "transfer-admin",
-    [Cl.principal(OTHER)],
-    100_000,
-  );
-  await waitForConfirm(results.proposeOther, "transfer-admin (propose to OTHER)");
-
-  const adminAfterPropose = await callReadOnly(DEPLOYER, DEPLOYER, "flashstack-stx-core-v2", "get-admin");
-  assertEqual("admin after propose (must NOT have moved)", adminAfterPropose, DEPLOYER);
-
-  const pendingAfterPropose = await callReadOnly(DEPLOYER, DEPLOYER, "flashstack-stx-core-v2", "get-pending-admin");
-  assertEqual("pending-admin after propose", pendingAfterPropose, `(some ${OTHER})`);
-
-  console.log("  (Re-proposing to self — demonstrates recovery from a fat-fingered address)");
-  results.proposeAdmin = await callContract(
-    privateKey, nonce++,
-    DEPLOYER, "flashstack-stx-core-v2", "transfer-admin",
-    [Cl.principal(DEPLOYER)],
-    100_000,
-  );
-  await waitForConfirm(results.proposeAdmin, "transfer-admin (re-propose to self)");
-
-  const pendingAfterRepropose = await callReadOnly(DEPLOYER, DEPLOYER, "flashstack-stx-core-v2", "get-pending-admin");
-  assertEqual("pending-admin after re-propose", pendingAfterRepropose, `(some ${DEPLOYER})`);
-
-  results.acceptAdmin = await callContract(
-    privateKey, nonce++,
-    DEPLOYER, "flashstack-stx-core-v2", "accept-admin",
-    [],
-    100_000,
-  );
-  await waitForConfirm(results.acceptAdmin, "accept-admin");
-
-  const adminAfterAccept = await callReadOnly(DEPLOYER, DEPLOYER, "flashstack-stx-core-v2", "get-admin");
-  assertEqual("admin after accept", adminAfterAccept, DEPLOYER);
-  console.log();
+  nonce = await proveBC1(privateKey, DEPLOYER, nonce, results);
 
   // ── Summary ───────────────────────────────────────────────────────────────
   console.log("╔══════════════════════════════════════════════════════╗");
