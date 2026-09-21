@@ -9,7 +9,7 @@ FlashStack is the **neutral flash-liquidity rail for Bitcoin DeFi** — atomic, 
 ## Where it stands today (honest snapshot)
 
 - **Live on mainnet:** STX + canonical sBTC flash-loan engines, LP pools, a collateral oracle, and a receiver library.
-- **Tested:** 176 passing tests covering every deployed contract (both invariants + all guards).
+- **Tested:** 221 passing tests covering every deployed contract (both invariants + all guards).
 - **Capital:** reserve is ~75 STX and the LP pools are effectively unfunded — **reserve size is the hard ceiling** on what the protocol can serve.
 - **Trust:** not yet professionally audited; receivers are approval-gated (permissioned beta).
 - **Usage:** DeepStack runs a live pilot rebalancing through FlashStack — the flywheel, proven on mainnet in a single atomic transaction.
@@ -25,7 +25,7 @@ FlashStack is the **neutral flash-liquidity rail for Bitcoin DeFi** — atomic, 
 - [x] Independent security-review findings resolved; deployer key rotated (2026-06-12)
 
 **Testing & security**
-- [x] 176-test suite across every deployed contract (invariants + guards, fully offline)
+- [x] 221-test suite across every deployed contract (invariants + guards, fully offline)
 - [x] Internal security review documented (trust model, reentrancy reasoning, findings)
 - [x] LP-pool share-inflation hardening (v2 pools, virtual shares/assets) — built + proven by test, ready to deploy
 

@@ -3,7 +3,7 @@
 **Open flash-liquidity infrastructure for Bitcoin Layer 2**
 
 [![Status](https://img.shields.io/badge/Status-Mainnet%20Live-brightgreen)]()
-[![Tests](https://img.shields.io/badge/Tests-176%20Passing-success)]()
+[![Tests](https://img.shields.io/badge/Tests-221%20Passing-success)]()
 [![Clarity](https://img.shields.io/badge/Clarity-3-F7931A)]()
 [![Live](https://img.shields.io/badge/App-flashstack.vercel.app-F7931A)](https://flashstack.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-yellow)]()
