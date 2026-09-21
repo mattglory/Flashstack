@@ -151,6 +151,7 @@ SNP_INTEGRATION_STEPS.md
 TESTNET_DEPLOYMENT.md
 deployments/testnet-*.yaml
 !deployments/testnet-plan.yaml
+!deployments/testnet-current-gen-plan.yaml
 
 # ============================================
 # Frontend (web/)
