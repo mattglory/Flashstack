@@ -192,10 +192,44 @@ mechanics, not custody — but the evidence should say "staged against a byte-id
 sBTC deployment at the public Clarinet deployer address", never "staged against
 canonical sBTC".
 
-**Still open (practical, not blocking design):** how the staging deployer obtains a
-testnet sBTC balance. `protocol-mint` is gated to the protocol contracts, so this
-needs either the public deployer key or a testnet sBTC faucet/bridge. To be settled
-when the plan file is written.
+**Resolved 2026-09-18 — obtain it by plain SIP-010 `transfer`, not by minting.**
+Read-only investigation; nothing deployed, no key used.
+
+`protocol-mint` is unreachable for us, and confirming *why* matters more than the
+conclusion: it asserts `sbtc-registry.is-protocol-caller` on **`contract-caller`**,
+and the registry seeds only three roles — `.sbtc-deposit` (mint), `.sbtc-withdrawal`
+(burn), `.sbtc-bootstrap-signers` (governance). `update-protocol-contract` itself
+requires the governance role, so the set cannot be extended from outside. Going
+through the front door instead, `sbtc-deposit.complete-deposit-wrapper` asserts
+`tx-sender` equals the registry's current signer principal, live-read as
+`SN35NB5S0NFPMSDNFHHJFK7AMZ750J58H7VTA7G6R` — not us. Confirmed directly:
+`is-protocol-caller(deposit-role, ST1PQHQ…)` returns `(err u400)`.
+
+None of that is needed, because **the balance already exists**. Live reads:
+
+| | |
+|---|---|
+| `get-total-supply` | `u2100000000000000` = **21,000,000 sBTC** |
+| `get-balance(ST1PQHQ…)` | `u8000000000` = **80 sBTC** |
+
+`transfer` authorises on `(is-eq tx-sender sender)`, so whoever signs as `ST1PQHQ…`
+can send sBTC to the staging deployer with an ordinary SIP-010 transfer. That key is
+the public Clarinet default mnemonic, so this is available to anyone — which is the
+point, and also the caveat.
+
+**What this sharpens about §5.2's caveat.** A 21,000,000 sBTC supply — the entire
+Bitcoin supply, pre-minted — is not how sBTC behaves anywhere real. This deployment
+is a **test fixture** that happens to use byte-identical contract code, not a live
+sBTC protocol instance. The distinction matters for what a staging run can claim:
+
+- **Faithful**, because the code is byte-identical: trait resolution, SIP-010
+  conformance, `get-decimals` = 8, transfer semantics, post-conditions, and
+  therefore pool-v3's `share-scale` calibration (pv3-F2).
+- **Not faithful**: deposit/withdrawal flows, signer attestation, realistic supply
+  or balance distribution. A staging run must not claim to have exercised those.
+
+Also: the 80 sBTC sits at a key anyone holds, so the balance can vanish between runs.
+Treat funding as a step in the procedure, not a precondition to assume.
 
 ### 5.3 ~~`flashstack-pool-v3` needs epoch 4.0 on testnet~~ — RESOLVED 2026-09-17
 
@@ -385,7 +419,7 @@ document. Writing one requires resolving §5.1–5.3 first.
 | 2 | ~~Decide the sBTC mock question (§5.2)~~ | **DONE 2026-09-17 — byte-identical sBTC exists on testnet; no mock needed** |
 | 3 | ~~Extend the patcher (§5.1)~~ | **DONE — PR #55**, `scripts/lib/testnet-localize.mjs` |
 | 4 | Map `SM3VDXK3…` → `ST1PQHQ…` in the localizer and move it from `THIRD_PARTY` to a new `TESTNET_EQUIVALENT` set | Nothing |
-| 5 | Determine how the deployer obtains a testnet sBTC balance (§5.2 caveat) | Nothing — public API / faucet research |
+| 5 | ~~Determine how the deployer obtains a testnet sBTC balance~~ | **DONE 2026-09-18 — SIP-010 `transfer` from `ST1PQHQ…`, which holds 80 sBTC. Minting is unreachable and unnecessary (§5.2)** |
 | 6 | Write `deployments/testnet-current-gen-plan.yaml` | 4, 5 |
 | 7 | Execute the stage and record evidence | A funded testnet deployer — **operator only** |
 
