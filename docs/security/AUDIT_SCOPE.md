@@ -66,7 +66,7 @@ declare load-bearing:
 
 ## Evidence to date
 
-- **Tests:** 229 passing across 21 files (`npm ci && npm test`). Pool-v3 specifically has
+- **Tests:** 254 passing across 23 files (`npm ci && npm test`). Pool-v3 specifically has
   29 tests in `tests/flashstack-pool-v3.test.ts` and `tests/pool-v3-hillary-review.test.ts`,
   including: an unlisted token rejected even when malicious, a non-repaying receiver
   reverting the whole transaction, an unapproved receiver rejected, the donation/inflation
