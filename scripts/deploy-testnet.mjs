@@ -68,6 +68,7 @@ import { readFileSync } from "fs";
 import { localize, assertFullyLocalized } from "./lib/testnet-localize.mjs";
 import { callReadOnly as callReadOnlyRaw, assertEqual } from "./lib/testnet-readonly.mjs";
 import { assertAdminStepPreconditions } from "./lib/testnet-preconditions.mjs";
+import { parseSteps } from "./lib/parse-steps.mjs";
 
 // Thin wrapper so call sites keep their original signature (the API base is a
 // module-level constant here, but a parameter in the lib so tests can point it
@@ -84,7 +85,13 @@ const API       = "https://api.testnet.hiro.so";
 // §6a predates a92fb8e's fix and needs regenerating, and re-publishing a whole
 // contract line to fix an assertion-strength gap would be the wrong shape of
 // change (§6c, route A). Guarded — see scripts/lib/testnet-preconditions.mjs.
-const STEPS     = (process.argv.find(a => a.startsWith("--steps="))?.split("=")[1] ?? "all").toLowerCase();
+let STEPS;
+try {
+  STEPS = parseSteps(process.argv);
+} catch (e) {
+  console.error(`ERROR: ${e.message}`);
+  process.exit(1);
+}
 const EXPLORER  = "https://explorer.hiro.so/txid";
 const network   = STACKS_TESTNET;
 
@@ -96,11 +103,6 @@ const RESERVE_AMOUNT = 50_000_000;
 // reverts with (err u500). Seed it with a small amount first. (1 STX = 1_000_000)
 const RECEIVER_SEED_AMOUNT = 1_000_000;
 
-
-if (!["all", "admin"].includes(STEPS)) {
-  console.error(`ERROR: --steps=${STEPS} is not a known mode. Use --steps=all (default) or --steps=admin.`);
-  process.exit(1);
-}
 
 if (!MNEMONIC) {
   console.error("ERROR: Set TESTNET_MNEMONIC");
