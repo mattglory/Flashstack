@@ -52,6 +52,11 @@ Run these **in `#flashstack-ci`**, after `/github signin`:
   is added.
 - `workflows:{…}` is scoped to the CI workflow **on `main`**, so PR-run chatter does not land here;
   PR-level pass/fail is already visible on the PR itself.
+- `statuses` is **deliberately kept**, and is the one default we retain knowingly. Vercel reports
+  through the commit-status API rather than as a GitHub Actions workflow, so `workflows:{…}` does
+  not see it; `statuses` is the only route by which a failed preview/production deploy reaches
+  Slack. The cost is per-commit status chatter on PRs. If that proves too noisy in practice, add
+  `statuses` to the `unsubscribe` line above and accept that Vercel outcomes are then PR-only.
 
 ## 4. Commands — `#flashstack-security`
 
@@ -67,7 +72,7 @@ The `unsubscribe` line is important: `/github subscribe` on a repo applies defau
 security channel must have them stripped or it becomes a second CI channel.
 
 `issues:{label:"security"}` gives us a deliberate escalation path — labelling an issue `security`
-routes it to the channel. That label does not exist yet; create it, or drop this line.
+routes it to the channel. Matt has created the `security` label, so this line resolves as written.
 
 ### 4.1 Known gap — security *alerts* do not reach Slack
 
@@ -118,14 +123,19 @@ the noise problem; a filter believed to be applied but rejected is worse, becaus
 - No webhook URL or token is ever committed. Org/repository secrets only, if ever needed.
 - `.github/workflows/` is CODEOWNERS-protected; any Stage 2 workflow change goes through review.
 
-## 7. Stage 2 — blocked on PR #69
+## 7. Stage 2 — what unblocked it, and what still gates it
 
 Stage 2 is a custom CI summary posting the **security gate result** to `#flashstack-security`.
-It must not be built yet, because today the result it would report is not trustworthy:
+
+**Blocker cleared.** Until PR #69 merged, both `npm audit` steps in `security.yml` carried
+`continue-on-error: true`, so the Dependency Audit job concluded **success** even when the audit
+printed high/critical findings — PR #61's run did exactly that. A Stage 2 summary built then would
+have posted a green "Security CI passed" at precisely that moment: automated false assurance,
+which is strictly worse than no notification.
 
 ```
-  TODAY (before #69)                      AFTER #69 MERGES
-  ------------------                      ----------------
+  BEFORE #69                              NOW (#69 on main, 25130a4)
+  ----------                              --------------------------
   npm audit finds high/critical           npm audit finds high/critical
             |                                       |
      continue-on-error: true                 step fails (flag removed)
@@ -139,12 +149,18 @@ It must not be built yet, because today the result it would report is not trustw
      FALSE ASSURANCE
 ```
 
-This is not hypothetical. PR #61's `Security Scan` run printed several `Severity: high` findings
-and still concluded **success**, while GitHub showed one critical and six high alerts. A Stage 2
-summary built today would have posted a green "Security CI passed" into the security channel at
-exactly that moment — automating false assurance, which is strictly worse than no notification.
+The gate can now go red, so a summary of it can be trusted. For the record, `Security Scan` is
+currently green because the tree is genuinely clean (root audit: 0 vulnerabilities; web audit:
+0 high, 0 critical), not because the check is incapable of failing.
 
-**Dependency:** Stage 2 summary → requires PR #69 merged → audit failures become real workflow
-failures → Slack can accurately summarize the security gate.
+**What still gates Stage 2 is operational, not technical:** §5 has not been carried out yet, so
+no one is subscribed. A summary posted into channels with no subscribers is not an observable
+integration. The remaining sequence is:
 
-Tracked in Beads as an explicit blocker. Do not start Stage 2 until #69 is on `main`.
+```
+§5 commands run  ->  /github subscribe list features pasted back  ->  verified channel state
+                 ->  ONLY THEN Stage 2
+```
+
+Tracked in Beads as `Flashstack-ajv.2.9`. Do not start Stage 2 until the subscription state above
+is verified rather than assumed.
