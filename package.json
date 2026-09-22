@@ -28,7 +28,7 @@
     "@clarigen/cli": "^4.0.1",
     "@clarigen/core": "^4.0.1",
     "@clarigen/test": "^4.0.1",
-    "@stacks/clarinet-sdk": "^3.23.2",
+    "@stacks/clarinet-sdk": "^3.24.0",
     "vitest": "^4.1.11"
   },
   "dependencies": {
