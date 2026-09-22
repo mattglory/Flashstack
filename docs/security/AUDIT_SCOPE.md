@@ -4,7 +4,7 @@
 checked against the repository or the live chain on **2026-09-21**; the checks are
 named so they can be repeated. Where something is not done, it says so.
 
-**Reviewed state:** `main` @ `e8e2497`. The commit to audit will be frozen at kickoff.
+**Reviewed state:** `main` @ `9210540`. The commit to audit will be frozen at kickoff.
 
 ## What this is
 
@@ -66,16 +66,18 @@ declare load-bearing:
 
 ## Evidence to date
 
-- **Tests:** 221 passing across 20 files (`npm ci && npm test`). Pool-v3 specifically has
+- **Tests:** 229 passing across 21 files (`npm ci && npm test`). Pool-v3 specifically has
   29 tests in `tests/flashstack-pool-v3.test.ts` and `tests/pool-v3-hillary-review.test.ts`,
   including: an unlisted token rejected even when malicious, a non-repaying receiver
   reverting the whole transaction, an unapproved receiver rejected, the donation/inflation
   attack, a reentrant deposit blocked, per-asset decimals, and a non-pending principal
-  unable to `accept-admin`. **The two Tier 2 pools are tested directly only for the
-  two-step admin transfer** (`tests/bc1-two-step-fix.test.ts`). Their pool logic is the v2
-  pools', which have dedicated hardening tests (`tests/flashstack-stx-pool-v2-hardening.test.ts`,
-  `tests/flashstack-sbtc-pool-v2-hardening.test.ts`), but nothing exercises that logic through
-  the v3 files themselves.
+  unable to `accept-admin`. **The two Tier 2 pools are tested directly for the two-step
+  admin transfer** (`tests/bc1-two-step-fix.test.ts`) **and the pause gate**
+  (`tests/v3-pools-pause-gate.test.ts`, 8 tests, mutation-checked). Their broader pool logic
+  is the v2 pools', which have dedicated hardening tests
+  (`tests/flashstack-stx-pool-v2-hardening.test.ts`, `tests/flashstack-sbtc-pool-v2-hardening.test.ts`),
+  but nothing beyond admin transfer and pause exercises that logic through the v3 files
+  themselves.
 - **Static check:** `clarinet check` passes with 0 errors. CI runs it and the suite on
   every PR. `main` requires one approving code-owner review and both checks, **but
   `enforce_admins` is off, so a repository admin can bypass them** (a deliberate choice for a
@@ -83,8 +85,9 @@ declare load-bearing:
 - **Internal findings:** three Medium findings on pool-v3 (`pv3-F1` reentrant deposit
   miscounted as fee revenue, `pv3-F2` share-scale not calibrated per decimals, `pv3-F3`
   deposit not gated by pause). All fixed, each with a regression test. `pv3-F1` was found
-  by an external reviewer and independently reproduced before fixing. One further finding is
-  **open**: `F-8` (Low), `deposit` not gated by pause in the Tier 2 pools, see below. Full
+  by an external reviewer and independently reproduced before fixing. One further finding,
+  `F-8` (Low, confirmed): `deposit` not gated by pause in the Tier 2 pools — **fixed in the
+  undeployed v3 pools (PR #68); still open on the live, immutable v2 pools**, see below. Full
   register: [`FINDINGS_REGISTER.md`](FINDINGS_REGISTER.md).
 - **Testnet staging:** the gate is defined in [`../TESTNET_STAGING.md`](../TESTNET_STAGING.md).
   `flashstack-stx-core-v2` (Tier 2) is staged. On it, the **negative case is proven on chain
@@ -105,12 +108,12 @@ declare load-bearing:
   any of the 14 canonical/copy pairs drift, but that is a weaker guarantee than compiling
   the canonical source. Tracked as D6 in [`CONTRACT_INVENTORY.md`](CONTRACT_INVENTORY.md) §5.
   **Please audit `contracts/flashstack-pool-v3.clar`, not the copy.**
-- **The two Tier 2 pools do not gate `deposit` on the pause flag.** `flash-loan` does;
-  `deposit` checks only `amount > 0`. This is the same defect as `F-6` (v1 pools) and
-  `pv3-F3` (fixed in pool-v3 only). Because the v3 pools are the v2 pools plus the admin
-  change, **the live v2 pools have the same gap** (checked on 2026-09-21 by reading the
-  deployed source of both). Those are immutable; the v3 pools are undeployed and can be fixed
-  first. Recorded as `F-8`.
+- **The live v2 pools do not gate `deposit` on the pause flag (`F-8`, still open).**
+  `flash-loan` does; `deposit` checks only `amount > 0`. Same defect as `F-6` (v1 pools).
+  Checked 2026-09-21 by reading the deployed mainnet source of both v2 pools. They are
+  immutable, so this cannot be patched. The undeployed Tier 2 v3 pools had the identical
+  defect — inherited from the v2 sources they're built on — and it is **fixed as of PR #68**:
+  `deposit` now asserts the pause flag, with 8 mutation-checked regression tests.
 - **Admin-transfer naming differs.** Four contracts propose with `transfer-admin`;
   `flashstack-sbtc-core-v2` uses `set-admin`. All five accept with `accept-admin`. All are
   undeployed, so this can still be unified; until it is, an operations runbook written
