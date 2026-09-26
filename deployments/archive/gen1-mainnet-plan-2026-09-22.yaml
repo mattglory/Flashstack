@@ -6,16 +6,27 @@
 # running it now would attempt to republish already-existing contract names
 # (which the chain would reject).
 #
-# Moved here, out of deployments/, and renamed off "default.mainnet-plan.yaml"
-# specifically to break `clarinet deployments apply --mainnet`'s no-flags
-# auto-pickup convention. Until 2026-09-22 this file died early because two of
-# its 13 paths (contracts/snp-flashstack-receiver.clar and -v3.clar) did not
-# exist in the checkout — a missing-file error was accidentally doing safety
-# work nobody designed for it. PR #70 committed those two files verbatim
-# (closing D7), which made all 13 paths resolve and turned this into a
-# genuinely runnable plan for the first time. It still needed a real mainnet
-# deployer key and would still fail on-chain on duplicate names, but the
-# "dies on a missing file" backstop was gone. See CONTRACT_INVENTORY.md D5.
+# Moved here, out of deployments/, and renamed off "default.mainnet-plan.yaml".
+# CORRECTED 2026-09-23, verified against clarinet 3.23.2's source rather than
+# the filename convention alone: `apply --mainnet` does not blindly load this
+# path -- it recomputes a plan from Clarinet.toml first and diffs it against
+# the file, prompting Overwrite? [Y/n]. It falls back to this file SILENTLY
+# only when that recomputation errors, which happens on any checkout without
+# settings/Mainnet.toml (gitignored -- true of every fresh clone). Until
+# 2026-09-22 this file died early anyway, because two of its 13 paths
+# (contracts/snp-flashstack-receiver.clar and -v3.clar) did not exist in the
+# checkout -- a missing-file error was accidentally doing safety work nobody
+# designed for it. PR #70 committed those two files verbatim (closing D7),
+# which made all 13 paths resolve, so the silent fallback became a real one
+# `Enter` away from broadcast, with no deployer key even present. That is the
+# case this archive closes: with the file gone, a missing plan now requires
+# generating one from Clarinet.toml, which itself needs settings/Mainnet.toml
+# and fails outright on a clean checkout. It does NOT close the case where
+# settings/Mainnet.toml exists (a real deploy machine) -- there, clarinet
+# always recomputes from Clarinet.toml regardless of this file, and the
+# residual risk is what Clarinet.toml currently resolves the 14 funds-bearing
+# contract names to (the contracts/test/ localized copies, D6), not this YAML.
+# See CONTRACT_INVENTORY.md D5 and D6.
 #
 # Kept, not deleted, as the only record of what this key/era actually
 # published — nothing else in the repo documents it.
