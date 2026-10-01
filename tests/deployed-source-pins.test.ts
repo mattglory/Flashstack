@@ -47,8 +47,8 @@ const PINS = [
   {
     file: "contracts/flashstack-stx-core.clar",
     principal: "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5",
-    bytes: 6538,
-    sha256: "a3c3e99b5a8ed46604fbb47d643d680848e51298244cac2bfedb74e192a091ff",
+    bytes: 6537,
+    sha256: "9fde1e3e330e16310d6aeae51baaa3acece0e4c6aad6368f7b80967cd36b517e",
   },
   {
     file: "contracts/flashstack-sbtc-core.clar",
