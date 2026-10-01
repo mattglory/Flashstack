@@ -23,24 +23,31 @@ const RX = "test-pool-v2-receiver-deposit-reentrant";
 
 const LP_DEP = 100_000_000; // 100 STX, the only honest LP
 const LOAN_AMOUNT = 99_000_000; // 99 STX -- nearly all of the reserve
-const RX_BUFFER = 10_000; // attacker's own capital: covers the fee only
+// Attacker's own capital: must cover the loan's fee (0.05% of LOAN_AMOUNT =
+// 49,500 microSTX) so the receiver's own balance (loan + buffer) is enough
+// to self-deposit amount+fee. Anything less and the `as-contract` deposit
+// fails with ERR-REPAY-FAILED (insufficient balance) instead of succeeding
+// cheaply -- there is no way around fronting at least the real fee.
+const RX_BUFFER = 50_000;
 
 describe("flashstack-stx-pool-v2: reentrant deposit-as-repayment", () => {
-  let deployer: string, attacker: string, honestLp: string;
+  let deployer: string, attacker: string, honestLp: string, rxPrincipal: string;
 
   const shares = (who: string) =>
     Number(simnet.callReadOnlyFn(POOL, "get-shares", [Cl.principal(who)], deployer).result.value);
   const stxValue = (who: string) =>
     Number(simnet.callReadOnlyFn(POOL, "get-stx-value", [Cl.principal(who)], deployer).result.value);
+  const stxBalance = (who: string) => BigInt(simnet.getAssetsMap().get("STX")!.get(who) ?? 0);
 
   beforeEach(() => {
     deployer = simnet.getAccounts().get("deployer")!;
     attacker = simnet.getAccounts().get("wallet_1")!;
     honestLp = simnet.getAccounts().get("wallet_2")!;
+    rxPrincipal = `${deployer}.${RX}`;
 
     simnet.callPublicFn(POOL, "deposit", [Cl.uint(LP_DEP)], honestLp);
-    simnet.callPublicFn(POOL, "add-approved-receiver", [Cl.principal(`${deployer}.${RX}`)], deployer);
-    simnet.transferSTX(RX_BUFFER, `${deployer}.${RX}`, attacker);
+    simnet.callPublicFn(POOL, "add-approved-receiver", [Cl.principal(rxPrincipal)], deployer);
+    simnet.transferSTX(RX_BUFFER, rxPrincipal, attacker);
   });
 
   it("the loan succeeds by depositing instead of repaying directly", () => {
@@ -50,22 +57,30 @@ describe("flashstack-stx-pool-v2: reentrant deposit-as-repayment", () => {
     expect(result).toBeOk(Cl.bool(true));
   });
 
-  it("the attacker ends up owning a share of the pool worth more than the fee they actually paid", () => {
+  it("the receiver contract ends up owning a share of the pool, funded by the loan itself -- not the attacker's wallet", () => {
+    const attackerBalanceBefore = stxBalance(attacker);
+
     simnet.callPublicFn(
       POOL, "flash-loan", [Cl.uint(LOAN_AMOUNT), Cl.contractPrincipal(deployer, RX)], attacker,
     );
 
-    const feePaid = RX_BUFFER; // everything else the receiver deposited was the borrowed principal, not new capital
+    const attackerBalanceAfter = stxBalance(attacker);
+    const attackerOwnCapitalSpent = attackerBalanceBefore - attackerBalanceAfter;
+
+    const rxShares = shares(rxPrincipal);
+    const rxValue = stxValue(rxPrincipal);
     const attackerShares = shares(attacker);
-    const attackerValue = stxValue(attacker);
     const honestLpValue = stxValue(honestLp);
 
-    // If this is a real vector: attacker holds shares (credited to tx-sender,
-    // not the receiver contract), worth far more than the ~fee they put in,
-    // and the honest LP's share of the now-larger pool is diluted below their
-    // original deposit.
-    expect(attackerShares).toBeGreaterThan(0);
-    expect(attackerValue).toBeGreaterThan(feePaid * 10);
+    // With `as-contract`, the minted shares land on the receiver CONTRACT
+    // (funded out of the loan it already holds), not the attacker's EOA.
+    // The attacker's entire out-of-pocket cost for the whole attack is the
+    // fee-sized RX_BUFFER pre-funded into the receiver in beforeEach -- the
+    // flash-loan call itself costs the attacker nothing further.
+    expect(attackerShares).toBe(0);
+    expect(rxShares).toBeGreaterThan(0);
+    expect(attackerOwnCapitalSpent).toBe(0n);
+    expect(rxValue).toBeGreaterThan(RX_BUFFER);
     expect(honestLpValue).toBeLessThan(LP_DEP);
   });
 });
