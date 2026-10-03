@@ -196,4 +196,3 @@
 (define-read-only (get-admin)
   (ok (var-get admin))
 )
-
