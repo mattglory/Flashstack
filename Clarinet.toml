@@ -313,6 +313,11 @@ path = "contracts/test/flashstack-sbtc-pool-v2.clar"
 clarity_version = 3
 epoch = "3.0"
 
+[contracts.test-sbtc-pool-v2-receiver-deposit-reentrant]
+path = "contracts/test/test-sbtc-pool-v2-receiver-deposit-reentrant.clar"
+clarity_version = 3
+epoch = "3.0"
+
 # --- BC1 fix: two-step admin transfer successors (not yet deployed) ---
 [contracts.flashstack-stx-core-v2]
 path = "contracts/test/flashstack-stx-core-v2.clar"
