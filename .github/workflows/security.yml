@@ -24,6 +24,20 @@ jobs:
       # "Severity: high" findings and the job still concluded success. A check that
       # can't go red isn't evidence of anything. Dependency Audit is not a required
       # status check, so a red run here never blocks a merge; it is a signal.
+      #
+      # Known accepted finding as of 2026-10-03: GHSA-vfj7-8cjw-p6xm (braces,
+      # stack-exhaustion DoS via deeply nested patterns), pulled in transitively via
+      # @clarigen/cli -> chokidar -> braces. @clarigen/cli is a devDependency (the
+      # Clarity-to-TypeScript codegen tool, `npm run gen`) -- never shipped, never
+      # reachable by anyone outside this repo's own `contracts/` tree, which is the
+      # only glob chokidar ever watches here. No upstream fix exists yet: braces'
+      # latest release (3.0.3) is still inside the advisory's vulnerable range, and
+      # `npm audit fix --force`'s only suggested remediation is downgrading
+      # @clarigen/cli to 0.2.4 -- a multi-major-version regression of an actively
+      # used dev tool to dodge a DoS risk this project's own usage can't trigger.
+      # Accepted deliberately, not silently: re-check `npm audit --audit-level=high`
+      # next time this step goes red, since a real upstream patch (or a new,
+      # unrelated finding worth acting on) would change this call.
       - name: Audit root dependencies
         run: npm audit --audit-level=high
 
