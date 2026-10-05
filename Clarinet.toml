@@ -287,6 +287,11 @@ path = "contracts/test/test-pool-receiver-good.clar"
 clarity_version = 3
 epoch = "3.0"
 
+[contracts.test-pool-v2-receiver-deposit-reentrant]
+path = "contracts/test/test-pool-v2-receiver-deposit-reentrant.clar"
+clarity_version = 3
+epoch = "3.0"
+
 [contracts.flashstack-sbtc-pool]
 path = "contracts/test/flashstack-sbtc-pool.clar"
 clarity_version = 3
@@ -305,6 +310,11 @@ epoch = "3.0"
 
 [contracts.flashstack-sbtc-pool-v2]
 path = "contracts/test/flashstack-sbtc-pool-v2.clar"
+clarity_version = 3
+epoch = "3.0"
+
+[contracts.test-sbtc-pool-v2-receiver-deposit-reentrant]
+path = "contracts/test/test-sbtc-pool-v2-receiver-deposit-reentrant.clar"
 clarity_version = 3
 epoch = "3.0"
 
