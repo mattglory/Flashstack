@@ -359,6 +359,16 @@ path = "contracts/test/flashstack-stx-pool-v3.clar"
 clarity_version = 3
 epoch = "3.0"
 
+[contracts.test-stx-pool-v3-receiver-reentrant]
+path = "contracts/test/test-stx-pool-v3-receiver-reentrant.clar"
+clarity_version = 3
+epoch = "3.0"
+
+[contracts.test-sbtc-pool-v3-receiver-reentrant]
+path = "contracts/test/test-sbtc-pool-v3-receiver-reentrant.clar"
+clarity_version = 3
+epoch = "3.0"
+
 [contracts.flashstack-sbtc-core-v2]
 path = "contracts/test/flashstack-sbtc-core-v2.clar"
 clarity_version = 3

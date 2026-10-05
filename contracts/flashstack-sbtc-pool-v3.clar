@@ -5,6 +5,10 @@
 ;; Here the update only PROPOSES; the new admin must call accept-admin. NOT DEPLOYED.
 ;; F-8 FIX -- deposit is also gated by pause now (v2's deposit was not; flash-loan was).
 ;; See docs/security/FINDINGS_REGISTER.md. withdraw stays ungated so LPs can always exit.
+;; F-9 FIX -- reentrancy lock on deposit/withdraw/flash-loan, ported from
+;; flashstack-pool-v3's pv3-F1 guard. Without it, a flash-loan receiver can
+;; "repay" by calling deposit mid-callback and mint shares at the loan-depressed
+;; price, diluting every LP (proven on the live v2 pools, ajv.4.8).
 ;; ============================================================================
 ;; FlashStack sBTC Pool v2 (HARDENED)
 ;;
@@ -52,6 +56,7 @@
 (define-constant ERR-NO-SHARES            (err u708))
 (define-constant ERR-INSUFFICIENT-SHARES  (err u709))
 (define-constant ERR-TRANSFER-FAILED      (err u710))
+(define-constant ERR-REENTRANT            (err u712))
 
 ;; =============================================
 ;; State
@@ -67,6 +72,12 @@
 (define-data-var total-loans     uint      u0)
 (define-data-var total-volume    uint      u0)
 (define-data-var total-fees      uint      u0)
+
+;; F-9 fix: one lock shared by deposit/withdraw/flash-loan. This pool holds a
+;; single asset, so a bool is the per-asset lock (pool-v3 needs a map keyed by
+;; asset). Set first in each entry point, cleared just before its (ok ...); a
+;; failed assert aborts the whole call, so a reverted call never leaves it set.
+(define-data-var reentrancy-locked bool    false)
 
 (define-constant SHARE-PRECISION u100000000) ;; 1e8  -  matches sBTC sat precision
 
@@ -94,17 +105,23 @@
     ;; shares = amount * (total_shares + VIRTUAL-SHARES) / (pool_balance + VIRTUAL-ASSETS)
     (new-shares (/ (* amount (+ current-shares VIRTUAL-SHARES)) (+ pool-balance VIRTUAL-ASSETS)))
   )
+    ;; F-9 fix: reentrancy guard, checked first.
+    (asserts! (not (var-get reentrancy-locked)) ERR-REENTRANT)
+    (var-set reentrancy-locked true)
     ;; F-8 fix: deposit is gated by pause, matching flash-loan and pool-v3's pv3-F3 fix.
     ;; withdraw is deliberately never gated, so LPs can always still exit.
     (asserts! (not (var-get paused)) ERR-PAUSED)
     (asserts! (> amount u0) ERR-ZERO-AMOUNT)
+    ;; Effects before interaction, matching pool-v3; if the transfer below
+    ;; fails the whole call reverts, these writes included.
+    (map-set lp-shares depositor
+      (+ (default-to u0 (map-get? lp-shares depositor)) new-shares))
+    (var-set total-shares (+ current-shares new-shares))
     (unwrap!
       (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
         transfer amount depositor (as-contract tx-sender) none)
       ERR-TRANSFER-FAILED)
-    (map-set lp-shares depositor
-      (+ (default-to u0 (map-get? lp-shares depositor)) new-shares))
-    (var-set total-shares (+ current-shares new-shares))
+    (var-set reentrancy-locked false)
     (ok new-shares)
   )
 )
@@ -118,6 +135,10 @@
                         get-balance (as-contract tx-sender)) ERR-TRANSFER-FAILED))
     (sats-amount      (/ (* shares (+ pool-balance VIRTUAL-ASSETS)) (+ current-shares VIRTUAL-SHARES)))
   )
+    ;; F-9 fix: reentrancy guard. Withdraw has no callback surface of its own;
+    ;; this blocks a flash-loan callback from reentering withdraw (pool-v3 parity).
+    (asserts! (not (var-get reentrancy-locked)) ERR-REENTRANT)
+    (var-set reentrancy-locked true)
     (asserts! (> shares u0) ERR-ZERO-AMOUNT)
     (asserts! (>= depositor-shares shares) ERR-INSUFFICIENT-SHARES)
     (asserts! (> sats-amount u0) ERR-ZERO-AMOUNT)
@@ -127,6 +148,7 @@
       (as-contract (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
         transfer sats-amount tx-sender withdrawer none))
       ERR-TRANSFER-FAILED)
+    (var-set reentrancy-locked false)
     (ok sats-amount)
   )
 )
@@ -148,6 +170,10 @@
         get-balance (as-contract tx-sender))
       ERR-REPAY-FAILED))
   )
+    ;; F-9 fix: reentrancy guard. A receiver reentering deposit/withdraw during
+    ;; the callback below now hits ERR-REENTRANT, so that call changes nothing.
+    (asserts! (not (var-get reentrancy-locked))                                   ERR-REENTRANT)
+    (var-set reentrancy-locked true)
     (asserts! (not (var-get paused))                                              ERR-PAUSED)
     (asserts! (> amount u0)                                                       ERR-ZERO-AMOUNT)
     (asserts! (<= amount (var-get max-single-loan))                               ERR-EXCEEDS-LIMIT)
@@ -173,6 +199,7 @@
       (var-set total-loans  (+ (var-get total-loans) u1))
       (var-set total-volume (+ (var-get total-volume) amount))
       (var-set total-fees   (+ (var-get total-fees) (- reserve-after reserve-before)))
+      (var-set reentrancy-locked false)
       (ok true)
     )
   )
