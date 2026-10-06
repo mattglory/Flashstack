@@ -62,8 +62,10 @@ const KNOWN_TEST_PATHS = [
   "contracts/test/test-receiver-good.clar",
   "contracts/test/test-sbtc-pool-receiver-good.clar",
   "contracts/test/test-sbtc-pool-v2-receiver-deposit-reentrant.clar",
+  "contracts/test/test-sbtc-pool-v3-receiver-reentrant.clar",
   "contracts/test/test-sbtc-receiver-bad.clar",
   "contracts/test/test-sbtc-receiver-good.clar",
+  "contracts/test/test-stx-pool-v3-receiver-reentrant.clar",
 ];
 
 const CLARINET = process.env.CLARINET_BIN || "clarinet";
