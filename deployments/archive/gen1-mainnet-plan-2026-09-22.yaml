@@ -26,13 +26,17 @@
 #
 # The actual, still-live exposure was never this file and this archive does
 # not touch it: on any machine with settings/Mainnet.toml, any key, the
-# default `apply --mainnet` path (Enter, Enter) or -d both reach the plan
-# clarinet computes FRESH from Clarinet.toml -- identical before and after
-# this archive (sha256 217564c42bea...) -- and -d broadcasts it with no
-# confirmation. That plan has 57 contract publishes, 26 of them from
-# contracts/test/, including every funds-bearing localized copy (whose
+# default `apply --mainnet` path (Enter, Enter) reaches the plan clarinet
+# computes FRESH from Clarinet.toml -- identical before and after this
+# archive (sha256 217564c42bea...). -d is the one place #74 changed anything:
+# it panicked before signing pre-#74 (any key but SP3TGRVG...), and since #74
+# it reaches that same fresh plan and broadcasts it with no confirmation. At
+# the 2026-09-26 measurement, that plan had 57 contract publishes, 26 of them
+# from contracts/test/ (28 as of 2026-10-05's merges -- see
+# tests/mainnet-plan-guard.test.ts's KNOWN_TEST_PATHS for the live count, not
+# this snapshot), including every funds-bearing localized copy (whose
 # sbtc-token calls resolve, in that same plan, to the flash-mintable mock
-# contracts/sbtc-token.clar) plus test fixtures. 54 of the 57 names are free
+# contracts/sbtc-token.clar) plus test fixtures. 54 of the 57 names were free
 # at the current admin principal, including all five undeployed audit-track
 # successors. Pinned by tests/mainnet-plan-guard.test.ts (#76).
 # See CONTRACT_INVENTORY.md D5 and D6.
