@@ -41,7 +41,13 @@ jobs:
       - name: Audit root dependencies
         run: npm audit --audit-level=high
 
+      # if: always() -- the step above can fail (by design, see its own comment),
+      # and a failed step otherwise skips every step after it in the same job.
+      # Without this, web/'s audit never ran while root stayed red, so web/'s own
+      # findings went unsurfaced in CI (26 vulnerabilities, including moderates
+      # with a real fix available -- see DEP-1/DEP-2). Found 2026-10-05.
       - name: Audit web dependencies
+        if: always()
         run: cd web && npm audit --audit-level=high
 
   codeql:
