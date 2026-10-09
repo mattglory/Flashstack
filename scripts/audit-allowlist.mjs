@@ -15,7 +15,7 @@
 // Usage: run from the directory whose package.json is being audited (same
 // convention as `npm audit` itself) -- matches the two call sites in
 // .github/workflows/security.yml:
-//   node ../scripts/audit-allowlist.mjs                   (from root)
+//   node scripts/audit-allowlist.mjs                      (from root)
 //   node ../scripts/audit-allowlist.mjs                   (from web/)
 // Optional: --audit-level=<critical|high|moderate|low>, default "high".
 
@@ -65,6 +65,17 @@ try {
   // (lower) default threshold; the JSON report is still on stdout either way.
   if (!err.stdout) throw err;
   report = JSON.parse(err.stdout);
+}
+
+// Fail CLOSED, not open: npm audit itself can fail for reasons that have
+// nothing to do with vulnerabilities (registry unreachable, rate limited,
+// auth error) and still print valid JSON -- just without a `vulnerabilities`
+// key. Treating that as "nothing found" would report a green audit on an
+// audit that never actually ran. Found by Hillary Kibet's review on #94,
+// reproduced with npm_config_registry pointed at an unreachable host.
+if (report.error || !report.vulnerabilities) {
+  console.error(`npm audit did not return results: ${report.message ?? JSON.stringify(report.error)}`);
+  process.exit(2);
 }
 
 // npm reports every package in a vulnerable chain as its own top-level
