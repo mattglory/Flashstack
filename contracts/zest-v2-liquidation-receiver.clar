@@ -1,32 +1,82 @@
 ;; zest-v2-liquidation-receiver.clar
-;; FlashStack Receiver -- Zest Protocol V2 Flash Liquidation
+;; FlashStack Receiver -- Zest Protocol Flash Liquidation
 ;;
-;; DEPLOYMENT REQUIREMENTS (both must be done before this contract can operate):
-;;   1. Whitelist on FlashStack:
-;;        call add-approved-receiver on flashstack-stx-core with this contract address
-;;   2. Whitelist on Zest V2 (PENDING -- requires Zest team action):
-;;        Zest V2 line 1489 of v0-4-market.clar:
-;;        (asserts! (is-eq contract-caller tx-sender) ERR-AUTHORIZATION)
-;;        This blocks any contract from calling liquidate().
-;;        Once Zest adds an authorized-liquidator whitelist and a new entry point,
-;;        update ZEST-LIQUIDATE-FN below and redeploy.
+;; v0-8 migration: v0-4-market is dead -- confirmed directly, not assumed.
+;; v0-market-vault.get-impl() (the real authorization gate on Zest's shared
+;; vault infrastructure) now returns v0-8-market exclusively, on all 7 of
+;; Zest's per-asset vaults, with zero exceptions. v0-4-market's own most
+;; recent transactions all abort for exactly that reason -- it's no longer
+;; the authorized impl, so it can't touch vault state at all anymore.
+;;
+;; liquidate()'s auth model does NOT need Zest's cooperation -- confirmed
+;; directly against the real deployed source, not assumed or just told:
+;; `(asserts! (is-eq contract-caller tx-sender) ERR-AUTHORIZATION)` is an
+;; anti-proxy guard (satisfied by as-contract, used throughout this
+;; contract already), not an integrator whitelist, and liquidate() takes
+;; the borrower as an explicit argument -- it was never gated behind
+;; whoever holds the position. Confirmed by Zest's CTO (Emil) and
+;; independently re-verified by reading the deployed source directly.
+;;
+;; What v0-8 actually requires that v0-4 didn't: a real signed Pyth Lazer
+;; price update on every call, not the old write-feeds-with-none-bypass
+;; v0-4 tolerated. Proved this end-to-end before wiring it in here: fetched
+;; a real signed update from Pyth's live stream, submitted it to Zest's
+;; actual deployed pyth-lazer-decoder-v1.recover-signer (read-only, nothing
+;; on-chain touched), and the recovered signer matched Zest's registered
+;; trusted pubkey exactly. set-price-feed below is how that buffer gets
+;; into this contract -- Clarity can't fetch it itself, so an off-chain
+;; keeper must fetch a fresh one and call set-price-feed immediately before
+;; every flash-loan call. Auto-reset to none after each use, same reason
+;; as the slippage pre-sets below: forces explicit re-fetching, not silent
+;; reuse of a stale (and by then probably-expired) signed update.
 ;;
 ;; Supported modes (set-target before calling flash-loan):
-;;   1 - STX flash -> pay USDCx debt -> receive sBTC collateral -> swap sBTC->STX -> repay
-;;   2 - STX flash -> pay USDH debt  -> receive sBTC collateral -> swap sBTC->STX -> repay
-;;   3 - STX flash -> pay wSTX debt  -> receive sBTC collateral -> swap sBTC->STX -> repay
+;;   1 - STX flash  -> pay USDCx debt -> receive sBTC collateral -> swap sBTC->STX -> repay
+;;   2 - STX flash  -> pay USDH debt  -> receive sBTC collateral -> swap sBTC->STX -> repay
+;;   3 - STX flash  -> pay wSTX debt  -> receive sBTC collateral -> swap sBTC->STX -> repay
 ;;      (mode 3 requires wSTX on a DEX -- see note in execute-stx-flash)
+;;   4 - STX flash  -> pay wSTX debt  -> receive wSTX collateral -> repay (no swap --
+;;      same asset both sides, the flash-borrowed STX itself is the payment,
+;;      since Zest's wSTX is a thin passthrough to native STX)
+;;   5 - sBTC flash -> pay sBTC debt  -> receive sBTC collateral -> repay (no swap,
+;;      same reasoning as mode 4 -- goes through execute-sbtc-flash, a
+;;      separate entry point, since it needs flashstack-sbtc-core not
+;;      flashstack-stx-core)
 ;;
-;; Liquidation profit = Zest bonus (5-10%) - FlashStack fee (0.05%) - swap slippage (~0.3%)
-;; Net expected: 4-9% per liquidated position.
+;; Modes 4-5 replace what zest-liquidation-receiver.clar (retired -- it
+;; targeted a long-dead contract, SP2VCQJGH...pool-borrow-v2-3, and had none
+;; of this contract's F-10 hardening) was reaching for: same-asset
+;; liquidations need no swap at all, so no slippage and no swap-failure
+;; mode -- the simplest, lowest-risk liquidations to capture.
+;;
+;; Collateral is ALWAYS seized and redeemed as a vault share (v0-vault-sbtc
+;; / v0-vault-stx), never the raw underlying (sbtc-token / wstx), even
+;; though the registry's collateral:true/false flags make the raw
+;; underlying look structurally valid too. Verified empirically, not just
+;; from those flags: querying v0-market-vault.get-collateral() directly
+;; across real registered accounts shows 100% of real sBTC/STX collateral
+;; is held as vault shares. Passing the raw underlying as collateral-ft
+;; would make liquidate()'s collateral-remove -> send-tokens call move
+;; funds from an empty balance, silently seizing nothing. Every mode calls
+;; liquidate() with the vault-share contract, captures the exact share
+;; amount from its own return value, then calls that vault's redeem() --
+;; wrapped in as-contract, same as every other self-call here -- to
+;; convert the shares into real spendable underlying before swapping or
+;; repaying.
+;;
+;; Liquidation profit = Zest bonus (5-10%) - FlashStack fee (0.05%) - swap slippage (~0.3%, modes 1-3 only)
+;; Net expected: 4-9% per liquidated position (modes 1-3); 5-10% minus the 0.05% flash fee for 4-5.
 ;;
 ;; Flow:
 ;;   1. Call set-target(borrower, debt-amount, mode)
-;;   2. Call flashstack-stx-core.flash-loan(debt-equivalent-stx, this-contract)
-;;   3. FlashStack calls execute-stx-flash
-;;   4. Receiver swaps STX -> debt token, liquidates Zest, swaps collateral -> STX, repays
+;;   2. Call set-price-feed(feed) with a freshly-fetched signed Pyth Lazer update
+;;   3. Call flashstack-stx-core.flash-loan (modes 1-4) or
+;;      flashstack-sbtc-core.flash-loan (mode 5) with this contract as receiver
+;;   4. FlashStack calls back execute-stx-flash / execute-sbtc-flash
+;;   5. Receiver liquidates Zest (swapping first/after where the mode needs it), repays
 
 (impl-trait 'SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.stx-flash-receiver-trait.stx-flash-receiver-trait)
+(impl-trait 'SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.sbtc-flash-receiver-trait.sbtc-flash-receiver-trait)
 
 ;; =============================================
 ;; Constants -- all confirmed from on-chain data
@@ -44,12 +94,16 @@
 (define-constant ERR-NOT-CORE     (err u907))
 (define-constant ERR-SWEEP-FAILED (err u908))
 (define-constant ERR-NOT-PENDING  (err u909))
+(define-constant ERR-NO-PRICE-FEED (err u910))
+(define-constant ERR-REDEEM-FAILED (err u911))
 
-;; FlashStack STX core (hardcoded -- repayment never goes elsewhere)
+;; FlashStack cores (hardcoded -- repayment never goes elsewhere)
 (define-constant FLASH-CORE 'SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-core)
+(define-constant FLASH-SBTC-CORE 'SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-sbtc-core)
 
-;; Zest V2 market -- confirmed from mainnet transactions
-(define-constant ZEST-MARKET 'SP1A27KFY4XERQCCRCARCYD1CC5N7M6688BSYADJ7.v0-4-market)
+;; Zest market -- v0-8, confirmed live (v0-market-vault.get-impl() returns
+;; this on all 7 vaults; v0-4-market is dead -- see header)
+(define-constant ZEST-MARKET 'SP1A27KFY4XERQCCRCARCYD1CC5N7M6688BSYADJ7.v0-8-market)
 ;; Zest V2 wSTX -- confirmed from repay transactions
 (define-constant ZEST-WSTX 'SP1A27KFY4XERQCCRCARCYD1CC5N7M6688BSYADJ7.wstx)
 
@@ -60,6 +114,19 @@
 ;; Collateral tokens
 (define-constant SBTC  'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token)
 (define-constant STSTX 'SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststx-token)
+
+;; Vault share tokens -- the ACTUAL collateral asset for real positions.
+;; Verified empirically against v0-market-vault.get-collateral() across
+;; real registered accounts, not just the registry's collateral:true/false
+;; flags: raw wstx/sbtc-token (above) are structurally allowed as collateral
+;; but NOT what's actually held -- v0-vault-stx / v0-vault-sbtc (the
+;; ERC4626-style share tokens) are. liquidate()'s collateral-ft must match
+;; whatever asset is actually registered at that position's collateral
+;; slot, or collateral-remove's send-tokens call moves from an empty
+;; balance. After liquidate() seizes shares, redeem() must be called to
+;; convert them into real spendable underlying before swapping/repaying.
+(define-constant V0-VAULT-STX  'SP1A27KFY4XERQCCRCARCYD1CC5N7M6688BSYADJ7.v0-vault-stx)
+(define-constant V0-VAULT-SBTC 'SP1A27KFY4XERQCCRCARCYD1CC5N7M6688BSYADJ7.v0-vault-sbtc)
 
 ;; Velar (Uniswap v2 fork) -- for sBTC <-> STX swaps
 (define-constant VELAR-ROUTER 'SP1Y5YSTAHZ88XYK1VPDH24GY0HPX5J4JECTMY4A1.univ2-router)
@@ -83,20 +150,22 @@
 ;;   u1 = USDCx debt + sBTC collateral
 ;;   u2 = USDH debt  + sBTC collateral
 ;;   u3 = wSTX debt  + sBTC collateral (needs wSTX on Velar -- see note)
+;;   u4 = wSTX debt  + wSTX collateral (no swap -- execute-stx-flash)
+;;   u5 = sBTC debt  + sBTC collateral (no swap -- execute-sbtc-flash)
 (define-data-var target-mode     uint      u1)
 ;; Slippage tolerance on swaps (default 200 = 2%)
 (define-data-var slippage-bp     uint      u200)
+;; Real signed Pyth Lazer update, fetched off-chain immediately before each
+;; flash-loan call (see header). Auto-reset to none after each use.
+(define-data-var price-feed-buffer (optional (buff 8192)) none)
 
 ;; =============================================
 ;; STX Flash Loan Callback
 ;; =============================================
 
 ;; Called by flashstack-stx-core after sending 'amount' STX to this contract.
-;; Pre-condition: set-target must have been called with the correct borrower/debt/mode.
-;;
-;; IMPORTANT: Until Zest adds the authorized-liquidator whitelist, the
-;; (contract-call? ZEST-MARKET liquidate ...) line will revert with
-;; ERR-AUTHORIZATION (u400025). The rest of the logic is correct.
+;; Pre-conditions: set-target AND set-price-feed must both have been called
+;; (in that order doesn't matter, but both are required -- see headers).
 (define-public (execute-stx-flash (amount uint) (core principal))
   (let (
     (fee-bp  (unwrap! (contract-call? FLASH-CORE get-fee-basis-points) ERR-REPAY-FAILED))
@@ -108,9 +177,25 @@
     (mode    (var-get target-mode))
     (slip    (var-get slippage-bp))
   )
-    ;; Only flashstack-stx-core may call this
+    ;; Only flashstack-stx-core may call this. Checked before anything else
+    ;; touches state or var-get's the price feed -- an unauthorized caller
+    ;; should see ERR-NOT-CORE, not a confusing ERR-NO-PRICE-FEED that
+    ;; implies the fix is "set a price feed" when it's actually "you can
+    ;; never call this at all."
     (asserts! (is-eq contract-caller FLASH-CORE) ERR-NOT-CORE)
-    (asserts! (and (>= mode u1) (<= mode u3)) ERR-BAD-MODE)
+    ;; `core` accepted for trait compliance; assert matches FLASH-CORE as
+    ;; defense-in-depth, same as alex-arb-receiver-v5 / bitflow-arb-receiver-v5
+    (asserts! (is-eq core FLASH-CORE) ERR-NOT-CORE)
+    ;; mode 5 goes through execute-sbtc-flash, not here
+    (asserts! (and (>= mode u1) (<= mode u4)) ERR-BAD-MODE)
+
+  (let ((feeds (some (list (unwrap! (var-get price-feed-buffer) ERR-NO-PRICE-FEED)))))
+
+    ;; Auto-reset: forces explicit re-fetching before the next loan rather
+    ;; than silently reusing a stale (by then likely-expired) signed update.
+    ;; A later failure in this same tx reverts this too, atomically --
+    ;; correct, since only a successful execution should consume it.
+    (var-set price-feed-buffer none)
 
     (if (is-eq mode u1)
 
@@ -130,25 +215,34 @@
         (let ((usdcx-bal (unwrap! (as-contract (contract-call? USDCX get-balance tx-sender)) ERR-SWAP-FAILED)))
           (asserts! (> usdcx-bal u0) ERR-SWAP-FAILED)
 
-          ;; Step 2: Liquidate -- pays usdcx-bal of USDCx debt, receives sBTC collateral
+          ;; Step 2: Liquidate -- pays usdcx-bal of USDCx debt, receives
+          ;; v0-vault-sbtc SHARES as collateral (real positions hold sBTC
+          ;; collateral as vault shares, not raw sbtc-token -- see the
+          ;; vault-share constants note above)
           ;; Reverts with ERR-AUTHORIZATION until Zest adds authorized-liquidator whitelist
-          (unwrap! (as-contract (contract-call? ZEST-MARKET liquidate
-            borrower SBTC USDCX usdcx-bal u0 (some (as-contract tx-sender)) none))
-            ERR-LIQUIDATION)
+          (let ((liq-result (unwrap! (as-contract (contract-call? ZEST-MARKET liquidate
+              borrower V0-VAULT-SBTC USDCX usdcx-bal u0 (some (as-contract tx-sender)) feeds))
+              ERR-LIQUIDATION)))
 
-          ;; Step 3: Swap all received sBTC -> STX on Velar
-          (let ((sbtc-bal (unwrap! (as-contract (contract-call? SBTC get-balance tx-sender)) ERR-SWAP-FAILED)))
-            (asserts! (> sbtc-bal u0) ERR-SWAP-FAILED)
-            (let ((min-stx (/ (* sbtc-bal (- BASIS-POINTS slip)) BASIS-POINTS)))
-              (unwrap! (as-contract (contract-call? VELAR-ROUTER swap-exact-tokens-for-tokens
-                VELAR-POOL-SBTC-STX VELAR-WSTX SBTC SBTC VELAR-WSTX VELAR-FEE-TO sbtc-bal min-stx))
-                ERR-SWAP-FAILED)
+            ;; Step 2b: Redeem the seized shares for real sBTC before swapping
+            (unwrap! (as-contract (contract-call? V0-VAULT-SBTC redeem
+              (get collateral liq-result) u0 (as-contract tx-sender)))
+              ERR-REDEEM-FAILED)
 
-              ;; Step 4: Repay to hardcoded FLASH-CORE
-              (let ((stx-bal (stx-get-balance (as-contract tx-sender))))
-                (asserts! (>= stx-bal owed) ERR-INSUFFICIENT)
-                (unwrap! (as-contract (stx-transfer? owed tx-sender FLASH-CORE)) ERR-REPAY-FAILED)
-                (ok true)
+            ;; Step 3: Swap all received sBTC -> STX on Velar
+            (let ((sbtc-bal (unwrap! (as-contract (contract-call? SBTC get-balance tx-sender)) ERR-SWAP-FAILED)))
+              (asserts! (> sbtc-bal u0) ERR-SWAP-FAILED)
+              (let ((min-stx (/ (* sbtc-bal (- BASIS-POINTS slip)) BASIS-POINTS)))
+                (unwrap! (as-contract (contract-call? VELAR-ROUTER swap-exact-tokens-for-tokens
+                  VELAR-POOL-SBTC-STX VELAR-WSTX SBTC SBTC VELAR-WSTX VELAR-FEE-TO sbtc-bal min-stx))
+                  ERR-SWAP-FAILED)
+
+                ;; Step 4: Repay to hardcoded FLASH-CORE
+                (let ((stx-bal (stx-get-balance (as-contract tx-sender))))
+                  (asserts! (>= stx-bal owed) ERR-INSUFFICIENT)
+                  (unwrap! (as-contract (stx-transfer? owed tx-sender FLASH-CORE)) ERR-REPAY-FAILED)
+                  (ok true)
+                )
               )
             )
           )
@@ -160,22 +254,78 @@
         ;; Mode 2: USDH debt + sBTC collateral
         ;; STX received -> swap STX->USDH via Arkadiko -> liquidate -> receive sBTC -> swap -> repay
         (let ((min-usdh (/ (* debt-amt (- BASIS-POINTS slip)) BASIS-POINTS)))
+          ;; swap-x-for-y's min-dy is a bare uint, not (optional uint) --
+          ;; confirmed directly against the live deployed interface. The
+          ;; (some min-usdh) this carried before was a real type-mismatch
+          ;; bug on this dead code path (mode 1 was the only one ever
+          ;; exercised, per the file's own earlier notes) -- would have
+          ;; failed to compile/type-check the moment this path was
+          ;; actually used.
           (unwrap! (as-contract (contract-call?
             'SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.arkadiko-swap-v2-1
             swap-x-for-y
             'SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.wrapped-stx-token
-            USDH amount (some min-usdh)))
+            USDH amount min-usdh))
             ERR-SWAP-FAILED)
 
           (let ((usdh-bal (unwrap! (as-contract (contract-call? USDH get-balance tx-sender)) ERR-SWAP-FAILED)))
             (asserts! (> usdh-bal u0) ERR-SWAP-FAILED)
 
-            ;; Liquidate
-            (unwrap! (as-contract (contract-call? ZEST-MARKET liquidate
-              borrower SBTC USDH usdh-bal u0 (some (as-contract tx-sender)) none))
-              ERR-LIQUIDATION)
+            ;; Liquidate -- receives v0-vault-sbtc SHARES as collateral,
+            ;; same reasoning as mode 1 (see vault-share constants note)
+            (let ((liq-result (unwrap! (as-contract (contract-call? ZEST-MARKET liquidate
+                borrower V0-VAULT-SBTC USDH usdh-bal u0 (some (as-contract tx-sender)) feeds))
+                ERR-LIQUIDATION)))
 
-            ;; Swap sBTC -> STX
+              ;; Redeem the seized shares for real sBTC before swapping
+              (unwrap! (as-contract (contract-call? V0-VAULT-SBTC redeem
+                (get collateral liq-result) u0 (as-contract tx-sender)))
+                ERR-REDEEM-FAILED)
+
+              ;; Swap sBTC -> STX
+              (let ((sbtc-bal (unwrap! (as-contract (contract-call? SBTC get-balance tx-sender)) ERR-SWAP-FAILED)))
+                (asserts! (> sbtc-bal u0) ERR-SWAP-FAILED)
+                (let ((min-stx (/ (* sbtc-bal (- BASIS-POINTS slip)) BASIS-POINTS)))
+                  (unwrap! (as-contract (contract-call? VELAR-ROUTER swap-exact-tokens-for-tokens
+                    VELAR-POOL-SBTC-STX VELAR-WSTX SBTC SBTC VELAR-WSTX VELAR-FEE-TO sbtc-bal min-stx))
+                    ERR-SWAP-FAILED)
+
+                  (let ((stx-bal (stx-get-balance (as-contract tx-sender))))
+                    (asserts! (>= stx-bal owed) ERR-INSUFFICIENT)
+                    (unwrap! (as-contract (stx-transfer? owed tx-sender FLASH-CORE)) ERR-REPAY-FAILED)
+                    (ok true)
+                  )
+                )
+              )
+            )
+          )
+        )
+
+        (if (is-eq mode u3)
+
+        ;; Mode 3: wSTX debt + sBTC collateral
+        ;; NOTE: wSTX has no public mint function. To pay wSTX debt, this contract
+        ;; must already hold wSTX tokens (pre-funded via a DEX swap off-chain).
+        ;; The flash loan STX is used to fund the repayment after liquidation.
+        ;; Flow: receive STX flash -> liquidate using pre-held wSTX ->
+        ;;        receive sBTC -> swap sBTC->STX -> repay loan + top up wSTX spent
+        (let (
+          (wstx-bal (unwrap! (as-contract (contract-call? ZEST-WSTX get-balance tx-sender)) ERR-SWAP-FAILED))
+        )
+          (asserts! (>= wstx-bal debt-amt) ERR-INSUFFICIENT)
+
+          ;; Liquidate using pre-held wSTX -- receives v0-vault-sbtc SHARES
+          ;; as collateral, same reasoning as modes 1-2
+          (let ((liq-result (unwrap! (as-contract (contract-call? ZEST-MARKET liquidate
+              borrower V0-VAULT-SBTC ZEST-WSTX debt-amt u0 (some (as-contract tx-sender)) feeds))
+              ERR-LIQUIDATION)))
+
+            ;; Redeem the seized shares for real sBTC before swapping
+            (unwrap! (as-contract (contract-call? V0-VAULT-SBTC redeem
+              (get collateral liq-result) u0 (as-contract tx-sender)))
+              ERR-REDEEM-FAILED)
+
+            ;; Swap received sBTC -> STX
             (let ((sbtc-bal (unwrap! (as-contract (contract-call? SBTC get-balance tx-sender)) ERR-SWAP-FAILED)))
               (asserts! (> sbtc-bal u0) ERR-SWAP-FAILED)
               (let ((min-stx (/ (* sbtc-bal (- BASIS-POINTS slip)) BASIS-POINTS)))
@@ -193,37 +343,79 @@
           )
         )
 
-        ;; Mode 3: wSTX debt + sBTC collateral
-        ;; NOTE: wSTX has no public mint function. To pay wSTX debt, this contract
-        ;; must already hold wSTX tokens (pre-funded via a DEX swap off-chain).
-        ;; The flash loan STX is used to fund the repayment after liquidation.
-        ;; Flow: receive STX flash -> liquidate using pre-held wSTX ->
-        ;;        receive sBTC -> swap sBTC->STX -> repay loan + top up wSTX spent
-        (let (
-          (wstx-bal (unwrap! (as-contract (contract-call? ZEST-WSTX get-balance tx-sender)) ERR-SWAP-FAILED))
-        )
-          (asserts! (>= wstx-bal debt-amt) ERR-INSUFFICIENT)
+        ;; Mode 4: wSTX debt + wSTX-vault-share collateral -- no swap. The
+        ;; flash-borrowed STX itself is the payment (Zest's wSTX is a thin
+        ;; passthrough to native STX -- confirmed directly, its transfer()
+        ;; just calls stx-transfer?). Collateral is seized as v0-vault-stx
+        ;; SHARES (see vault-share constants note above), redeemed here for
+        ;; real native STX (= STX), so repayment needs nothing else.
+        (begin
+          (let ((liq-result (unwrap! (as-contract (contract-call? ZEST-MARKET liquidate
+              borrower V0-VAULT-STX ZEST-WSTX debt-amt u0 (some (as-contract tx-sender)) feeds))
+              ERR-LIQUIDATION)))
 
-          ;; Liquidate using pre-held wSTX
-          (unwrap! (as-contract (contract-call? ZEST-MARKET liquidate
-            borrower SBTC ZEST-WSTX debt-amt u0 (some (as-contract tx-sender)) none))
-            ERR-LIQUIDATION)
+            ;; Redeem the seized shares for real native STX
+            (unwrap! (as-contract (contract-call? V0-VAULT-STX redeem
+              (get collateral liq-result) u0 (as-contract tx-sender)))
+              ERR-REDEEM-FAILED)
 
-          ;; Swap received sBTC -> STX
-          (let ((sbtc-bal (unwrap! (as-contract (contract-call? SBTC get-balance tx-sender)) ERR-SWAP-FAILED)))
-            (asserts! (> sbtc-bal u0) ERR-SWAP-FAILED)
-            (let ((min-stx (/ (* sbtc-bal (- BASIS-POINTS slip)) BASIS-POINTS)))
-              (unwrap! (as-contract (contract-call? VELAR-ROUTER swap-exact-tokens-for-tokens
-                VELAR-POOL-SBTC-STX VELAR-WSTX SBTC SBTC VELAR-WSTX VELAR-FEE-TO sbtc-bal min-stx))
-                ERR-SWAP-FAILED)
-
-              (let ((stx-bal (stx-get-balance (as-contract tx-sender))))
-                (asserts! (>= stx-bal owed) ERR-INSUFFICIENT)
-                (unwrap! (as-contract (stx-transfer? owed tx-sender FLASH-CORE)) ERR-REPAY-FAILED)
-                (ok true)
-              )
+            (let ((stx-bal (stx-get-balance (as-contract tx-sender))))
+              (asserts! (>= stx-bal owed) ERR-INSUFFICIENT)
+              (unwrap! (as-contract (stx-transfer? owed tx-sender FLASH-CORE)) ERR-REPAY-FAILED)
+              (ok true)
             )
           )
+        )
+      ) ;; closes (if (is-eq mode u3) ... mode-4-block)
+      )
+    )
+  ) ;; closes the inner (let ((feeds ...))
+  )
+)
+
+;; =============================================
+;; sBTC Flash Loan Callback (mode 5 only)
+;; =============================================
+
+;; Called by flashstack-sbtc-core after sending 'amount' sBTC to this
+;; contract. Same pre-conditions as execute-stx-flash: set-target AND
+;; set-price-feed must both have been called first.
+(define-public (execute-sbtc-flash (amount uint) (core principal))
+  (let (
+    (fee-bp  (unwrap! (contract-call? FLASH-SBTC-CORE get-fee-basis-points) ERR-REPAY-FAILED))
+    (raw-fee (/ (* amount fee-bp) BASIS-POINTS))
+    (fee     (if (> raw-fee u0) raw-fee u1))
+    (owed    (+ amount fee))
+    (borrower (var-get target-borrower))
+    (debt-amt (var-get target-debt))
+    (mode    (var-get target-mode))
+  )
+    (asserts! (is-eq contract-caller FLASH-SBTC-CORE) ERR-NOT-CORE)
+    (asserts! (is-eq core FLASH-SBTC-CORE) ERR-NOT-CORE)
+    (asserts! (is-eq mode u5) ERR-BAD-MODE)
+
+    (let ((feeds (some (list (unwrap! (var-get price-feed-buffer) ERR-NO-PRICE-FEED)))))
+      (var-set price-feed-buffer none)
+
+      ;; Mode 5: sBTC debt + v0-vault-sbtc-share collateral -- no swap, same
+      ;; reasoning as mode 4. Collateral is seized as SHARES (see
+      ;; vault-share constants note above), redeemed here for real sBTC;
+      ;; the flash-borrowed sBTC itself is the payment.
+      (let ((liq-result (unwrap! (as-contract (contract-call? ZEST-MARKET liquidate
+          borrower V0-VAULT-SBTC SBTC debt-amt u0 (some (as-contract tx-sender)) feeds))
+          ERR-LIQUIDATION)))
+
+        ;; Redeem the seized shares for real sBTC
+        (unwrap! (as-contract (contract-call? V0-VAULT-SBTC redeem
+          (get collateral liq-result) u0 (as-contract tx-sender)))
+          ERR-REDEEM-FAILED)
+
+        (let ((sbtc-bal (unwrap! (as-contract (contract-call? SBTC get-balance tx-sender)) ERR-REPAY-FAILED)))
+          (asserts! (>= sbtc-bal owed) ERR-INSUFFICIENT)
+          (unwrap!
+            (as-contract (contract-call? SBTC transfer owed tx-sender FLASH-SBTC-CORE none))
+            ERR-REPAY-FAILED)
+          (ok true)
         )
       )
     )
@@ -238,7 +430,7 @@
   (begin
     (asserts! (is-eq tx-sender (var-get owner)) ERR-NOT-OWNER)
     (asserts! (> debt u0) ERR-ZERO-AMOUNT)
-    (asserts! (and (>= mode u1) (<= mode u3)) ERR-BAD-MODE)
+    (asserts! (and (>= mode u1) (<= mode u5)) ERR-BAD-MODE)
     (var-set target-borrower borrower)
     (var-set target-debt debt)
     (var-set target-mode mode)
@@ -251,6 +443,19 @@
     (asserts! (is-eq tx-sender (var-get owner)) ERR-NOT-OWNER)
     (asserts! (and (>= bp u50) (<= bp u500)) ERR-BAD-MODE)
     (ok (var-set slippage-bp bp))
+  )
+)
+
+;; Set the signed Pyth Lazer update to submit on the next flash loan. Fetch
+;; off-chain (@pythnetwork/pyth-lazer-sdk, "evm" format, channel
+;; fixed_rate@200ms or @1000ms) immediately before calling flash-loan --
+;; stale updates fail Zest's own staleness check regardless. Required:
+;; execute-stx-flash reverts with ERR-NO-PRICE-FEED if this is none.
+;; Auto-reset to none after each successful execution.
+(define-public (set-price-feed (feed (buff 8192)))
+  (begin
+    (asserts! (is-eq tx-sender (var-get owner)) ERR-NOT-OWNER)
+    (ok (var-set price-feed-buffer (some feed)))
   )
 )
 
@@ -315,6 +520,13 @@
 
 (define-read-only (get-target)
   (ok { borrower: (var-get target-borrower), debt: (var-get target-debt), mode: (var-get target-mode) })
+)
+
+;; Does NOT return the feed bytes themselves (no reason to -- it's public
+;; data anyway once submitted) -- just whether one is ready to use, so an
+;; off-chain caller can check before firing flash-loan without guessing.
+(define-read-only (has-price-feed)
+  (is-some (var-get price-feed-buffer))
 )
 
 (define-read-only (get-owner)
