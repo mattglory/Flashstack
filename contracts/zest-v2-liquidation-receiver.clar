@@ -1,15 +1,34 @@
 ;; zest-v2-liquidation-receiver.clar
-;; FlashStack Receiver -- Zest Protocol V2 Flash Liquidation
+;; FlashStack Receiver -- Zest Protocol Flash Liquidation
 ;;
-;; DEPLOYMENT REQUIREMENTS (both must be done before this contract can operate):
-;;   1. Whitelist on FlashStack:
-;;        call add-approved-receiver on flashstack-stx-core with this contract address
-;;   2. Whitelist on Zest V2 (PENDING -- requires Zest team action):
-;;        Zest V2 line 1489 of v0-4-market.clar:
-;;        (asserts! (is-eq contract-caller tx-sender) ERR-AUTHORIZATION)
-;;        This blocks any contract from calling liquidate().
-;;        Once Zest adds an authorized-liquidator whitelist and a new entry point,
-;;        update ZEST-LIQUIDATE-FN below and redeploy.
+;; v0-8 migration: v0-4-market is dead -- confirmed directly, not assumed.
+;; v0-market-vault.get-impl() (the real authorization gate on Zest's shared
+;; vault infrastructure) now returns v0-8-market exclusively, on all 7 of
+;; Zest's per-asset vaults, with zero exceptions. v0-4-market's own most
+;; recent transactions all abort for exactly that reason -- it's no longer
+;; the authorized impl, so it can't touch vault state at all anymore.
+;;
+;; liquidate()'s auth model does NOT need Zest's cooperation -- confirmed
+;; directly against the real deployed source, not assumed or just told:
+;; `(asserts! (is-eq contract-caller tx-sender) ERR-AUTHORIZATION)` is an
+;; anti-proxy guard (satisfied by as-contract, used throughout this
+;; contract already), not an integrator whitelist, and liquidate() takes
+;; the borrower as an explicit argument -- it was never gated behind
+;; whoever holds the position. Confirmed by Zest's CTO (Emil) and
+;; independently re-verified by reading the deployed source directly.
+;;
+;; What v0-8 actually requires that v0-4 didn't: a real signed Pyth Lazer
+;; price update on every call, not the old write-feeds-with-none-bypass
+;; v0-4 tolerated. Proved this end-to-end before wiring it in here: fetched
+;; a real signed update from Pyth's live stream, submitted it to Zest's
+;; actual deployed pyth-lazer-decoder-v1.recover-signer (read-only, nothing
+;; on-chain touched), and the recovered signer matched Zest's registered
+;; trusted pubkey exactly. set-price-feed below is how that buffer gets
+;; into this contract -- Clarity can't fetch it itself, so an off-chain
+;; keeper must fetch a fresh one and call set-price-feed immediately before
+;; every flash-loan call. Auto-reset to none after each use, same reason
+;; as the slippage pre-sets below: forces explicit re-fetching, not silent
+;; reuse of a stale (and by then probably-expired) signed update.
 ;;
 ;; Supported modes (set-target before calling flash-loan):
 ;;   1 - STX flash -> pay USDCx debt -> receive sBTC collateral -> swap sBTC->STX -> repay
@@ -44,12 +63,14 @@
 (define-constant ERR-NOT-CORE     (err u907))
 (define-constant ERR-SWEEP-FAILED (err u908))
 (define-constant ERR-NOT-PENDING  (err u909))
+(define-constant ERR-NO-PRICE-FEED (err u910))
 
 ;; FlashStack STX core (hardcoded -- repayment never goes elsewhere)
 (define-constant FLASH-CORE 'SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-core)
 
-;; Zest V2 market -- confirmed from mainnet transactions
-(define-constant ZEST-MARKET 'SP1A27KFY4XERQCCRCARCYD1CC5N7M6688BSYADJ7.v0-4-market)
+;; Zest market -- v0-8, confirmed live (v0-market-vault.get-impl() returns
+;; this on all 7 vaults; v0-4-market is dead -- see header)
+(define-constant ZEST-MARKET 'SP1A27KFY4XERQCCRCARCYD1CC5N7M6688BSYADJ7.v0-8-market)
 ;; Zest V2 wSTX -- confirmed from repay transactions
 (define-constant ZEST-WSTX 'SP1A27KFY4XERQCCRCARCYD1CC5N7M6688BSYADJ7.wstx)
 
@@ -86,17 +107,17 @@
 (define-data-var target-mode     uint      u1)
 ;; Slippage tolerance on swaps (default 200 = 2%)
 (define-data-var slippage-bp     uint      u200)
+;; Real signed Pyth Lazer update, fetched off-chain immediately before each
+;; flash-loan call (see header). Auto-reset to none after each use.
+(define-data-var price-feed-buffer (optional (buff 8192)) none)
 
 ;; =============================================
 ;; STX Flash Loan Callback
 ;; =============================================
 
 ;; Called by flashstack-stx-core after sending 'amount' STX to this contract.
-;; Pre-condition: set-target must have been called with the correct borrower/debt/mode.
-;;
-;; IMPORTANT: Until Zest adds the authorized-liquidator whitelist, the
-;; (contract-call? ZEST-MARKET liquidate ...) line will revert with
-;; ERR-AUTHORIZATION (u400025). The rest of the logic is correct.
+;; Pre-conditions: set-target AND set-price-feed must both have been called
+;; (in that order doesn't matter, but both are required -- see headers).
 (define-public (execute-stx-flash (amount uint) (core principal))
   (let (
     (fee-bp  (unwrap! (contract-call? FLASH-CORE get-fee-basis-points) ERR-REPAY-FAILED))
@@ -108,9 +129,24 @@
     (mode    (var-get target-mode))
     (slip    (var-get slippage-bp))
   )
-    ;; Only flashstack-stx-core may call this
+    ;; Only flashstack-stx-core may call this. Checked before anything else
+    ;; touches state or var-get's the price feed -- an unauthorized caller
+    ;; should see ERR-NOT-CORE, not a confusing ERR-NO-PRICE-FEED that
+    ;; implies the fix is "set a price feed" when it's actually "you can
+    ;; never call this at all."
     (asserts! (is-eq contract-caller FLASH-CORE) ERR-NOT-CORE)
+    ;; `core` accepted for trait compliance; assert matches FLASH-CORE as
+    ;; defense-in-depth, same as alex-arb-receiver-v5 / bitflow-arb-receiver-v5
+    (asserts! (is-eq core FLASH-CORE) ERR-NOT-CORE)
     (asserts! (and (>= mode u1) (<= mode u3)) ERR-BAD-MODE)
+
+  (let ((feeds (some (list (unwrap! (var-get price-feed-buffer) ERR-NO-PRICE-FEED)))))
+
+    ;; Auto-reset: forces explicit re-fetching before the next loan rather
+    ;; than silently reusing a stale (by then likely-expired) signed update.
+    ;; A later failure in this same tx reverts this too, atomically --
+    ;; correct, since only a successful execution should consume it.
+    (var-set price-feed-buffer none)
 
     (if (is-eq mode u1)
 
@@ -133,7 +169,7 @@
           ;; Step 2: Liquidate -- pays usdcx-bal of USDCx debt, receives sBTC collateral
           ;; Reverts with ERR-AUTHORIZATION until Zest adds authorized-liquidator whitelist
           (unwrap! (as-contract (contract-call? ZEST-MARKET liquidate
-            borrower SBTC USDCX usdcx-bal u0 (some (as-contract tx-sender)) none))
+            borrower SBTC USDCX usdcx-bal u0 (some (as-contract tx-sender)) feeds))
             ERR-LIQUIDATION)
 
           ;; Step 3: Swap all received sBTC -> STX on Velar
@@ -160,11 +196,18 @@
         ;; Mode 2: USDH debt + sBTC collateral
         ;; STX received -> swap STX->USDH via Arkadiko -> liquidate -> receive sBTC -> swap -> repay
         (let ((min-usdh (/ (* debt-amt (- BASIS-POINTS slip)) BASIS-POINTS)))
+          ;; swap-x-for-y's min-dy is a bare uint, not (optional uint) --
+          ;; confirmed directly against the live deployed interface. The
+          ;; (some min-usdh) this carried before was a real type-mismatch
+          ;; bug on this dead code path (mode 1 was the only one ever
+          ;; exercised, per the file's own earlier notes) -- would have
+          ;; failed to compile/type-check the moment this path was
+          ;; actually used.
           (unwrap! (as-contract (contract-call?
             'SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.arkadiko-swap-v2-1
             swap-x-for-y
             'SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.wrapped-stx-token
-            USDH amount (some min-usdh)))
+            USDH amount min-usdh))
             ERR-SWAP-FAILED)
 
           (let ((usdh-bal (unwrap! (as-contract (contract-call? USDH get-balance tx-sender)) ERR-SWAP-FAILED)))
@@ -172,7 +215,7 @@
 
             ;; Liquidate
             (unwrap! (as-contract (contract-call? ZEST-MARKET liquidate
-              borrower SBTC USDH usdh-bal u0 (some (as-contract tx-sender)) none))
+              borrower SBTC USDH usdh-bal u0 (some (as-contract tx-sender)) feeds))
               ERR-LIQUIDATION)
 
             ;; Swap sBTC -> STX
@@ -206,7 +249,7 @@
 
           ;; Liquidate using pre-held wSTX
           (unwrap! (as-contract (contract-call? ZEST-MARKET liquidate
-            borrower SBTC ZEST-WSTX debt-amt u0 (some (as-contract tx-sender)) none))
+            borrower SBTC ZEST-WSTX debt-amt u0 (some (as-contract tx-sender)) feeds))
             ERR-LIQUIDATION)
 
           ;; Swap received sBTC -> STX
@@ -227,6 +270,7 @@
         )
       )
     )
+  ) ;; closes the inner (let ((feeds ...))
   )
 )
 
@@ -251,6 +295,19 @@
     (asserts! (is-eq tx-sender (var-get owner)) ERR-NOT-OWNER)
     (asserts! (and (>= bp u50) (<= bp u500)) ERR-BAD-MODE)
     (ok (var-set slippage-bp bp))
+  )
+)
+
+;; Set the signed Pyth Lazer update to submit on the next flash loan. Fetch
+;; off-chain (@pythnetwork/pyth-lazer-sdk, "evm" format, channel
+;; fixed_rate@200ms or @1000ms) immediately before calling flash-loan --
+;; stale updates fail Zest's own staleness check regardless. Required:
+;; execute-stx-flash reverts with ERR-NO-PRICE-FEED if this is none.
+;; Auto-reset to none after each successful execution.
+(define-public (set-price-feed (feed (buff 8192)))
+  (begin
+    (asserts! (is-eq tx-sender (var-get owner)) ERR-NOT-OWNER)
+    (ok (var-set price-feed-buffer (some feed)))
   )
 )
 
@@ -315,6 +372,13 @@
 
 (define-read-only (get-target)
   (ok { borrower: (var-get target-borrower), debt: (var-get target-debt), mode: (var-get target-mode) })
+)
+
+;; Does NOT return the feed bytes themselves (no reason to -- it's public
+;; data anyway once submitted) -- just whether one is ready to use, so an
+;; off-chain caller can check before firing flash-loan without guessing.
+(define-read-only (has-price-feed)
+  (is-some (var-get price-feed-buffer))
 )
 
 (define-read-only (get-owner)
