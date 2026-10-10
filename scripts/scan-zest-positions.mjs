@@ -72,14 +72,14 @@ const DIA    = "SP1G48FZ4Y7JY8G2Z0N51QTCYGBQ6F4J43J77BQC0.dia-oracle";
 
 const LAZER_TOKEN     = process.env.LAZER_TOKEN;
 const NOVA_CROSSCHECK = parseInt(process.env.NOVA_CROSSCHECK ?? "3");
-const BPS             = 10000n;
-const DEBT_OFFSET     = 64n;
+export const BPS             = 10000n;
+export const DEBT_OFFSET     = 64n;
 
 // Asset registry -- confirmed live via v0-assets.status-multi(0..13), not
 // guessed. priceSource: which base feed resolve-price-feed routes to.
 // callcode: the transform resolve-callcode applies on top of that base
 // price (null = none, use the base price directly).
-const ASSET_TABLE = [
+export const ASSET_TABLE = [
   { id: 0,  addr: `${ZEST}.wstx`,                                           decimals: 6, collateral: false, debt: true,  priceSource: "stx",  callcode: null },
   { id: 1,  addr: `${ZEST}.v0-vault-stx`,                                   decimals: 6, collateral: true,  debt: false, priceSource: "stx",  callcode: "zstx" },
   { id: 2,  addr: "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token",    decimals: 8, collateral: true,  debt: true,  priceSource: "sbtc", callcode: null },
@@ -95,7 +95,7 @@ const ASSET_TABLE = [
   { id: 12, addr: "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.stbtc-token",    decimals: 8, collateral: false, debt: false, priceSource: "sbtc", callcode: "stbtc" },
   { id: 13, addr: `${ZEST}.v0-vault-stbtc`,                                 decimals: 8, collateral: true,  debt: false, priceSource: "sbtc", callcode: "stbtc" },
 ];
-const ASSET_BY_ID = Object.fromEntries(ASSET_TABLE.map((a) => [a.id, a]));
+export const ASSET_BY_ID = Object.fromEntries(ASSET_TABLE.map((a) => [a.id, a]));
 
 const ZTOKEN_UNDERLYING = { zstx: 0, zsbtc: 2, zststx: 4, zusdc: 6, zusdh: 8, zststxbtc: 10 };
 
@@ -118,7 +118,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // and waits a flat 15s specifically on a detected rate-limit response
 // rather than a short backoff. HIRO_API_KEY raises the limit in the
 // first place, same env var the other two monitors already use.
-async function readOnly(contract, fn, args, attempt = 0) {
+export async function readOnly(contract, fn, args, attempt = 0) {
   if (CALL_DELAY_MS > 0) await sleep(CALL_DELAY_MS);
   const [addr, name] = contract.split(".");
   const headers = { "Content-Type": "application/json" };
@@ -279,7 +279,7 @@ async function fetchDiaUsdh() {
 }
 
 // ── Resolve every asset's price (USD x 1e8), applying callcodes ────────────
-async function resolveAllPrices() {
+export async function resolveAllPrices() {
   const lazer = await fetchLazerPrices();
   const basePrices = {
     stx:  normalizePyth(lazer[45].price, lazer[45].exponent),
@@ -321,14 +321,14 @@ async function resolveAllPrices() {
 }
 
 // ── Enumeration ───────────────────────────────────────────────────────────
-async function getNr() {
+export async function getNr() {
   const v = await readOnly(VAULT, "get-nr", []);
   return BigInt(uw(v));
 }
 
 // Normalized here so callers can always do entry.mask.value / entry.account.value
 // regardless of whether this particular call happened to come back enveloped.
-async function lookup(id) {
+export async function lookup(id) {
   try {
     return uw(await readOnly(VAULT, "lookup", [cvToHex(Cl.uint(id))]));
   } catch {
@@ -336,11 +336,11 @@ async function lookup(id) {
   }
 }
 
-function maskHasDebt(mask) {
+export function maskHasDebt(mask) {
   const debtMask = mask >> DEBT_OFFSET;
   return debtMask !== 0n;
 }
-function maskAssetIds(mask, offset) {
+export function maskAssetIds(mask, offset) {
   const ids = [];
   const shifted = mask >> offset;
   for (let bit = 0n; bit < DEBT_OFFSET; bit++) {
@@ -353,23 +353,23 @@ function maskAssetIds(mask, offset) {
 // the account has no entry at all for that specific asset id -- shouldn't
 // happen given callers only query asset ids present in the account's own
 // mask, but treated as 0 defensively rather than crashing the whole scan.
-async function getCollateral(id, assetId) {
+export async function getCollateral(id, assetId) {
   try {
     const v = await readOnly(VAULT, "get-collateral", [cvToHex(Cl.uint(id)), cvToHex(Cl.uint(assetId))]);
     return BigInt(uw(v));
   } catch { return 0n; }
 }
-async function getDebtScaled(id, assetId) {
+export async function getDebtScaled(id, assetId) {
   try {
     const v = await readOnly(VAULT, "get-debt", [cvToHex(Cl.uint(id)), cvToHex(Cl.uint(assetId))]);
     return BigInt(uw(v).scaled.value);
   } catch { return 0n; }
 }
-async function getCachedIndex(assetId) {
+export async function getCachedIndex(assetId) {
   const v = await readOnly(MARKET, "get-cached-indexes", [cvToHex(Cl.uint(assetId))]);
   return v ? BigInt(uw(v).index.value) : INDEX_PRECISION;
 }
-async function getEgroup(mask) {
+export async function getEgroup(mask) {
   // resolve() is (response (tuple ...) uint) -- an error case (no egroup
   // registered for this exact mask) decodes to a bare error code, not a
   // fields object, so checking for the expected field after uw() is the
@@ -386,17 +386,20 @@ async function getEgroup(mask) {
 }
 
 // ── Evaluate one account ────────────────────────────────────────────────────
-async function evaluateAccount(id, account, mask, prices) {
+export async function evaluateAccount(id, account, mask, prices) {
   const collIds = maskAssetIds(mask, 0n);
   const debtIds = maskAssetIds(mask, DEBT_OFFSET);
 
   let collateralUsd = 0n;
+  let collateralDetail = [];
   for (const aid of collIds) {
     const asset = ASSET_BY_ID[aid];
     if (!asset) continue;
     const amount = await getCollateral(id, aid);
     if (amount === 0n) continue;
-    collateralUsd += (amount * prices[aid]) / 10n ** BigInt(asset.decimals);
+    const usd = (amount * prices[aid]) / 10n ** BigInt(asset.decimals);
+    collateralUsd += usd;
+    collateralDetail.push({ aid, asset: asset.addr, amount, usd });
   }
 
   let debtUsd = 0n;
@@ -420,7 +423,7 @@ async function evaluateAccount(id, account, mask, prices) {
   const ltvLiqPartial = egroup?.ltvLiqPartial ?? null;
   const liquidatable = ltvLiqPartial !== null && currentLtv >= ltvLiqPartial;
 
-  return { id, account, mask, collateralUsd, debtUsd, currentLtv, ltvLiqPartial, liquidatable, debtDetail };
+  return { id, account, mask, collateralUsd, debtUsd, currentLtv, ltvLiqPartial, liquidatable, debtDetail, collateralDetail };
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────
@@ -478,4 +481,10 @@ async function main() {
   }
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+// Guarded so keeper-zest-liquidations.mjs (and anything else reusing the
+// exported pricing/eligibility functions above) can import this module
+// without triggering a full 1,334-account scan as a side effect.
+import { fileURLToPath } from "url";
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((e) => { console.error(e); process.exit(1); });
+}
