@@ -27,10 +27,13 @@ import { Cl } from "@stacks/transactions";
  */
 
 const CORE = "flashstack-stx-core";
+const SBTC_CORE = "flashstack-sbtc-core";
 const RX = "zest-v2-liquidation-receiver";
 
 const RESERVE = 1_000_000_000; // 1,000 STX seeded
 const LOAN = 100_000_000; //   100 STX
+const SBTC_RESERVE = 100_000_000; // 1 sBTC seeded
+const SBTC_LOAN = 1_000_000; //   0.01 sBTC
 
 describe("zest-v2-liquidation-receiver (v0-8 migration)", () => {
   let deployer: string;
@@ -43,6 +46,10 @@ describe("zest-v2-liquidation-receiver (v0-8 migration)", () => {
     wallet2 = simnet.getAccounts().get("wallet_2")!;
     simnet.callPublicFn(CORE, "deposit-reserve", [Cl.uint(RESERVE)], deployer);
     simnet.callPublicFn(CORE, "add-approved-receiver", [Cl.contractPrincipal(deployer, RX)], deployer);
+    // sBTC reserve is a SIP-010 balance, not native STX -- mint before depositing
+    simnet.callPublicFn("sbtc-token", "mint", [Cl.uint(SBTC_RESERVE), Cl.principal(deployer)], deployer);
+    simnet.callPublicFn(SBTC_CORE, "deposit-reserve", [Cl.uint(SBTC_RESERVE)], deployer);
+    simnet.callPublicFn(SBTC_CORE, "add-approved-receiver", [Cl.contractPrincipal(deployer, RX)], deployer);
   });
 
   // --- The caller gate ------------------------------------------------------
@@ -72,7 +79,7 @@ describe("zest-v2-liquidation-receiver (v0-8 migration)", () => {
 
   it("set-target validates mode range and rejects a zero debt", () => {
     expect(simnet.callPublicFn(RX, "set-target", [Cl.principal(wallet2), Cl.uint(0), Cl.uint(1)], deployer).result).toBeErr(Cl.uint(904));
-    expect(simnet.callPublicFn(RX, "set-target", [Cl.principal(wallet2), Cl.uint(1_000_000), Cl.uint(4)], deployer).result).toBeErr(Cl.uint(905));
+    expect(simnet.callPublicFn(RX, "set-target", [Cl.principal(wallet2), Cl.uint(1_000_000), Cl.uint(6)], deployer).result).toBeErr(Cl.uint(905));
     expect(simnet.callPublicFn(RX, "set-target", [Cl.principal(wallet2), Cl.uint(1_000_000), Cl.uint(2)], deployer).result).toBeOk(Cl.bool(true));
   });
 
@@ -106,6 +113,48 @@ describe("zest-v2-liquidation-receiver (v0-8 migration)", () => {
     expect(simnet.callPublicFn(RX, "accept-ownership", [], wallet1).result).toBeOk(Cl.bool(true));
     expect(simnet.callPublicFn(RX, "set-slippage", [Cl.uint(300)], deployer).result).toBeErr(Cl.uint(900));
     expect(simnet.callPublicFn(RX, "set-slippage", [Cl.uint(300)], wallet1).result).toBeOk(Cl.bool(true));
+  });
+
+  // --- Mode 4/5 (same-asset, no-swap) -----------------------------------
+
+  it("set-target accepts the new mode range (1-5) and rejects mode 6", () => {
+    expect(simnet.callPublicFn(RX, "set-target", [Cl.principal(wallet2), Cl.uint(1_000_000), Cl.uint(4)], deployer).result).toBeOk(Cl.bool(true));
+    expect(simnet.callPublicFn(RX, "set-target", [Cl.principal(wallet2), Cl.uint(1_000_000), Cl.uint(5)], deployer).result).toBeOk(Cl.bool(true));
+    expect(simnet.callPublicFn(RX, "set-target", [Cl.principal(wallet2), Cl.uint(1_000_000), Cl.uint(6)], deployer).result).toBeErr(Cl.uint(905));
+  });
+
+  it("execute-stx-flash rejects mode 5 -- that one only runs through execute-sbtc-flash", () => {
+    simnet.callPublicFn(RX, "set-target", [Cl.principal(wallet2), Cl.uint(1_000_000), Cl.uint(5)], deployer);
+    const result = simnet.callPublicFn(
+      RX,
+      "execute-stx-flash",
+      [Cl.uint(LOAN), Cl.contractPrincipal("SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5", "flashstack-stx-core")],
+      wallet1,
+    ).result;
+    // contract-caller check fires first regardless (not the real core), but
+    // confirms this path doesn't silently accept mode 5 some other way.
+    expect(result).toBeErr(Cl.uint(907));
+  });
+
+  it("execute-sbtc-flash rejects execute-sbtc-flash called directly, not through the real sbtc core", () => {
+    simnet.callPublicFn(RX, "set-target", [Cl.principal(wallet2), Cl.uint(1_000_000), Cl.uint(5)], deployer);
+    const result = simnet.callPublicFn(
+      RX,
+      "execute-sbtc-flash",
+      [Cl.uint(SBTC_LOAN), Cl.contractPrincipal("SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5", "flashstack-sbtc-core")],
+      wallet1,
+    ).result;
+    expect(result).toBeErr(Cl.uint(907)); // ERR-NOT-CORE
+  });
+
+  it("execute-sbtc-flash rejects a non-mode-5 target even via this project's own local sbtc core", () => {
+    simnet.callPublicFn(RX, "set-target", [Cl.principal(wallet2), Cl.uint(1_000_000), Cl.uint(1)], deployer);
+    simnet.callPublicFn(RX, "set-price-feed", [Cl.bufferFromHex("00")], deployer);
+    const result = simnet.callPublicFn(SBTC_CORE, "flash-loan", [Cl.uint(SBTC_LOAN), Cl.contractPrincipal(deployer, RX)], wallet1).result;
+    // local sbtc-core's own contract-caller still doesn't match the real
+    // mainnet FLASH-SBTC-CORE literal, same structural reason as the STX
+    // side -- rejected before mode is ever checked.
+    expect(result).toBeErr(Cl.uint(907));
   });
 
   it("get-target reflects live state", () => {

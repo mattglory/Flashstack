@@ -535,11 +535,6 @@ path = "contracts/velar-sbtc-arb-receiver.clar"
 clarity_version = 3
 epoch = "latest"
 
-[contracts.zest-liquidation-receiver]
-path = "contracts/zest-liquidation-receiver.clar"
-clarity_version = 3
-epoch = "latest"
-
 [contracts.zest-v2-liquidation-receiver]
 path = "contracts/zest-v2-liquidation-receiver.clar"
 clarity_version = 3
