@@ -1,283 +1,490 @@
-#!/usr/bin/env node
 /**
- * scan-zest-positions.mjs
- * Scans Zest V2 for active borrowers and estimates liquidation risk.
+ * FlashStack — Zest v0-8-market Position Scanner
+ *
+ * Finds real liquidatable positions on Zest's live market by replicating
+ * its own on-chain valuation formula exactly (read directly from the
+ * deployed v0-8-market source, not guessed), rather than trusting a
+ * third-party's derived health factor. Cross-check candidates against
+ * Nova's nova_stacks_zest_position tool as a sanity check, not a source
+ * of truth.
+ *
+ * Architecture, confirmed live before writing a line of valuation code:
+ *
+ *   Enumeration: positions live in v0-market-vault (the persistent shared
+ *   vault contract), NOT in the market contract itself -- that's why v0-4
+ *   -> v0-8 didn't need a position migration. get-nr() = total registered
+ *   accounts (1,334 as of this writing); lookup(id) returns {account,
+ *   mask, ...} for id = 0..get-nr()-1. mask's low 64 bits are collateral
+ *   (bit = asset-id), high 64 bits are debt (bit = asset-id + 64).
+ *
+ *   Pricing: only 3 real Pyth Lazer feeds exist in the whole protocol --
+ *   u1 (sBTC), u7 (USDC), u45 (STX) -- confirmed by reading
+ *   resolve-pyth's hardcoded ident->feed-id table directly. USDH prices
+ *   via a separate DIA oracle call (its "ident" is a Clarity-serialized
+ *   string, "USDh/USD", not a Pyth hash -- confirmed by decoding the
+ *   0x0d... consensus-buff prefix). Every other asset (the 7 v0-vault-*
+ *   zToken/share tokens, stSTX, stBTC) derives its price from one of
+ *   these via a callcode multiplier (ztoken index, ststx ratio, stbtc
+ *   ratio) rather than an independent feed -- confirmed by reading
+ *   resolve-callcode's full dispatch table.
+ *
+ *   normalize-pyth(price, exponent) rescales any Pyth price to a fixed
+ *   "USD x 1e8" representation regardless of the feed's native exponent.
+ *   normalize(amount * price, decimals) = (amount * price) / 10^decimals
+ *   -- since amount is stored in the asset's own raw units (real_amount *
+ *   10^decimals), this cancels cleanly to real_amount * price, i.e. the
+ *   notional value ends up in USD x 1e8 regardless of which asset.
+ *
+ *   Liquidation eligibility (read directly from liquidate()'s own health
+ *   check, not inferred): current-ltv = debt-usd * 10000 / collateral-usd
+ *   (BPS = 10000). A position is liquidatable when
+ *   current-ltv >= LTV-LIQ-PARTIAL, the per-egroup threshold (looked up
+ *   via v0-egroup.resolve(mask)).
+ *
+ * This script only SCANS -- it does not liquidate anything. It identifies
+ * real candidates with an exact, verified health computation, and prints
+ * them for review. Wiring a candidate into zest-v2-liquidation-receiver's
+ * set-target/set-price-feed/flash-loan execution flow is a separate step.
+ *
+ * Exact liquidation SIZING (how much debt to repay, exact bonus) uses
+ * Zest's own curve-based calc-liquidation-params, which this script does
+ * NOT replicate -- it estimates conservatively using LIQ-PENALTY-MIN as a
+ * floor. The receiver's own min-collateral-expected / min-profit checks
+ * are the real safety net for sizing precision, same as every other
+ * receiver built this session.
  *
  * Usage:
  *   node scripts/scan-zest-positions.mjs
- *   PAGES=5 node scripts/scan-zest-positions.mjs    (scan more history)
- *
- * Output: table of active borrowers ranked by estimated risk.
- * Use this to:
- *   1. Identify targets before the Zest whitelist is live
- *   2. Show Zest team real liquidation data as part of your integration pitch
+ *   LAZER_TOKEN="..." node scripts/scan-zest-positions.mjs   -- live Lazer prices (else cached/stale fallback refused)
+ *   NOVA_CROSSCHECK=3 node scripts/scan-zest-positions.mjs   -- cross-check the top N candidates against Nova
  */
 
-const API      = "https://api.hiro.so";
-const DEPLOYER = "SP1A27KFY4XERQCCRCARCYD1CC5N7M6688BSYADJ7";
-const MARKET   = `${DEPLOYER}.v0-4-market`;
-const PAGES    = parseInt(process.env.PAGES ?? "3");
+import { Cl, cvToHex, hexToCV, cvToValue } from "@stacks/transactions";
+import { PythLazerClient } from "@pythnetwork/pyth-lazer-sdk";
 
-// Confirmed from on-chain borrow/repay transactions
-const DEBT_TOKENS = {
-  [`${DEPLOYER}.wstx`]:                                          { symbol: "wSTX",  decimals: 6 },
-  "SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx":           { symbol: "USDCx", decimals: 6 },
-  "SPN5AKG35QZSK2M8GAMR4AFX45659RJHDW353HSG.usdh-token-v1":    { symbol: "USDH",  decimals: 6 },
-  "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token":      { symbol: "sBTC",  decimals: 8 },
-  "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststx-token":      { symbol: "stSTX", decimals: 6 },
-};
+const API    = "https://api.hiro.so";
+const ZEST   = "SP1A27KFY4XERQCCRCARCYD1CC5N7M6688BSYADJ7";
+const VAULT  = `${ZEST}.v0-market-vault`;
+const ASSETS = `${ZEST}.v0-assets`;
+const MARKET = `${ZEST}.v0-8-market`;
+const EGROUP = `${ZEST}.v0-egroup`;
+const DIA    = "SP1G48FZ4Y7JY8G2Z0N51QTCYGBQ6F4J43J77BQC0.dia-oracle";
 
-const COLLATERAL_TOKENS = {
-  "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token":       { symbol: "sBTC",       decimals: 8 },
-  "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststx-token":       { symbol: "stSTX",      decimals: 6 },
-  [`${DEPLOYER}.v0-vault-ststxbtc`]:                              { symbol: "stSTXbtc-v", decimals: 8 },
-  [`${DEPLOYER}.wstx`]:                                          { symbol: "wSTX",       decimals: 6 },
-};
+const LAZER_TOKEN     = process.env.LAZER_TOKEN;
+const NOVA_CROSSCHECK = parseInt(process.env.NOVA_CROSSCHECK ?? "3");
+export const BPS             = 10000n;
+export const DEBT_OFFSET     = 64n;
 
-async function fetchJSON(url) {
-  const res = await fetch(url, { headers: { "x-api-key": process.env.HIRO_API_KEY ?? "" } });
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
-  return res.json();
-}
+// Asset registry -- confirmed live via v0-assets.status-multi(0..13), not
+// guessed. priceSource: which base feed resolve-price-feed routes to.
+// callcode: the transform resolve-callcode applies on top of that base
+// price (null = none, use the base price directly).
+export const ASSET_TABLE = [
+  { id: 0,  addr: `${ZEST}.wstx`,                                           decimals: 6, collateral: false, debt: true,  priceSource: "stx",  callcode: null },
+  { id: 1,  addr: `${ZEST}.v0-vault-stx`,                                   decimals: 6, collateral: true,  debt: false, priceSource: "stx",  callcode: "zstx" },
+  { id: 2,  addr: "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token",    decimals: 8, collateral: true,  debt: true,  priceSource: "sbtc", callcode: null },
+  { id: 3,  addr: `${ZEST}.v0-vault-sbtc`,                                  decimals: 8, collateral: true,  debt: false, priceSource: "sbtc", callcode: "zsbtc" },
+  { id: 4,  addr: "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststx-token",    decimals: 6, collateral: false, debt: true,  priceSource: "stx",  callcode: "ststx" },
+  { id: 5,  addr: `${ZEST}.v0-vault-ststx`,                                 decimals: 6, collateral: true,  debt: false, priceSource: "stx",  callcode: "zststx" },
+  { id: 6,  addr: "SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx",         decimals: 6, collateral: false, debt: true,  priceSource: "usdc", callcode: null },
+  { id: 7,  addr: `${ZEST}.v0-vault-usdc`,                                  decimals: 6, collateral: true,  debt: false, priceSource: "usdc", callcode: "zusdc" },
+  { id: 8,  addr: "SPN5AKG35QZSK2M8GAMR4AFX45659RJHDW353HSG.usdh-token-v1",  decimals: 8, collateral: false, debt: true,  priceSource: "usdh", callcode: null },
+  { id: 9,  addr: `${ZEST}.v0-vault-usdh`,                                  decimals: 8, collateral: true,  debt: false, priceSource: "usdh", callcode: "zusdh" },
+  { id: 10, addr: "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststxbtc-token-v2", decimals: 6, collateral: false, debt: false, priceSource: "stx", callcode: null },
+  { id: 11, addr: `${ZEST}.v0-vault-ststxbtc`,                              decimals: 6, collateral: true,  debt: false, priceSource: "stx",  callcode: "zststxbtc" },
+  { id: 12, addr: "SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.stbtc-token",    decimals: 8, collateral: false, debt: false, priceSource: "sbtc", callcode: "stbtc" },
+  { id: 13, addr: `${ZEST}.v0-vault-stbtc`,                                 decimals: 8, collateral: true,  debt: false, priceSource: "sbtc", callcode: "stbtc" },
+];
+export const ASSET_BY_ID = Object.fromEntries(ASSET_TABLE.map((a) => [a.id, a]));
 
-async function callReadOnly(contract, fn, args = []) {
+const ZTOKEN_UNDERLYING = { zstx: 0, zsbtc: 2, zststx: 4, zusdc: 6, zusdh: 8, zststxbtc: 10 };
+
+const STSTX_RATIO_DECIMALS = 1_000_000n; // confirmed live: v0-8-market's own STSTX-RATIO-DECIMALS constant (NOT 1e8 -- that's STBTC's scale, a wrong assumption-by-analogy caught by the resulting stSTX price being ~84x too low)
+const STBTC_RATIO_DECIMALS = 100_000_000n;
+const INDEX_PRECISION      = 1_000_000_000_000n; // confirmed: v0-8-market's own INDEX-PRECISION constant
+
+const HIRO_API_KEY  = process.env.HIRO_API_KEY;
+const CALL_DELAY_MS = parseInt(process.env.CALL_DELAY_MS ?? (HIRO_API_KEY ? "0" : "150"));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// A full scan makes thousands of sequential read-only calls (1,334
+// accounts x several calls each for the ones with debt) -- confirmed live
+// this hits Hiro's unauthenticated per-minute rate limit partway through a
+// real run, not a hypothetical concern, and the limit is per-MINUTE, so a
+// short escalating backoff isn't enough -- confirmed live too (5 retries
+// up to 10s each still hit the same window). CALL_DELAY_MS paces every
+// call proactively (default 150ms unauthenticated, 0 with an API key);
+// the retry below is a backstop for whatever that pacing doesn't catch,
+// and waits a flat 15s specifically on a detected rate-limit response
+// rather than a short backoff. HIRO_API_KEY raises the limit in the
+// first place, same env var the other two monitors already use.
+export async function readOnly(contract, fn, args, attempt = 0) {
+  if (CALL_DELAY_MS > 0) await sleep(CALL_DELAY_MS);
   const [addr, name] = contract.split(".");
-  const res = await fetch(`${API}/v2/contracts/call-read/${addr}/${name}/${fn}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sender: DEPLOYER, arguments: args }),
-  });
-  return res.json();
-}
+  const headers = { "Content-Type": "application/json" };
+  if (HIRO_API_KEY) headers["x-api-key"] = HIRO_API_KEY;
 
-// Fetch STX price in USD from CoinGecko
-async function getSTXPrice() {
+  // The fetch() call itself, not just JSON-parsing its response, needs to
+  // be inside the retry -- confirmed live: a full 1,334-account scan hit a
+  // bare ETIMEDOUT partway through (a transient network read timeout, not
+  // a rate limit), which threw directly out of fetch() and was never
+  // caught by the parse-step try/catch below, killing the whole scan.
+  let raw, text;
   try {
-    const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=blockstack&vs_currencies=usd");
-    const d = await r.json();
-    return d?.blockstack?.usd ?? 0.35;
-  } catch { return 0.35; }
-}
-
-// Fetch sBTC price (proxy: BTC price)
-async function getBTCPrice() {
-  try {
-    const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd");
-    const d = await r.json();
-    return d?.bitcoin?.usd ?? 95000;
-  } catch { return 95000; }
-}
-
-// Scan market transactions and collect unique borrowers + their activity
-async function scanBorrowers() {
-  const borrowers = new Map(); // address -> { borrows: [], repays: [], collateral: [] }
-
-  for (let page = 0; page < PAGES; page++) {
-    const offset = page * 50;
-    const url = `${API}/extended/v1/address/${MARKET}/transactions?limit=50&offset=${offset}`;
-    let data;
-    try { data = await fetchJSON(url); } catch { break; }
-
-    const txs = data.results ?? [];
-    if (txs.length === 0) break;
-
-    for (const tx of txs) {
-      if (tx.tx_status !== "success") continue;
-      const fn   = tx.contract_call?.function_name;
-      const from = tx.sender_address;
-      const args = tx.contract_call?.function_args ?? [];
-      const block = tx.block_height;
-
-      if (!from) continue;
-
-      if (!borrowers.has(from)) {
-        borrowers.set(from, { borrows: [], repays: [], collateral: [], liquidations: [], lastBlock: 0 });
-      }
-      const rec = borrowers.get(from);
-      if (block > rec.lastBlock) rec.lastBlock = block;
-
-      if (fn === "borrow") {
-        const token = args.find(a => a.name === "ft")?.repr?.replace(/^'/, "") ?? "";
-        const amt   = parseInt(args.find(a => a.name === "amount")?.repr?.replace("u","") ?? "0");
-        rec.borrows.push({ token, amount: amt, block });
-      }
-
-      if (fn === "repay") {
-        const token = args.find(a => a.name === "ft")?.repr?.replace(/^'/, "") ?? "";
-        const amt   = parseInt(args.find(a => a.name === "amount")?.repr?.replace("u","") ?? "0");
-        rec.repays.push({ token, amount: amt, block });
-      }
-
-      if (fn === "collateral-add" || fn === "supply-collateral-add") {
-        const token = args.find(a => a.name === "ft")?.repr?.replace(/^'/, "") ?? "";
-        const amt   = parseInt(args.find(a => a.name === "amount")?.repr?.replace("u","") ?? "0");
-        rec.collateral.push({ token, amount: amt, block });
-      }
-
-      if (fn === "liquidate" || fn === "liquidate-multi" || fn === "liquidate-redeem") {
-        const target = args.find(a => a.name === "borrower")?.repr?.replace(/^'/,"") ?? "";
-        if (target && borrowers.has(target)) {
-          borrowers.get(target).liquidations.push({ block, liquidator: from });
-        }
-      }
-    }
-  }
-
-  return borrowers;
-}
-
-// Estimate net borrow amount per token (borrows - repays)
-function netBorrows(rec) {
-  const net = {};
-  for (const b of rec.borrows) {
-    net[b.token] = (net[b.token] ?? 0) + b.amount;
-  }
-  for (const r of rec.repays) {
-    // max-uint repays clear the position entirely
-    if (r.amount > 1e30) {
-      net[r.token] = 0;
-    } else {
-      net[r.token] = Math.max(0, (net[r.token] ?? 0) - r.amount);
-    }
-  }
-  return net;
-}
-
-// Format token amount with symbol
-function fmt(amount, tokenAddr) {
-  const info = DEBT_TOKENS[tokenAddr] ?? COLLATERAL_TOKENS[tokenAddr] ?? { symbol: tokenAddr.split(".")[1], decimals: 6 };
-  const val  = amount / Math.pow(10, info.decimals);
-  return `${val.toFixed(4)} ${info.symbol}`;
-}
-
-async function main() {
-  console.log("=======================================================");
-  console.log(" FlashStack -- Zest V2 Position Scanner");
-  console.log("=======================================================");
-  console.log(` Market:  ${MARKET}`);
-  console.log(` Scanning ${PAGES * 50} most recent transactions...\n`);
-
-  const [borrowers, stxPrice, btcPrice] = await Promise.all([
-    scanBorrowers(),
-    getSTXPrice(),
-    getBTCPrice(),
-  ]);
-
-  console.log(` STX price: $${stxPrice.toFixed(4)}`);
-  console.log(` BTC price: $${btcPrice.toLocaleString()}`);
-  console.log(` Borrowers found: ${borrowers.size}\n`);
-
-  // Filter to addresses with active borrows and no recent full-repay
-  const active = [];
-
-  for (const [addr, rec] of borrowers) {
-    const net = netBorrows(rec);
-    const hasDebt = Object.values(net).some(v => v > 0);
-    if (!hasDebt) continue;
-
-    // Estimate total debt in USD
-    let debtUSD = 0;
-    const debtBreakdown = [];
-    for (const [token, amount] of Object.entries(net)) {
-      if (amount <= 0) continue;
-      const info = DEBT_TOKENS[token];
-      if (!info) continue;
-      const humanAmt = amount / Math.pow(10, info.decimals);
-      let usdVal = 0;
-      if (info.symbol === "wSTX") usdVal = humanAmt * stxPrice;
-      else if (info.symbol === "sBTC") usdVal = humanAmt * btcPrice;
-      else if (info.symbol === "stSTX") usdVal = humanAmt * stxPrice * 1.05;
-      else usdVal = humanAmt; // stable coins ~$1
-      debtUSD += usdVal;
-      debtBreakdown.push(`${humanAmt.toFixed(4)} ${info.symbol} (~$${usdVal.toFixed(2)})`);
-    }
-
-    // Estimate collateral in USD
-    let collUSD = 0;
-    const collBreakdown = [];
-    for (const c of rec.collateral) {
-      const info = COLLATERAL_TOKENS[c.token];
-      if (!info) continue;
-      const humanAmt = c.amount / Math.pow(10, info.decimals);
-      let usdVal = 0;
-      if (info.symbol === "wSTX") usdVal = humanAmt * stxPrice;
-      else if (info.symbol === "sBTC") usdVal = humanAmt * btcPrice;
-      else if (info.symbol.includes("stSTX")) usdVal = humanAmt * stxPrice * 1.05;
-      else usdVal = humanAmt * stxPrice;
-      collUSD += usdVal;
-      collBreakdown.push(`${humanAmt.toFixed(4)} ${info.symbol} (~$${usdVal.toFixed(2)})`);
-    }
-
-    // Estimated health factor (rough -- actual uses oracle prices)
-    // Zest typical LTV ~70-80%, liquidation threshold ~85%
-    const ltv = collUSD > 0 ? debtUSD / collUSD : 0;
-    const estHealth = collUSD > 0 ? (collUSD * 0.85) / debtUSD : 999;
-    const alreadyLiquidated = rec.liquidations.length > 0;
-
-    active.push({
-      addr, debtUSD, collUSD, ltv, estHealth,
-      debtBreakdown, collBreakdown,
-      lastBlock: rec.lastBlock,
-      alreadyLiquidated,
+    raw = await fetch(`${API}/v2/contracts/call-read/${addr}/${name}/${fn}`, {
+      method: "POST", headers,
+      body: JSON.stringify({ sender: addr, arguments: args }),
     });
+    text = await raw.text();
+  } catch (e) {
+    if (attempt < 8) { await sleep(2000 * (attempt + 1)); return readOnly(contract, fn, args, attempt + 1); }
+    throw new Error(`${contract}.${fn}: network error after retries: ${e.message}`);
   }
 
-  // Sort by estimated health (lowest = most at risk)
-  active.sort((a, b) => a.estHealth - b.estHealth);
-
-  // Print results
-  const AT_RISK    = active.filter(p => p.estHealth < 1.1 && !p.alreadyLiquidated);
-  const WATCH      = active.filter(p => p.estHealth >= 1.1 && p.estHealth < 1.3 && !p.alreadyLiquidated);
-  const SAFE       = active.filter(p => p.estHealth >= 1.3);
-  const LIQUIDATED = active.filter(p => p.alreadyLiquidated);
-
-  console.log("=======================================================");
-  console.log(` RISK SUMMARY`);
-  console.log("=======================================================");
-  console.log(` At risk (health < 1.1):  ${AT_RISK.length} positions`);
-  console.log(` Watch   (1.1 - 1.3):     ${WATCH.length} positions`);
-  console.log(` Safe    (> 1.3):          ${SAFE.length} positions`);
-  console.log(` Already liquidated:       ${LIQUIDATED.length} positions`);
-  console.log();
-
-  if (AT_RISK.length > 0) {
-    console.log("=======================================================");
-    console.log(" AT RISK -- Potential Liquidation Targets");
-    console.log("=======================================================");
-    for (const p of AT_RISK.slice(0, 10)) {
-      const profit5pct = p.debtUSD * 0.05 - p.debtUSD * 0.0005; // 5% bonus - 0.05% flash fee
-      console.log(`\n  ${p.addr}`);
-      console.log(`    Est. health:  ${p.estHealth.toFixed(3)} (< 1.0 = liquidatable)`);
-      console.log(`    Debt:         $${p.debtUSD.toFixed(2)} -- ${p.debtBreakdown.join(", ")}`);
-      console.log(`    Collateral:   $${p.collUSD.toFixed(2)} -- ${p.collBreakdown.join(", ")}`);
-      console.log(`    LTV:          ${(p.ltv * 100).toFixed(1)}%`);
-      console.log(`    Est. profit:  ~$${profit5pct.toFixed(2)} at 5% bonus`);
-      console.log(`    Last block:   ${p.lastBlock}`);
+  let res;
+  try {
+    res = JSON.parse(text);
+  } catch {
+    if (attempt < 8) {
+      const isRateLimit = /rate limit/i.test(text);
+      await sleep(isRateLimit ? 15000 : 2000 * (attempt + 1));
+      return readOnly(contract, fn, args, attempt + 1);
     }
-    console.log();
+    throw new Error(`${contract}.${fn}: non-JSON response after retries: ${text.slice(0, 200)}`);
   }
-
-  if (WATCH.length > 0) {
-    console.log("=======================================================");
-    console.log(" WATCH LIST -- Monitor These Positions");
-    console.log("=======================================================");
-    for (const p of WATCH.slice(0, 5)) {
-      console.log(`  ${p.addr}`);
-      console.log(`    Health: ${p.estHealth.toFixed(3)}  |  Debt: $${p.debtUSD.toFixed(2)}  |  Coll: $${p.collUSD.toFixed(2)}`);
-    }
-    console.log();
-  }
-
-  console.log("=======================================================");
-  console.log(" NOTES");
-  console.log("=======================================================");
-  console.log(" - Health estimates are approximate (uses current prices, not oracle).");
-  console.log(" - Net debt estimate may miss positions opened before scan window.");
-  console.log(" - Run with PAGES=10 for broader history coverage.");
-  console.log(" - Flash liquidation requires Zest authorized-liquidator whitelist.");
-  console.log("   Use this data in your Zest outreach to show real opportunity.");
-  console.log();
-  console.log(` Scan complete. ${active.length} active borrowers analyzed.`);
+  if (!res.okay) throw new Error(`${contract}.${fn} failed: ${JSON.stringify(res)}`);
+  return cvToValue(hexToCV(res.result), true);
 }
 
-main().catch(e => { console.error("\nFATAL:", e.message); process.exit(1); });
+// cvToValue(cv, true)'s envelope behavior is genuinely inconsistent and
+// confirmed empirically against live calls, not assumed: a value that's
+// bare at the TOP level of a function's own return type (e.g. get-nr's
+// plain uint128, lookup's plain tuple) decodes with no {type,value}
+// envelope at all; a value recovered from INSIDE an unwrapped
+// response/optional (e.g. call-ststx-ratio's (response uint128 none))
+// keeps one. This normalizes both to the same shape. Tuple FIELDS
+// (accessed as obj["field-name"]) are consistently enveloped either way
+// -- only the outermost level varies.
+function uw(v) {
+  return v && typeof v === "object" && !Array.isArray(v) && "value" in v ? v.value : v;
+}
+
+// ── Fetch a set of Lazer feeds in one isolated client, with a timeout ──────
+// Isolated per call (not all three feeds in one client) because a single
+// feed lacking entitlement throws inside the WebSocket pool's own
+// dedupeHandler, not as a rejection on subscribe() -- it would otherwise
+// take the whole price fetch down even for feeds that DO work. Confirmed
+// live on this account: feed 1 (sBTC) and feed 7 (USDC) are both
+// entitled; feed 45 (STX) is not ("Not entitled: feed 45 (no grant
+// accepts this feed)") -- a real gap in the Lazer plan's grant, not a
+// code bug. STX is the base price for several derived assets (wSTX debt,
+// stSTX, and every zstx/zststx/zststxbtc vault share), so this blocks a
+// fully live scan until the plan grants it.
+function fetchLazerFeeds(feedIds) {
+  return new Promise((resolve, reject) => {
+    const unhandled = (e) => { cleanup(); reject(e?.reason ?? e); };
+    let client;
+    const cleanup = () => {
+      process.removeListener("unhandledRejection", unhandled);
+      try { client?.shutdown(); } catch {}
+    };
+    process.once("unhandledRejection", unhandled);
+
+    const timer = setTimeout(() => { cleanup(); reject(new Error("timed out waiting for Lazer feeds " + feedIds)); }, 15000);
+
+    PythLazerClient.create({
+      token: LAZER_TOKEN,
+      logger: { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} },
+      webSocketPoolConfig: {
+        urls: ["wss://pyth-lazer-0.dourolabs.app/v1/stream"],
+        numConnections: 1,
+        onError: () => {},
+      },
+    }).then((c) => {
+      client = c;
+      const got = {};
+      client.addMessageListener((event) => {
+        if (event.type !== "json") return;
+        const message = event.value;
+        if (message.type !== "streamUpdated" || !message.parsed) return;
+        for (const feed of message.parsed.priceFeeds) {
+          if (feed.price === undefined) continue;
+          got[feed.priceFeedId] = { price: BigInt(feed.price), exponent: feed.exponent };
+        }
+        if (feedIds.every((id) => got[id])) {
+          clearTimeout(timer);
+          cleanup();
+          resolve(got);
+        }
+      });
+      client.subscribe({
+        type: "subscribe", subscriptionId: 1,
+        priceFeedIds: feedIds,
+        properties: ["price", "exponent"],
+        formats: [],
+        deliveryFormat: "json",
+        channel: "fixed_rate@200ms",
+        parsed: true,
+      });
+    });
+  });
+}
+
+async function fetchLazerPrices() {
+  if (!LAZER_TOKEN) {
+    console.error("ERROR: set LAZER_TOKEN to fetch live prices (free signup: pythdata.app)");
+    process.exit(1);
+  }
+  const got = {};
+  try {
+    Object.assign(got, await fetchLazerFeeds([1, 7]));
+  } catch (e) {
+    console.error(`ERROR: Lazer feeds 1/7 (sBTC/USDC) unavailable: ${e.message}`);
+    process.exit(1);
+  }
+  try {
+    Object.assign(got, await fetchLazerFeeds([45]));
+  } catch (e) {
+    // Fails closed by default -- a wrong/stale STX price would silently
+    // corrupt every valuation that derives from it. STX_PRICE_USD8_FALLBACK
+    // is an explicit, loudly-warned escape hatch for testing the REST of
+    // the pipeline (enumeration, egroup lookup, LTV math) while this
+    // entitlement gap exists -- never use its output for a real liquidation
+    // decision.
+    if (!process.env.STX_PRICE_USD8_FALLBACK) {
+      console.error(`ERROR: Lazer feed 45 (STX) unavailable: ${e.message}`);
+      console.error(`  This account's Lazer plan does not grant feed 45 -- check pythdata.app.`);
+      console.error(`  For testing ONLY (not a real price): STX_PRICE_USD8_FALLBACK=39000000 (= $0.39) node scripts/scan-zest-positions.mjs`);
+      process.exit(1);
+    }
+    const fallback = BigInt(process.env.STX_PRICE_USD8_FALLBACK);
+    console.error(`\n  *** WARNING: using STX_PRICE_USD8_FALLBACK=${fallback} instead of a live feed 45 price. ***`);
+    console.error(`  *** This is a hardcoded stand-in for testing only -- do NOT trust any output from this run for a real liquidation decision. ***\n`);
+    got[45] = { price: fallback, exponent: -8 };
+  }
+  return got;
+}
+
+// price * 10^(exponent+8), matching normalize-pyth exactly -> USD x 1e8
+function normalizePyth(price, exponent) {
+  const adj = exponent + 8;
+  if (adj > 0) return price * 10n ** BigInt(adj);
+  if (adj < 0) return price / 10n ** BigInt(-adj);
+  return price;
+}
+
+async function fetchDiaUsdh() {
+  const v = await readOnly(DIA, "get-value", [cvToHex(Cl.stringAscii("USDh/USD"))]);
+  return BigInt(v.value.value.value); // already USD x 1e8, confirmed live (100000000 = $1.00)
+}
+
+// ── Resolve every asset's price (USD x 1e8), applying callcodes ────────────
+export async function resolveAllPrices() {
+  const lazer = await fetchLazerPrices();
+  const basePrices = {
+    stx:  normalizePyth(lazer[45].price, lazer[45].exponent),
+    sbtc: normalizePyth(lazer[1].price, lazer[1].exponent),
+    usdc: normalizePyth(lazer[7].price, lazer[7].exponent),
+    usdh: await fetchDiaUsdh(),
+  };
+
+  const ststxRatio = BigInt(uw(await readOnly(MARKET, "call-ststx-ratio", [])));
+  const stbtcRatio = BigInt(uw(await readOnly(MARKET, "call-stbtc-ratio", [])));
+  const stbtcHaircutBps = BigInt(uw(await readOnly(MARKET, "get-stbtc-haircut-bps", [])));
+
+  const ztokenIds = ASSET_TABLE.filter((a) => a.callcode?.startsWith("z")).map((a) => a.id);
+  const indexes = {};
+  for (const id of ztokenIds) {
+    const v = await readOnly(MARKET, "get-cached-indexes", [cvToHex(Cl.uint(id))]);
+    if (v) indexes[id] = BigInt(uw(v).lindex.value);
+  }
+
+  const prices = {};
+  for (const asset of ASSET_TABLE) {
+    const base = basePrices[asset.priceSource];
+    if (!asset.callcode) { prices[asset.id] = base; continue; }
+    if (asset.callcode === "ststx") {
+      prices[asset.id] = (base * ststxRatio) / STSTX_RATIO_DECIMALS;
+    } else if (asset.callcode === "stbtc") {
+      prices[asset.id] = (base * stbtcRatio * (BPS - stbtcHaircutBps)) / BPS / STBTC_RATIO_DECIMALS;
+    } else if (asset.callcode === "zststx") {
+      const ststxPrice = (base * ststxRatio) / STSTX_RATIO_DECIMALS;
+      const lindex = indexes[asset.id] ?? INDEX_PRECISION;
+      prices[asset.id] = (ststxPrice * lindex) / INDEX_PRECISION;
+    } else {
+      // zstx / zsbtc / zusdc / zusdh / zststxbtc: plain ztoken-index on the base price
+      const lindex = indexes[asset.id] ?? INDEX_PRECISION;
+      prices[asset.id] = (base * lindex) / INDEX_PRECISION;
+    }
+  }
+  return prices;
+}
+
+// ── Enumeration ───────────────────────────────────────────────────────────
+export async function getNr() {
+  const v = await readOnly(VAULT, "get-nr", []);
+  return BigInt(uw(v));
+}
+
+// Normalized here so callers can always do entry.mask.value / entry.account.value
+// regardless of whether this particular call happened to come back enveloped.
+export async function lookup(id) {
+  try {
+    return uw(await readOnly(VAULT, "lookup", [cvToHex(Cl.uint(id))]));
+  } catch {
+    return null;
+  }
+}
+
+export function maskHasDebt(mask) {
+  const debtMask = mask >> DEBT_OFFSET;
+  return debtMask !== 0n;
+}
+export function maskAssetIds(mask, offset) {
+  const ids = [];
+  const shifted = mask >> offset;
+  for (let bit = 0n; bit < DEBT_OFFSET; bit++) {
+    if ((shifted >> bit) & 1n) ids.push(Number(bit));
+  }
+  return ids;
+}
+
+// get-collateral/get-debt panic (API-level error, not a Clarity err) when
+// the account has no entry at all for that specific asset id -- shouldn't
+// happen given callers only query asset ids present in the account's own
+// mask, but treated as 0 defensively rather than crashing the whole scan.
+export async function getCollateral(id, assetId) {
+  try {
+    const v = await readOnly(VAULT, "get-collateral", [cvToHex(Cl.uint(id)), cvToHex(Cl.uint(assetId))]);
+    return BigInt(uw(v));
+  } catch { return 0n; }
+}
+export async function getDebtScaled(id, assetId) {
+  try {
+    const v = await readOnly(VAULT, "get-debt", [cvToHex(Cl.uint(id)), cvToHex(Cl.uint(assetId))]);
+    return BigInt(uw(v).scaled.value);
+  } catch { return 0n; }
+}
+export async function getCachedIndex(assetId) {
+  const v = await readOnly(MARKET, "get-cached-indexes", [cvToHex(Cl.uint(assetId))]);
+  return v ? BigInt(uw(v).index.value) : INDEX_PRECISION;
+}
+export async function getEgroup(mask) {
+  // resolve() is (response (tuple ...) uint) -- an error case (no egroup
+  // registered for this exact mask) decodes to a bare error code, not a
+  // fields object, so checking for the expected field after uw() is the
+  // robust way to tell success from error regardless of which envelope
+  // shape this particular call happens to come back as. Confirmed live
+  // against v0-egroup's real interface: LTV-LIQ-PARTIAL and friends are
+  // (buff 2), not plain uint -- cvToValue already renders a buffer's
+  // .value as a "0x..." hex string, which BigInt() parses directly.
+  const v = uw(await readOnly(EGROUP, "resolve", [cvToHex(Cl.uint(mask))]));
+  if (!v || typeof v !== "object" || !v["LTV-LIQ-PARTIAL"]) return null;
+  return {
+    ltvLiqPartial: BigInt(v["LTV-LIQ-PARTIAL"].value),
+  };
+}
+
+// ── Evaluate one account ────────────────────────────────────────────────────
+export async function evaluateAccount(id, account, mask, prices) {
+  const collIds = maskAssetIds(mask, 0n);
+  const debtIds = maskAssetIds(mask, DEBT_OFFSET);
+
+  let collateralUsd = 0n;
+  let collateralDetail = [];
+  for (const aid of collIds) {
+    const asset = ASSET_BY_ID[aid];
+    if (!asset) continue;
+    const amount = await getCollateral(id, aid);
+    if (amount === 0n) continue;
+    const usd = (amount * prices[aid]) / 10n ** BigInt(asset.decimals);
+    collateralUsd += usd;
+    collateralDetail.push({ aid, asset: asset.addr, amount, usd });
+  }
+
+  let debtUsd = 0n;
+  let debtDetail = [];
+  for (const aid of debtIds) {
+    const asset = ASSET_BY_ID[aid];
+    if (!asset) continue;
+    const scaled = await getDebtScaled(id, aid);
+    if (scaled === 0n) continue;
+    const index = await getCachedIndex(aid);
+    const actual = (scaled * index + INDEX_PRECISION - 1n) / INDEX_PRECISION; // mul-div-up
+    const usd = (actual * prices[aid]) / 10n ** BigInt(asset.decimals);
+    debtUsd += usd;
+    debtDetail.push({ aid, asset: asset.addr, actual, usd });
+  }
+
+  if (collateralUsd === 0n && debtUsd === 0n) return null;
+  const currentLtv = collateralUsd === 0n ? (debtUsd === 0n ? 0n : BPS) : (debtUsd * BPS) / collateralUsd;
+
+  const egroup = await getEgroup(mask);
+  const ltvLiqPartial = egroup?.ltvLiqPartial ?? null;
+  const liquidatable = ltvLiqPartial !== null && currentLtv >= ltvLiqPartial;
+
+  return { id, account, mask, collateralUsd, debtUsd, currentLtv, ltvLiqPartial, liquidatable, debtDetail, collateralDetail };
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────
+async function main() {
+  console.log("==========================================================");
+  console.log("  FlashStack — Zest v0-8-market Position Scanner");
+  console.log("==========================================================");
+
+  console.log("Fetching live prices (Lazer + DIA)...");
+  const prices = await resolveAllPrices();
+  for (const a of ASSET_TABLE) {
+    console.log(`  asset ${a.id} (${a.addr.split(".").pop()}): $${(Number(prices[a.id]) / 1e8).toFixed(6)}`);
+  }
+
+  const realNr = await getNr();
+  const nr = process.env.MAX_ACCOUNTS ? (BigInt(process.env.MAX_ACCOUNTS) < realNr ? BigInt(process.env.MAX_ACCOUNTS) : realNr) : realNr;
+  console.log(`\nScanning ${nr}${nr < realNr ? ` of ${realNr}` : ""} registered accounts (v0-market-vault.get-nr())...`);
+
+  const candidates = [];
+  let checked = 0, skippedNoDebt = 0, failed = 0;
+  for (let id = 0n; id < nr; id++) {
+    const entry = await lookup(id);
+    if (!entry) continue;
+    const mask = BigInt(entry.mask.value);
+    if (!maskHasDebt(mask)) { skippedNoDebt++; continue; }
+    checked++;
+    const account = entry.account.value;
+    // A single account failing after readOnly's own retries are exhausted
+    // (e.g. a sustained outage mid-scan) shouldn't discard progress on the
+    // other 1,333 -- logged and skipped, not fatal.
+    try {
+      const result = await evaluateAccount(id, account, mask, prices);
+      if (result?.liquidatable) candidates.push(result);
+    } catch (e) {
+      failed++;
+      console.error(`\n  WARN: account ${id} (${account}) failed to evaluate, skipped: ${e.message}`);
+    }
+    if (id % 100n === 0n) process.stdout.write(`\r  ...${id}/${nr}`);
+  }
+  console.log(`\r  done: ${nr} total, ${skippedNoDebt} no-debt (skipped), ${checked} evaluated, ${failed} failed`);
+
+  console.log(`\n=== ${candidates.length} LIQUIDATABLE CANDIDATE(S) ===`);
+  for (const c of candidates) {
+    console.log(`\n  account:         ${c.account}`);
+    console.log(`  collateral-usd:  $${(Number(c.collateralUsd) / 1e8).toFixed(2)}`);
+    console.log(`  debt-usd:        $${(Number(c.debtUsd) / 1e8).toFixed(2)}`);
+    console.log(`  current-ltv:     ${(Number(c.currentLtv) / 100).toFixed(2)}%  (liq threshold: ${(Number(c.ltvLiqPartial) / 100).toFixed(2)}%)`);
+    for (const d of c.debtDetail) console.log(`    debt: ${d.asset} -- $${(Number(d.usd) / 1e8).toFixed(2)}`);
+  }
+
+  if (NOVA_CROSSCHECK > 0 && candidates.length > 0) {
+    console.log(`\n=== Cross-check top ${Math.min(NOVA_CROSSCHECK, candidates.length)} against Nova (sanity check, not source of truth) ===`);
+    console.log("  (requires the nova MCP tool -- run this list through nova_stacks_zest_position manually for now)");
+    for (const c of candidates.slice(0, NOVA_CROSSCHECK)) console.log(`  ${c.account}`);
+  }
+}
+
+// Guarded so keeper-zest-liquidations.mjs (and anything else reusing the
+// exported pricing/eligibility functions above) can import this module
+// without triggering a full 1,334-account scan as a side effect.
+import { fileURLToPath } from "url";
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((e) => { console.error(e); process.exit(1); });
+}
