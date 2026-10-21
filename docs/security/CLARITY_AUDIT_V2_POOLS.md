@@ -123,7 +123,8 @@ on-chain caller would have to be a published contract that names it. No integrat
 The same F-11 structure (`VIRTUAL-SHARES` equal to `SHARE-PRECISION`) appears in
 `flashstack-sbtc-pool-v2`'s built-in `get-share-price` (1e8/1e8). Checked 2026-10-15
 (`Flashstack-ajv.4.12`): it is affected the same way. It reads `1` live, and the detail is in
-the FINDINGS_REGISTER F-11 row.
+the FINDINGS_REGISTER F-11 row. The undeployed successor `flashstack-sbtc-pool-v3` is
+rescaled to 1e16 (`Flashstack-ajv.3.4`).
 
 ## Notes
 

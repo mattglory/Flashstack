@@ -623,12 +623,16 @@ guessed at in advance:**
 
 ---
 
-## 6e. `flashstack-stx-pool-v3` / `flashstack-sbtc-pool-v3` testnet plan — PLANNED, NOT EXECUTED
+## 6e. `flashstack-stx-pool-v3` / `flashstack-sbtc-pool-v3` testnet plan — APPROVED, WRITTEN, NOT EXECUTED
 
-Flashstack-ajv.6.9. **Nothing here has run, and nothing may be broadcast until Matt
-approves this plan.** The step-by-step plan, with every fee, amount, signer and
-expected result, is `deployments/testnet-v3-pools-plan.yaml`. This section explains
-the parts the YAML can't carry: what still has to be written, why the adversarial
+Flashstack-ajv.6.9. **Approved by Matt 2026-10-19** (all five questions: write the
+receivers and script; reuse the §6b key as K2; the adversarial receivers within the
+bounds below; rescale sbtc-pool-v3 first, done in ajv.3.4 / #138; 5,000 sats). The
+receivers and the script are now written and tested in simnet. **Nothing has been
+broadcast. It is ready to run, pending the key holder** (K1 and K2 are on the
+operator's machine, not in this repo). The step-by-step plan, with every fee, amount,
+signer and expected result, is `deployments/testnet-v3-pools-plan.yaml`. This section
+explains the parts the YAML can't carry: what was written, why the adversarial
 receiver is safe to publish, and what promotion to mainnet needs.
 
 ### What this run proves that nothing else has
@@ -676,53 +680,103 @@ The three §6d lessons are built in:
 The sBTC line uses the corrected testnet sBTC (`SN3VMH…`, not `ST1PQHQ…`) and is
 sized to the 9,900 sats K1 already holds, so no new manual sBTC transfer is needed.
 
-### To be written before the run (needs Matt's approval)
+### Written for the run (approved 2026-10-19)
 
-1. **`contracts/stx-pool-v3-test-receiver.clar`** and **`contracts/sbtc-pool-v3-test-receiver.clar`**:
-   honest receivers that have to pass `docs/security/RECEIVER_VETTING.md` in full.
-   Unlike `stx-test-receiver-v2` and the simnet fixtures, they need:
-   - **B4:** `(asserts! (is-eq contract-caller .flashstack-<x>-pool-v3) ERR-NOT-POOL)`
-     as the first line of `execute-*-flash`, before the fee read. That's the ordering
-     #118 fixed in the templates and that v5 still gets wrong.
-   - **B5:** repayment goes to the constant `.flashstack-<x>-pool-v3`. The `core`
-     argument is checked against it and never used as a destination. This is the
-     same fix #112 applied to `pool-v3-test-receiver.clar`.
-   - **C7:** owner-only `arm (amount)`. `execute-*-flash` asserts the armed amount
-     equals the loan amount and clears it, so a stranger can't spend the fee buffer
-     by naming the receiver (the CR-2 shape).
-   - **D12:** the fee comes from the pool's own `get-fee-basis-points`. **D11:**
-     repayment is a plain `stx-transfer?` or sBTC `transfer`.
-   - **E17:** owner-only rescue to the owner. The owner is a constant (the deployer).
-     There's no transfer function, so there's nothing to brick (E18 is N/A, stated
-     in the vetting record).
-2. **`contracts/stx-pool-v3-adversarial-receiver.clar`** and **`contracts/sbtc-pool-v3-adversarial-receiver.clar`**:
-   the simnet `test-*-pool-v3-receiver-reentrant.clar` modes u0–u3, rebuilt with the
-   same B4/B5/C7/E17 gates. Every function that changes state is owner-only:
-   - `arm (mode amount)`: single-use, bound to the exact amount
-   - `seed-deposit`
-   - `exit`, which withdraws its own shares outside a loan
-   - `rescue-*`
+1. [x] **`contracts/stx-pool-v3-test-receiver.clar`** and **`contracts/sbtc-pool-v3-test-receiver.clar`**:
+   honest receivers built to `docs/security/RECEIVER_VETTING.md`:
+   - **B4:** `(asserts! (is-eq contract-caller POOL) ERR-NOT-POOL)` is the first line
+     of `execute-*-flash`, before any state read (the ordering #118 fixed in the
+     templates).
+   - **B5:** repayment goes to the constant `POOL` (`.flashstack-<x>-pool-v3`). The
+     `core` argument must equal it and is never used as a destination (the #112 fix).
+   - **C7:** owner-only `arm (amount)`. The callback requires the armed amount to equal
+     the loan amount and clears it before repaying. Both pools call the receiver
+     without `as-contract` (stx-pool-v3 `flash-loan`, sbtc-pool-v3 `flash-loan`), so
+     `tx-sender` in the callback is whoever called `flash-loan`; the callback also
+     requires it to be the owner. That closes the window between the owner's `arm`
+     and `flash-loan` transactions, where a stranger could otherwise front-run the
+     armed amount and spend one fee from the buffer (raised in the #136 review).
+   - **D11/D12:** plain `stx-transfer?` / sBTC `transfer`; fee from the pool's own
+     `get-fee-basis-points` with `max(1, floor(...))`.
+   - **E17:** owner-only, nonzero rescue to the owner. **E18** is N/A: the owner is a
+     constant (the deployer) with no transfer function, so there is nothing to brick.
+2. [x] **`contracts/stx-pool-v3-adversarial-receiver.clar`** and **`contracts/sbtc-pool-v3-adversarial-receiver.clar`**:
+   the simnet `test-*-pool-v3-receiver-reentrant.clar` modes u0–u3 rebuilt with the
+   same B4/B5/C7/E17 gates and the same `tx-sender` = owner check. Every function that
+   changes state is owner-only: `arm (mode amount)` (single-use, bound to the exact
+   amount, mode ≤ u3), `disarm`, `seed-deposit`, `exit` (withdraws all of its own
+   shares outside a loan) and `rescue-*`. One deliberate change from the simnet
+   fixture: **mode u3 repays the principal but not the fee**, so it proves the pool's
+   `reserve-after >= reserve-before + fee` check, not merely that a non-repaying
+   receiver fails. Mode u4 (nested flash loan) is left out: the VM aborts it with
+   `CircularReference` before the lock is reached, and it's already pinned in simnet.
+3. [x] **Simnet coverage, without a mainnet-plan entry.** Changed from the plan's
+   "localized `contracts/test/` copy" pattern, because a registered copy is in what
+   `clarinet deployments apply --mainnet` would publish (it would have grown
+   `KNOWN_TEST_PATHS` 31 → 35). Instead, `tests/v3-pools-testnet-receivers.test.ts`
+   reads each canonical `contracts/*.clar` file and deploys it at runtime with
+   `simnet.deployContract` (the precedent is `tests/pool-v3-fee-on-transfer.test.ts`).
+   The only rewrite is the sBTC principal, pointed at the simnet mock, and the test
+   checks that no other mainnet principal is in the files. Nothing is added to
+   `Clarinet.toml`, so `KNOWN_TEST_PATHS` (31) and the drift pair count (15) are
+   unchanged. `tests/contract-registry-guard.test.ts` gets a new coverage kind,
+   `simnet-deployed`, for the four files, with a check that a runtime-deploying test
+   names each one. The tests run against the canonical pool sources' drift-checked
+   copies (RECEIVER_VETTING item 19), and removing the callback's owner check or
+   making mode u3 repay in full turns them red (checked by mutation).
+4. [x] **`scripts/deploy-testnet-v3-pools.mjs`**: copies `deploy-testnet-pool-v3.mjs`'s
+   helpers (`deployIfNeeded`, the explicit Clarity 3, the confirmation polling,
+   `assertFullyLocalized`) and adds:
+   - **dry run by default.** It needs `--broadcast` to sign or send anything. The
+     dry run still runs the read-only preflight: K1/K2 STX balances and nonces, K1's
+     sBTC balance (line B), the fee totals against the YAML's `totals:`, and which
+     names are already published.
+   - **two signers,** `TESTNET_MNEMONIC` (K1) and `TESTNET_MNEMONIC_2` (K2), read from
+     the environment as in §6b. It refuses to broadcast if either derives an address
+     other than the plan's K1/K2. K2 signs only A35/A36/B35/B36.
+   - **`--line=a|b`** (allow-list arguments). Line B runs P1 first and refuses to start
+     unless line A finished cleanly (stx-pool-v3 admin K1, no pending admin,
+     adversarial receiver removed). A line whose pool already holds state is refused:
+     publishes are resumable, calls are not.
+   - **an expectation on every step,** checked against `tx_status`/`tx_result` and the
+     sender from `/extended/v1/tx`. Success results are exact (`(ok u<shares>)`,
+     computed from live state just before the broadcast); expected failures must be
+     `abort_by_response` with the exact code. Each expected failure reads state before
+     and after and requires it unchanged. A4/B4 compare the sha256 of the deployed
+     source with the localized repo file before any approval. sbtc-pool-v3's
+     `get-share-price` must read exactly `1e8` at launch (the #138 rescale) and match
+     `(balance + 1) * 1e16 / (shares + 1e8)` after the deposit and the honest loan.
+   - **stop rules.** On any mismatch it pauses the pool (if K1 is still admin), prints
+     the txid and stops; an expected failure that succeeds is reported as a security
+     finding.
 
-   Mode u4 (nested flash loan) is left out: the VM aborts it with `CircularReference`
-   before the lock is reached, it's already pinned in simnet, and it would need a
-   third receiver.
-3. **Simnet copies.** Each new `contracts/` receiver also gets a localized
-   `contracts/test/` copy that is registered and pinned by `canonical-copy-drift`.
-   This is the #110/#112 pattern. Each one is an addition to the mainnet-plan guard's
-   `KNOWN_TEST_PATHS` (31 → 35), the drift pair count (15 → 19), and, once #124 is
-   merged, the contract-registry guard's `UNREGISTERED` table. The tests for these
-   copies run against the canonical pool sources and fail if a guard is removed
-   (RECEIVER_VETTING item 19).
-4. **`scripts/deploy-testnet-v3-pools.mjs`**: copies `deploy-testnet-pool-v3.mjs`'s
-   helpers as they are (`deployIfNeeded`, the explicit `clarityVersion`,
-   `waitForConfirm`, `assertFullyLocalized`) and adds:
-   - **dry-run by default.** It needs `--broadcast` to send anything.
-   - **two signers.** K2's mnemonic goes in a separate env var and is used only for
-     A35/A36/B35/B36.
-   - **an `--line=a|b` switch**, so line B can't run on a partial line A.
-   - **an `expect` assertion after every step**, checked against `tx_status`/`tx_result`
-     from the API, not the script's own bookkeeping. On a mismatch it pauses and stops,
-     per the YAML's `stop-rules`.
+   Dry run, 2026-10-21 (read-only, nothing signed): line A, 37 steps, fees 5,520,000 µSTX
+   (matches `totals:`); K1 1,442,790,000 µSTX, nonce 23; K2 499,800,000 µSTX, nonce 2;
+   nothing published; preflight clear. Line B, 38 steps (P1 + B1–B37), fees 5,700,000 +
+   500,000 for P1; K1 9,900 sats (needs 6,200); correctly refuses because line A has
+   not run.
+
+**To run** (the key holder, on the machine with both mnemonics):
+```
+node scripts/deploy-testnet-v3-pools.mjs --line=a              # dry run, check preflight
+read -rs TESTNET_MNEMONIC   && export TESTNET_MNEMONIC
+read -rs TESTNET_MNEMONIC_2 && export TESTNET_MNEMONIC_2
+node scripts/deploy-testnet-v3-pools.mjs --line=a --broadcast
+node scripts/deploy-testnet-v3-pools.mjs --line=b --broadcast
+```
+
+### Vetting records (pre-run; the deployed-source and approval fields are filled at A4/A6, B4/B6, A14/B14)
+
+| Item | Both honest receivers | Both adversarial receivers |
+|---|---|---|
+| Lender | `K1.flashstack-stx-pool-v3` / `K1.flashstack-sbtc-pool-v3` (testnet) | same |
+| A1–A3 | repo file at the reviewed commit; sha256 compared at A4/B4; real testnet sBTC (`SN3VMH…`, §5.2) | same |
+| B4–B6 | caller gate first; repay to constant `POOL`; `core` must equal it; every other public fn owner-only | same |
+| C7–C10 | single-use arm bound to the amount, plus `tx-sender` = owner; no profit sought (C9 N/A); resting balance = seed minus fees | arm also selects the mode; resting balance 0 after A27/B27 |
+| D11–D14 | plain transfer; fee from `get-fee-basis-points`; no reentry; paused lender rejects before the callback (A30/B30) | **item 13 broken on purpose** (modes u1/u2), bounded as below; u3 under-repays |
+| E15–E18 | owner = K1 (constant); rescue owner-only, nonzero; no setters; E18 N/A | same |
+| F19 | `npx vitest run tests/v3-pools-testnet-receivers.test.ts` (17 pass) | same |
+| Approval | testnet only; K1 is the pool admin. Never approved on mainnet | approved at A14/B14, removed at A26/B26, read back |
 
 ### Why the adversarial receiver is safe to publish, even on testnet
 
@@ -732,16 +786,17 @@ it's the only way to prove the lock on chain. The exception is bounded in four w
   `.flashstack-<x>-pool-v3`, which resolves only to K1's v3 pool, and that pool
   carries the F-9 lock. It can't name the live, unlocked v2 pools, so the repo never
   holds a working exploit against a funds-bearing contract.
-- **Nobody but its owner can trigger it.** With the `contract-caller` gate and
-  owner-only arming, a stranger can neither call the callback directly nor start a
-  loan that runs a mode.
+- **Nobody but its owner can trigger it.** With the `contract-caller` gate, owner-only
+  arming and the `tx-sender` = owner check in the callback, a stranger can neither call
+  the callback directly nor start a loan that runs a mode, even while one is armed.
 - **It's approved only for the run.** It's approved at A14/B14 and removed at
   A26/B26, rescued to zero at A27/B27, and the removal is read back. Its vetting
   record names the item-13 exception and the removal txid.
-- **It's testnet-only by construction.** The `contracts/test/` copy is in the
-  mainnet-plan guard's known test set, and the canonical file is never registered.
-  An `apply --mainnet` can't publish it (D6/ajv.6.6), and it holds only testnet
-  funds.
+- **It's testnet-only by construction.** It isn't registered in `Clarinet.toml` at
+  all, not even as a `contracts/test/` copy (the simnet suite deploys it at runtime),
+  so it is not in the plan an `apply --mainnet` computes (D6/ajv.6.6), and
+  `tests/contract-registry-guard.test.ts` records it as `simnet-deployed`. It only
+  ever holds testnet funds.
 
 If the lock were missing, the run would show it as a *successful* A18/B18. The stop
 rules treat that as a security finding: pause, stop, report.
@@ -770,10 +825,10 @@ mainnet:
 - Never `clarinet deployments apply --mainnet` from this repo
   (`deployments/README.md`, D6/ajv.6.6).
 - The v2 → v3 LP migration path (`Flashstack-ajv.4.4`) has to be decided first.
-- Two findings outside this plan apply before mainnet: sbtc-pool-v3's
-  `get-share-price` has the F-11 scaling gap (`Flashstack-ajv.3.4`, #123). Rescale it
-  before mainnet, or accept and document it. If it's rescaled, this plan runs against
-  the rescaled source.
+- sbtc-pool-v3's `get-share-price` F-11 scaling gap (`Flashstack-ajv.3.4`, #123) is
+  fixed: it now scales by `PRICE-PRECISION` (1e16) and reads `1e8` at launch. This plan
+  runs against the rescaled source, so a staged instance deployed before the fix is
+  not the audited version.
 
 ---
 
@@ -809,8 +864,8 @@ would broadcast contracts still carrying mainnet principals (§5.1).
 | 8 | Re-run §6a against the corrected Step 8 (`a92fb8e`) | **Route A chosen**; `--steps=admin` in PR #66. Then a funded key — operator only |
 | 9 | ~~Write a receiver + deploy script + plan for `flashstack-pool-v3`~~ | **DONE 2026-10-14** — `contracts/pool-v3-test-receiver.clar` (+ localized copy, D6 shape — its `execute-flash` takes `<sip-010-trait>` as a parameter, which needs the same canonical/contracts-test pairing `flashstack-pool-v3` itself uses), `scripts/deploy-testnet-pool-v3.mjs`, `deployments/testnet-pool-v3-plan.yaml`. `clarinet check` and the full suite both pass with the new files. |
 | 10 | ~~Execute the pool-v3 stage and record evidence~~ | **DONE 2026-10-14 — see §6d.** Operator-run; three live-caught bugs fixed across three attempts (missing trait publish, wrong Clarity version, deployment-scar resumability), fourth attempt succeeded end to end. All 7 new txids independently re-verified, state reconciles exactly (reserve, receiver balance, loan/volume/fee stats). |
-| 11 | Plan the `flashstack-stx-pool-v3` / `flashstack-sbtc-pool-v3` stage | **PLANNED 2026-10-15 — §6e**, `deployments/testnet-v3-pools-plan.yaml` (ajv.6.9). Awaiting Matt's review |
-| 12 | Write the four receivers (+ simnet copies, guard updates) and `scripts/deploy-testnet-v3-pools.mjs` per §6e | Matt's approval of #11 |
+| 11 | Plan the `flashstack-stx-pool-v3` / `flashstack-sbtc-pool-v3` stage | **APPROVED 2026-10-19** (Matt, all five questions) — §6e, `deployments/testnet-v3-pools-plan.yaml` (ajv.6.9) |
+| 12 | Write the four receivers (runtime-deployed in simnet, registry-guard entries) and `scripts/deploy-testnet-v3-pools.mjs` per §6e | **WRITTEN 2026-10-21**, stacked on the ajv.3.4 rescale (#138); dry run only |
 | 13 | Execute the v3-pools stage and record evidence in §6e | #12 merged, then a funded K1 + K2 — **operator only** |
 
 **All three original blockers are closed, and `flashstack-pool-v3` is now staged on

@@ -213,7 +213,7 @@ Line numbers refer to `83d08de`.
   - `flashstack-pool-oracle-v2.test.ts`: "F-11: share-price stays 1 through a +99% value gain and only steps at 2x"
   - `flashstack-pool-oracle-v2.test.ts`: "F-11/F-12: read inside a flash-loan callback, share-price is 0 and lp-value drops by the loan"
   - The sbtc-pool-v2 test is in PR #123.
-- **Follow-up:** `Flashstack-ajv.3.4`. The undeployed `flashstack-sbtc-pool-v3` has the same expression.
+- **Successor:** the undeployed `flashstack-sbtc-pool-v3` had the same expression. It is rescaled to 1e16 (`Flashstack-ajv.3.4`), pinned by `tests/sbtc-pool-v3-share-price-resolution.test.ts`.
 
 ## 13. Malicious asset: MITIGATED
 
