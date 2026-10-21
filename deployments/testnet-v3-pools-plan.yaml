@@ -1,9 +1,9 @@
 # FlashStack — flashstack-stx-pool-v3 / flashstack-sbtc-pool-v3 testnet staging plan
 #
-# PLAN ONLY (Flashstack-ajv.6.9). Nothing in this file has been executed, and
-# nothing may be broadcast under it until Matt has reviewed and approved it.
-# The deploy script and the four receivers it names do not exist yet; they are
-# listed in docs/TESTNET_STAGING.md section 6e as next steps for approval.
+# APPROVED by Matt 2026-10-19 (Flashstack-ajv.6.9). NOT EXECUTED: nothing in
+# this file has been broadcast. The four receivers and the script it names are
+# written (docs/TESTNET_STAGING.md section 6e); the script is dry-run by
+# default and runs this plan one line at a time, pending the key holder.
 #
 # THIS IS NOT A CLARINET DEPLOYMENT PLAN. Do not run it with
 # `clarinet deployments apply` (same reason as testnet-pool-v3-plan.yaml:
@@ -29,8 +29,8 @@
 
 schema: flashstack-testnet-staging-plan/v1
 generated: 2026-10-15
-status: PLANNED — NOT EXECUTED, NOT APPROVED
-executed-by: node scripts/deploy-testnet-v3-pools.mjs   # does not exist yet; operator only
+status: APPROVED 2026-10-19 — WRITTEN, NOT EXECUTED
+executed-by: node scripts/deploy-testnet-v3-pools.mjs --line=a|b [--broadcast]   # dry run by default; operator only
 network: testnet
 stacks-node: https://api.testnet.hiro.so
 explorer: https://explorer.hiro.so/txid
@@ -101,16 +101,16 @@ contracts:
     clarity-version: 3
     state: not published (404)
   - name: stx-pool-v3-test-receiver
-    source: contracts/stx-pool-v3-test-receiver.clar     # TO BE WRITTEN, see §6e
+    source: contracts/stx-pool-v3-test-receiver.clar     # written 2026-10-21, see §6e
     clarity-version: 3
   - name: stx-pool-v3-adversarial-receiver
-    source: contracts/stx-pool-v3-adversarial-receiver.clar     # TO BE WRITTEN
+    source: contracts/stx-pool-v3-adversarial-receiver.clar     # written 2026-10-21
     clarity-version: 3
   - name: sbtc-pool-v3-test-receiver
-    source: contracts/sbtc-pool-v3-test-receiver.clar    # TO BE WRITTEN
+    source: contracts/sbtc-pool-v3-test-receiver.clar    # written 2026-10-21
     clarity-version: 3
   - name: sbtc-pool-v3-adversarial-receiver
-    source: contracts/sbtc-pool-v3-adversarial-receiver.clar    # TO BE WRITTEN
+    source: contracts/sbtc-pool-v3-adversarial-receiver.clar    # written 2026-10-21
     clarity-version: 3
 
 # Error codes the expected-failure steps assert, read from source:
@@ -195,7 +195,7 @@ line-a-stx-pool-v3:
         expect: "abort_by_response (err u411) — withdraw reentry blocked; receiver's seeded shares untouched" }
     - { id: A21, signer: K1, call: "adversarial.arm u3 u10000000", fee: 100000 }
     - { id: A22, signer: K1, call: "flash-loan u10000000 K1.stx-pool-v3-adversarial-receiver", fee: 200000,
-        expect: "abort_by_response (err u402) ERR-REPAY-FAILED — under-repay rejected (closes the §6d under-paying item for this line)" }
+        expect: "abort_by_response (err u402) ERR-REPAY-FAILED — mode u3 returns the principal but not the fee, so the pool rejects an under-repay by exactly the fee (closes the §6d under-paying item for this line)" }
     - { id: A23, signer: K1, call: "adversarial.arm u0 u10000000", fee: 100000 }
     - { id: A24, signer: K1, call: "flash-loan u10000000 K1.stx-pool-v3-adversarial-receiver", fee: 200000,
         expect: "(ok true) — the lock was released after three blocked/reverted loans" }
