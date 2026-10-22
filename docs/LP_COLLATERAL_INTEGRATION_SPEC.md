@@ -4,6 +4,8 @@
 **Version:** 1.0 — May 2026
 **Contact:** @flashstackbtc on X | github.com/mattglory/Flashstack
 
+> **SUPERSEDED, do not integrate (2026-10-22).** Every contract this spec names is the deprecated v1 system: `flashstack-stx-pool` and `flashstack-sbtc-pool` are paused and empty, and `flashstack-pool-oracle` / `flashstack-sbtc-pool.get-share-price` can be set to any value by anyone while their pool is empty (F-13). The "monotonically increasing" and "no manipulation surface" claims below do not hold for these contracts: a direct transfer moves the price, and `withdraw` lowers the balance. See [`security/V1_POOLS_DISPOSITION.md`](security/V1_POOLS_DISPOSITION.md). Kept as a historical record.
+
 ---
 
 ## Overview

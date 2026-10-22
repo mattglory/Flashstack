@@ -167,7 +167,8 @@ Line numbers refer to `83d08de`.
 - **Tests:**
   - `flashstack-stx-pool-v2-hardening.test.ts`: "contrast: the deployed v1 pool lets the attacker recover the donation (the vulnerability being fixed)"
   - `pause-does-not-gate-deposit.test.ts`: "v1: a first deposit while paused gets the naive pre-F-1 share math"
-- **Follow-up:** `Flashstack-ajv.4.4`.
+  - `v1-oracle-manipulation.test.ts`: the same empty pool lets anyone set the v1 oracle's price and withdraw (F-13)
+- **Follow-up:** `Flashstack-ajv.4.4`, options in [`V1_POOLS_DISPOSITION.md`](V1_POOLS_DISPOSITION.md).
 
 ## 8. First-depositor inflation, v2 and successors: FIXED
 

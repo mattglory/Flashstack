@@ -353,6 +353,8 @@ Your sBTC receiver must:
 
 ## flashstack-pool-oracle
 
+> **Deprecated, do not consume.** It reads the paused, empty v1 `flashstack-stx-pool`. While that pool is empty, anyone can set this price to any value for the cost of gas and withdraw their STX afterwards (F-13). See [`security/V1_POOLS_DISPOSITION.md`](security/V1_POOLS_DISPOSITION.md). Kept here as a record of the deployed interface.
+
 Full address: `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-pool-oracle`
 
 Provides LP share prices for lending protocols that want to accept FlashStack LP positions as collateral.

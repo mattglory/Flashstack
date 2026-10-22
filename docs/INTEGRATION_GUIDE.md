@@ -23,8 +23,8 @@ All contracts are under deployer `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5` on 
 | Contract | Address | Explorer |
 |---|---|---|
 | `flashstack-stx-core` | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-core` | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-core?chain=mainnet) |
-| `flashstack-stx-pool` | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-pool` | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-pool?chain=mainnet) |
-| `flashstack-pool-oracle` | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-pool-oracle` | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-pool-oracle?chain=mainnet) |
+| `flashstack-stx-pool` (deprecated v1: paused, empty, do not deposit; see [`V1_POOLS_DISPOSITION.md`](security/V1_POOLS_DISPOSITION.md)) | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-pool` | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-stx-pool?chain=mainnet) |
+| `flashstack-pool-oracle` (deprecated v1: reads the empty v1 pool, price is manipulable, do not consume; F-13) | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-pool-oracle` | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-pool-oracle?chain=mainnet) |
 | `stx-flash-receiver-trait` | `SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.stx-flash-receiver-trait` | [View](https://explorer.hiro.so/address/SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.stx-flash-receiver-trait?chain=mainnet) |
 | `stx-test-receiver` (de-approved, F-10: no `contract-caller` check) | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.stx-test-receiver` | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.stx-test-receiver?chain=mainnet) |
 | `bitflow-arb-receiver-v4` (de-approved, F-10: no `contract-caller` check) | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.bitflow-arb-receiver-v4` | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.bitflow-arb-receiver-v4?chain=mainnet) |
@@ -37,7 +37,7 @@ Canonical sBTC token: `SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token` (~4
 | Contract | Address | Explorer |
 |---|---|---|
 | `flashstack-sbtc-core` | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-sbtc-core` | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-sbtc-core?chain=mainnet) |
-| `flashstack-sbtc-pool` | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-sbtc-pool` | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-sbtc-pool?chain=mainnet) |
+| `flashstack-sbtc-pool` (deprecated v1: paused, empty, do not deposit or read its price; see [`V1_POOLS_DISPOSITION.md`](security/V1_POOLS_DISPOSITION.md)) | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-sbtc-pool` | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-sbtc-pool?chain=mainnet) |
 | `sbtc-flash-receiver-trait` | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.sbtc-flash-receiver-trait` | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.sbtc-flash-receiver-trait?chain=mainnet) |
 | `sbtc-test-receiver` (de-approved, F-10: no `contract-caller` check) | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.sbtc-test-receiver` | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.sbtc-test-receiver?chain=mainnet) |
 | `velar-sbtc-arb-receiver` (non-functional, de-approved: hardcodes Velar pool `u70`, not sBTC/STX) | `SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.velar-sbtc-arb-receiver` | [View](https://explorer.hiro.so/address/SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.velar-sbtc-arb-receiver?chain=mainnet) |
@@ -349,7 +349,7 @@ If you are building or operating a lending protocol on Stacks and want to offer 
 **What FlashStack provides:**
 - Instant liquidity for the debt amount (STX or sBTC)
 - Atomic repayment guarantee — if the liquidator does not repay, the entire transaction reverts and your protocol's state is unchanged
-- `flashstack-pool-oracle` — a read-only function that returns LP share prices, usable for valuing FlashStack LP positions as collateral
+- LP share prices for valuing FlashStack LP positions as collateral: **not available on a live pool today.** The v1 `flashstack-pool-oracle` is deprecated and must not be consumed (its price can be set by anyone while the v1 pool is empty, F-13, [`V1_POOLS_DISPOSITION.md`](security/V1_POOLS_DISPOSITION.md)), and the v2 pools are paused (F-9). Ask before integrating
 
 **Contact:** Open a GitHub issue at https://github.com/mattglory/Flashstack/issues or reach out at https://x.com/flashstackbtc to discuss a protocol-level integration.
 
