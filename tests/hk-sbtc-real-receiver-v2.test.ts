@@ -23,7 +23,8 @@ import { Cl, ClarityType, cvToValue, type ClarityValue } from "@stacks/transacti
  * hk-sbtc-real-receiver-v1 and hk-stx-bitflow-receiver-v1 were.
  *
  * Errors: 600 NOT-OWNER, 601 NOT-CORE, 602 NOT-ARMED, 603 WRONG-AMOUNT,
- * 605 SWAP-LEG1, 609 ZERO-AMOUNT, 610 NOT-PENDING. Core: 306 NOT-APPROVED.
+ * 605 SWAP-LEG1, 609 ZERO-AMOUNT, 610 NOT-PENDING, 612 NOT-LOAN-OWNER.
+ * Core: 306 NOT-APPROVED.
  */
 
 const SBTC_DEPLOYER = "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4";
@@ -60,7 +61,7 @@ const mintSbtc = (amount: number, recipient: string) => {
 const sbtcBal = (who: string) =>
   Number(cvToValue(simnet.callReadOnlyFn(SBTC, "get-balance", [Cl.principal(who)], deployer).result).value);
 
-const flash = (amount: number, caller = wallet1) =>
+const flash = (amount: number, caller = deployer) =>
   simnet.callPublicFn(CORE, "flash-loan", [Cl.uint(amount), Cl.principal(rx)], caller);
 
 const arm = (amount: number, minStx = 1, minSbtc = 1, caller = deployer) =>
@@ -104,9 +105,22 @@ describe("hk-sbtc-real-receiver-v2", () => {
 
   // --- C7: armed state is bound to the amount -----------------------------
 
-  it("a stranger's loan with nothing armed is rejected", () => {
+  it("the owner's loan with nothing armed is rejected", () => {
     expect(flash(LOAN).result).toBeErr(Cl.uint(602));
     expect(sbtcBal(rx)).toBe(SEED);
+  });
+
+  it("a stranger can't use the owner's arm, and the arm survives for the owner", () => {
+    // The core calls the callback without as-contract, so tx-sender is the
+    // flash-loan caller. Arm and flash-loan are separate txs; without the
+    // owner check a stranger could front-run the armed amount.
+    ok(arm(LOAN));
+    expect(flash(LOAN, wallet1).result).toBeErr(Cl.uint(612));
+    expect(flash(LOAN, wallet2).result).toBeErr(Cl.uint(612));
+    expect(sbtcBal(rx)).toBe(SEED);
+    const armed = simnet.callReadOnlyFn(RX, "get-armed", [], deployer).result;
+    expect(Cl.prettyPrint(armed)).toBe(`(ok (some { amount: u${LOAN}, min-sbtc-out: u1, min-stx-out: u1 }))`);
+    expect(flash(LOAN).result).toBeErr(Cl.uint(605)); // owner's loan reaches leg 1
   });
 
   it("a loan for a different amount than armed is rejected", () => {
@@ -157,7 +171,8 @@ describe("hk-sbtc-real-receiver-v2", () => {
     expect(simnet.callPublicFn(RX, "accept-ownership", [], wallet2).result).toBeErr(Cl.uint(610));
     ok(simnet.callPublicFn(RX, "accept-ownership", [], wallet1));
     expect(simnet.callReadOnlyFn(RX, "get-owner", [], deployer).result).toBeOk(Cl.principal(wallet1));
-    expect(flash(LOAN).result).toBeErr(Cl.uint(602));
+    expect(flash(LOAN, wallet1).result).toBeErr(Cl.uint(602));
+    expect(flash(LOAN).result).toBeErr(Cl.uint(612)); // the old owner can't borrow through it
     expect(arm(LOAN).result).toBeErr(Cl.uint(600));
     ok(arm(LOAN, 1, 1, wallet1));
   });

@@ -110,7 +110,7 @@ Line numbers refer to `83d08de`.
 - **Invariant:** a receiver's funds move only on a loan its owner set up.
 - **Defense:**
   - All 13 receivers ever approved on either core were de-approved, and FlashStack-held balances were rescued (F-10).
-  - New receivers must pass RECEIVER_VETTING §B and §C. The reference implementation checks `contract-caller` against a hardcoded core first (`hk-sbtc-real-receiver-v2.clar:78-79`), and repays to that same constant (`:116`).
+  - New receivers must pass RECEIVER_VETTING §B and §C. The reference implementation checks `contract-caller` against a hardcoded core first (`hk-sbtc-real-receiver-v2.clar:83-84`), requires the flash-loan caller to be the owner (`:86`), and repays to that same constant (`:123`).
 - **Tests:** in `hk-sbtc-real-receiver-v2.test.ts`:
   - "rejects a direct call to execute-sbtc-flash, even with the real core as argument"
   - "a stranger's loan with nothing armed is rejected"
