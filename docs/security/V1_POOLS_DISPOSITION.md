@@ -61,13 +61,27 @@ The v1 pools are immutable and Clarity has no self-destruct. The admin surface o
 
 **Recommendation: A now.** It's docs only and this change does it. **Decide B together with the Ledger move:** either move these two admin rights to the Ledger with everything else, or retire them instead of moving them.
 
-## Needs Matt's decision
+## Decisions (Matt, 2026-10-26)
 
-1. **B or not:** retire the v1 pool admin rights (irreversible), or move them to the Ledger with the rest.
-2. **Public notice:** OK to post a short deprecation note (X / Discord) naming `flashstack-pool-oracle` and the v1 pools as "do not integrate", without the manipulation details?
-3. **Known integrators:** did any lender (Zest, ALEX or anyone sent the v1 LP spec) wire up `flashstack-pool-oracle` or `flashstack-sbtc-pool.get-share-price`? If yes, F-13 goes to High and they need to hear first, privately.
+1. **Retire the admin (option B): yes.** Before the Ledger move, from `SPR9PQAN…`, in this order: `remove-approved-receiver` for `bitflow-arb-receiver` and `stx-test-receiver` on `flashstack-stx-pool`, then `transfer-admin` to `SP000000000000000000002Q6VF78` on `flashstack-stx-pool`, then on `flashstack-sbtc-pool`. Both pools are read back before and after each step (log below).
+2. **Public notice: yes**, without the manipulation details, after the step below.
+3. **Known integrators:** v1 integration material was shared privately with one lending team, and this spec has been public in the repo since May 2026. No integration of the v1 feed is known, but one can't be ruled out. That team is told privately, without details, before any public notice. This spec is marked withdrawn in the same change as the deprecation notes. F-13 stays Low (latent) unless a consumer turns up.
+
+## Admin retirement log
+
+Each row is a mainnet read through the Hiro API, as in the verified-state section.
+
+| Step | txid | Read at (UTC) | stx-pool admin | stx-pool approved receivers | sbtc-pool admin |
+|---|---|---|---|---|---|
+| Baseline | — | 2026-10-27 07:49 | `SPR9PQAN…` | `bitflow-arb-receiver`, `stx-test-receiver` | `SPR9PQAN…` |
+| 1. remove `bitflow-arb-receiver` (stx-pool) | | | | | |
+| 2. remove `stx-test-receiver` (stx-pool) | | | | | |
+| 3. `transfer-admin` stx-pool → burn | | | | | |
+| 4. `transfer-admin` sbtc-pool → burn | | | | | |
+
+Baseline also: both pools paused, balance 0, shares 0; `flashstack-sbtc-pool` has no approved receiver; `SPR9PQAN…` last transacted 2026-10-12 and has nothing in the mempool.
 
 ## Changed in this pass
 
-- `docs/INTEGRATION_GUIDE.md`, `docs/API_REFERENCE.md` and `docs/LP_COLLATERAL_INTEGRATION_SPEC.md` now mark the v1 pools and oracle deprecated and link here.
+- `docs/INTEGRATION_GUIDE.md`, `docs/API_REFERENCE.md` and `docs/LP_COLLATERAL_INTEGRATION_SPEC.md` now mark the v1 pools and oracle deprecated and link here. The spec is marked **withdrawn**, and `BUILD_A_RECEIVER.md` and `AUDIT_BRIEF.md` say so where they link to it.
 - `FINDINGS_REGISTER.md` gets F-13. F-6, `CONTRACT_INVENTORY.md` §3/§6 and `THREAT_MODEL.md` row 7 point here.

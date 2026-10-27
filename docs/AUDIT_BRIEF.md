@@ -17,7 +17,7 @@ handoff; that one is what goes to a prospective auditor.
   (see the **Security** section — solvency invariant, test suite, access
   control model).
 - Multi-asset core redesign: `docs/02-technical/MULTI_ASSET_CORE_DESIGN.md`
-- LP/collateral integration surface for third parties: `docs/LP_COLLATERAL_INTEGRATION_SPEC.md`
+- LP/collateral integration surface for third parties: `docs/LP_COLLATERAL_INTEGRATION_SPEC.md` (**withdrawn**, v1 only; see `docs/security/V1_POOLS_DISPOSITION.md`, F-13)
 - Roadmap / audit timing: `ROADMAP.md` ("In Progress (Q2 2026)")
 
 ## Status of the items an auditor asks about first

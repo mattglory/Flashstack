@@ -324,6 +324,6 @@ const tx = await makeContractCall({
 
 - [STX Testing Guide](TESTING_GUIDE_STX.md) — how to run existing test scenarios
 - [sBTC Testing Guide](TESTING_GUIDE_SBTC.md) — sBTC-specific test flows
-- [LP Collateral Integration Spec](LP_COLLATERAL_INTEGRATION_SPEC.md) — using FlashStack LP shares as lending collateral
+- [LP Collateral Integration Spec](LP_COLLATERAL_INTEGRATION_SPEC.md) — **withdrawn, do not integrate** (v1 only; see [V1_POOLS_DISPOSITION.md](security/V1_POOLS_DISPOSITION.md))
 - [Live receiver contracts](../contracts/) — read the source of deployed strategies
 - [GitHub](https://github.com/mattglory/Flashstack) — full repo, MIT licensed

@@ -379,7 +379,7 @@ Returns full pool state: total shares, total STX, share price.
 (ok { total-shares: uint, total-stx: uint, share-price: uint }))
 ```
 
-For full LP collateral integration spec, see [LP_COLLATERAL_INTEGRATION_SPEC.md](LP_COLLATERAL_INTEGRATION_SPEC.md).
+The v1 LP collateral integration spec, [LP_COLLATERAL_INTEGRATION_SPEC.md](LP_COLLATERAL_INTEGRATION_SPEC.md), is **withdrawn**: do not integrate. See [V1_POOLS_DISPOSITION.md](security/V1_POOLS_DISPOSITION.md).
 
 ---
 

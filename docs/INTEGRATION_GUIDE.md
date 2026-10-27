@@ -423,5 +423,5 @@ curl -s -X POST "https://api.hiro.so/v2/contracts/call-read/SP20XD46NGAX05ZQZDKF
 - [API_REFERENCE.md](API_REFERENCE.md) — every public function and read-only function on both core contracts
 - [TESTING_GUIDE_STX.md](TESTING_GUIDE_STX.md) — step-by-step STX flash loan test scenarios
 - [TESTING_GUIDE_SBTC.md](TESTING_GUIDE_SBTC.md) — sBTC-specific test flows
-- [LP_COLLATERAL_INTEGRATION_SPEC.md](LP_COLLATERAL_INTEGRATION_SPEC.md) — using FlashStack LP shares as lending collateral
+- [LP_COLLATERAL_INTEGRATION_SPEC.md](LP_COLLATERAL_INTEGRATION_SPEC.md) — **withdrawn, do not integrate** (v1 only; see [V1_POOLS_DISPOSITION.md](security/V1_POOLS_DISPOSITION.md))
 - [GitHub repository](https://github.com/mattglory/Flashstack) — all source code, MIT licensed
