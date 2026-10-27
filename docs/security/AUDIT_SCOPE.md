@@ -1,11 +1,11 @@
 # Audit Scope — FlashStack `flashstack-pool-v3`
 
 **Purpose:** a scoping packet for a prospective Clarity auditor. Every figure below was
-checked against the repository or the live chain on **2026-10-19** (refreshed from
-2026-10-13 and 2026-09-21 passes; see the changes noted inline below); the checks are
+checked against the repository or the live chain on **2026-10-27** (refreshed from
+2026-10-19, 2026-10-13 and 2026-09-21 passes; see the changes noted inline below); the checks are
 named so they can be repeated. Where something is not done, it says so.
 
-**Reviewed state:** `main` @ `c18cf7d`. The commit to audit will be frozen at kickoff.
+**Reviewed state:** `main` @ `ba04efd`. The commit to audit will be frozen at kickoff.
 
 ## What this is
 
@@ -25,13 +25,13 @@ is meant to happen **before** any TVL.
 | **2a — cores** | `flashstack-stx-core-v2.clar` | 230 | 3 / 3.0 | Staged on testnet, see below |
 | **2a — cores** | `flashstack-sbtc-core-v2.clar` | 224 | 3 / 3.0 | Not deployed |
 | **2b — pools** | `flashstack-stx-pool-v3.clar` | 337 | 3 / 3.0 | Not deployed |
-| **2b — pools** | `flashstack-sbtc-pool-v3.clar` | 368 | 3 / 3.0 | Not deployed |
+| **2b — pools** | `flashstack-sbtc-pool-v3.clar` | 376 | 3 / 3.0 | Not deployed |
 
 ¹ Physical lines (`wc -l`), comments and blank lines included. Tier 1 is **508** (grew from
 505: CR-1 lowered `MAX-DECIMALS` from `u24` to `u8`, three comment lines explaining why).
 Tier 2
-adds **1,159** (grew from 1,096 since this packet's first pass — see below): **454** in the
-cores (reserve model, no LP shares) and **705** in the pools (LP shares). Please quote Tier 1
+adds **1,167** (grew from 1,096 since this packet's first pass — see below): **454** in the
+cores (reserve model, no LP shares) and **713** in the pools (LP shares). Please quote Tier 1
 alone and Tier 1 + 2, pricing 2a and 2b separately if you can.
 
 **Why the two pools grew.** Both now carry a per-asset reentrancy lock
@@ -43,14 +43,21 @@ guard exists): a passing simnet proof measured a ~2,000x return on the attacker'
 capital via deposit-reentrancy during a flash-loan callback, with the dormant live pools
 confirmed never having had a receiver approved (`FINDINGS_REGISTER.md`, `F-9`). The v3 pools'
 guard is proven by a dedicated regression suite; not relying on "it probably also protects
-against F-9" without a test for it.
+against F-9" without a test for it. `flashstack-sbtc-pool-v3` grew a further 8 lines
+(368 to 376, 2026-10-27, `F-11`): its `get-share-price` and
+`get-collateral-snapshot.share-price` now scale by `PRICE-PRECISION` (1e16) instead of
+`SHARE-PRECISION` (1e8), so the price reads `1e8` at launch and resolves fee accrual. Share
+mint/burn math is unchanged.
 
 **Why Tier 2 is more than extra contracts.** The two v3 pools carry Tier 1's virtual-shares
 design (the first-depositor inflation defence), so the share-math surface spans both tiers. A
 Tier 1 finding may or may not reproduce in the Tier 2 pools, and we would want that stated
-either way. The pools are also the repository's v2 pool sources plus the two-step admin change
-(each pair of files differs in 14 lines, all admin-related), so a finding there can bear on
-the live v2 pools, which are immutable.
+either way. The pools are also the repository's v2 pool sources plus four changes: the two-step
+admin transfer (`BC1`), the pause gate on `deposit` (`F-8`), the reentrancy lock (`F-9`) and,
+in `flashstack-sbtc-pool-v3` only, the share-price scale (`F-11`); its `deposit` also writes
+the new shares before the token transfer instead of after. Everything else is the v2 code
+(`diff` the pairs, comments aside), so a finding there can bear on the live v2 pools, which
+are immutable.
 
 Two language versions are in scope: pool-v3 targets **Clarity 6 / epoch 4.0**. Epoch 4.0
 activated on mainnet at burn height 960,230 (`GET /v2/pox`), which is when Clarity 6 became
@@ -81,18 +88,20 @@ declare load-bearing:
 
 ## Evidence to date
 
-- **Tests:** 357 passing, 3 intentionally skipped, across 40 files (1 file skipped)
+- **Tests:** 379 passing, 3 intentionally skipped, across 41 files (1 file skipped)
   (`npm ci && npm test`). Pool-v3 specifically has
   29 tests in `tests/flashstack-pool-v3.test.ts` and `tests/pool-v3-hillary-review.test.ts`,
   including: an unlisted token rejected even when malicious, a non-repaying receiver
   reverting the whole transaction, an unapproved receiver rejected, the donation/inflation
   attack, a reentrant deposit blocked, per-asset decimals, and a non-pending principal
   unable to `accept-admin`. **The two Tier 2 pools are tested directly for the two-step
-  admin transfer** (`tests/bc1-two-step-fix.test.ts`) **and the pause gate**
-  (`tests/v3-pools-pause-gate.test.ts`, 8 tests, mutation-checked). Their broader pool logic
-  is the v2 pools', which have dedicated hardening tests
+  admin transfer** (`tests/bc1-two-step-fix.test.ts`), **the pause gate**
+  (`tests/v3-pools-pause-gate.test.ts`, 8 tests, mutation-checked), **the reentrancy lock**
+  (`tests/v3-pools-reentrancy-lock.test.ts`, 14 tests) **and sbtc-pool-v3's share price**
+  (`tests/sbtc-pool-v3-share-price-resolution.test.ts`, 3 tests, mutation-checked). Their
+  broader pool logic is the v2 pools', which have dedicated hardening tests
   (`tests/flashstack-stx-pool-v2-hardening.test.ts`, `tests/flashstack-sbtc-pool-v2-hardening.test.ts`),
-  but nothing beyond admin transfer and pause exercises that logic through the v3 files
+  but nothing beyond those four changes exercises that logic through the v3 files
   themselves.
 - **Static check:** `clarinet check` passes with 0 errors. CI runs it and the suite on
   every PR. `main` requires one approving code-owner review and both checks, **but
@@ -104,6 +113,9 @@ declare load-bearing:
   by an external reviewer and independently reproduced before fixing. One further finding,
   `F-8` (Low, confirmed): `deposit` not gated by pause in the Tier 2 pools — **fixed in the
   undeployed v3 pools (PR #68); still open on the live, immutable v2 pools**, see below.
+  Likewise `F-11` (Low, latent: `get-share-price` too coarse to show fee accrual) is
+  **fixed in `flashstack-sbtc-pool-v3` (PR #138)** and stays open on the live
+  `flashstack-sbtc-pool-v2` and `flashstack-pool-oracle-v2`.
   A subsequent counter-review of this packet and the audit it was written for
   ([`POOL_V3_AUDIT_COUNTER_REVIEW.md`](POOL_V3_AUDIT_COUNTER_REVIEW.md)) found seven more
   findings, CR-1 to CR-7. The one Medium, **CR-1 (share math overflows uint128 above
@@ -140,13 +152,14 @@ declare load-bearing:
   `share-scale` confirmed `1e8` (a real 8-decimal sBTC dependency, not a mock). That instance
   predates the CR-1 fix and still accepts up to 24 decimals; it is a staging artifact, not meant
   to be treated as the audited version. A further stage, for `flashstack-stx-pool-v3` /
-  `flashstack-sbtc-pool-v3` (Tier 2), is planned but not yet executed (§6e).
+  `flashstack-sbtc-pool-v3` (Tier 2), is approved (2026-10-19) and written (stage receivers
+  and script, PR #139) but not yet executed (§6e).
 
 ## What is not done — please read
 
 - **No professional audit has been performed on any FlashStack contract.**
-- **Tier 2's two v3 pools have not been staged on testnet.** A plan exists (§6e) but hasn't
-  run. Tier 1 (`flashstack-pool-v3`) and one Tier 2 contract (`flashstack-stx-core-v2`) have.
+- **Tier 2's two v3 pools have not been staged on testnet.** The plan (§6e) is approved and
+  its receivers and script are written, but it hasn't run. Tier 1 (`flashstack-pool-v3`) and one Tier 2 contract (`flashstack-stx-core-v2`) have.
 - **The canonical file is not what `clarinet check` compiles.** Clarinet keys contracts by
   name, so it compiles `contracts/test/flashstack-pool-v3.clar`, a localized copy. For
   pool-v3 the two differ only in a 4-line header comment and two `use-trait` lines (local
