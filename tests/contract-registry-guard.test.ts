@@ -27,6 +27,10 @@ type Coverage =
   // Byte-identical to an immutable deployed contract; the sha256 is pinned in
   // tests/deployed-source-pins.test.ts.
   | "deployed-source pin"
+  // A simnet test reads this exact file and deploys it at runtime with
+  // simnet.deployContract, so it is compiled and exercised without being in
+  // the computed mainnet plan.
+  | "simnet-deployed"
   // Nothing in CI compiles or pins this file.
   | "none";
 
@@ -51,6 +55,13 @@ const UNREGISTERED: Record<string, { coverage: Coverage; why: string }> = {
   // Gen-1 receivers kept verbatim for the record (CONTRACT_INVENTORY D7).
   "contracts/snp-flashstack-receiver.clar": { coverage: "deployed-source pin", why: "live gen-1 receiver, immutable, out of audit scope" },
   "contracts/snp-flashstack-receiver-v3.clar": { coverage: "deployed-source pin", why: "live gen-1 receiver, immutable, out of audit scope" },
+
+  // Testnet-only section 6e receivers (ajv.6.9), runtime-deployed by
+  // tests/v3-pools-testnet-receivers.test.ts.
+  "contracts/stx-pool-v3-test-receiver.clar": { coverage: "simnet-deployed", why: "testnet-only stx-pool-v3 receiver (6e), never on the mainnet plan" },
+  "contracts/stx-pool-v3-adversarial-receiver.clar": { coverage: "simnet-deployed", why: "testnet-only F-9 lock proof for stx-pool-v3 (6e), never on the mainnet plan" },
+  "contracts/sbtc-pool-v3-test-receiver.clar": { coverage: "simnet-deployed", why: "testnet-only sbtc-pool-v3 receiver (6e), never on the mainnet plan" },
+  "contracts/sbtc-pool-v3-adversarial-receiver.clar": { coverage: "simnet-deployed", why: "testnet-only F-9 lock proof for sbtc-pool-v3 (6e), never on the mainnet plan" },
 
   // Uncovered. Neither is deployed (only aborted publishes, CONTRACT_INVENTORY
   // "deployment scars"), so a broken file here can't affect anything live, but
@@ -104,5 +115,20 @@ describe("contract registry: every contracts/ .clar is compiled or explained", (
       .map(([f]) => f)
       .filter((f) => !pins.includes(`"${f}"`));
     expect(bad, `Not pinned: ${bad.join(", ")}`).toEqual([]);
+  });
+
+  it("every 'simnet-deployed' entry is read by a test that calls simnet.deployContract", () => {
+    const tests = readdirSync("tests")
+      .filter((f) => f.endsWith(".test.ts"))
+      .map((f) => readFileSync(join("tests", f), "utf-8"))
+      .filter((src) => src.includes("simnet.deployContract"));
+    const bad = Object.entries(UNREGISTERED)
+      .filter(([, v]) => v.coverage === "simnet-deployed")
+      .map(([f]) => f)
+      .filter((f) => {
+        const name = f.replace(/^contracts\//, "").replace(/\.clar$/, "");
+        return !tests.some((src) => src.includes(`"${name}"`));
+      });
+    expect(bad, `No runtime-deploying test names: ${bad.join(", ")}`).toEqual([]);
   });
 });
