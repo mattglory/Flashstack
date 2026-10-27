@@ -254,7 +254,9 @@ export default function LandingPage() {
 ;; only the core may call it and it repays a hardcoded core (F-10),
 ;; and only a loan the owner armed can run (C7). Anyone can call
 ;; flash-loan naming this receiver; without the arm, they could make
-;; it run your strategy and spend its fee buffer.
+;; it run your strategy and spend its fee buffer. The core calls back
+;; without as-contract, so tx-sender is whoever called flash-loan: the
+;; callback requires the owner, so nobody can front-run an armed loan.
 ;; Clarity 3: Clarity 4 replaces as-contract with as-contract?.
 (impl-trait
   'SP3TGRVG7DKGFVRTTVGGS60S59R916FWB4DAB9STZ.stx-flash-receiver-trait.stx-flash-receiver-trait)
@@ -281,6 +283,8 @@ export default function LandingPage() {
   (begin
     (asserts! (is-eq contract-caller FLASH-CORE) (err u401))
     (asserts! (is-eq core FLASH-CORE) (err u401))
+    ;; only the owner's own flash-loan can use the arm
+    (asserts! (is-eq tx-sender (var-get owner)) (err u403))
     ;; a loan the owner didn't arm stops here; the arm is single-use
     (asserts! (is-eq (var-get armed) (some amount)) (err u402))
     (var-set armed none)
