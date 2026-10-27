@@ -19,6 +19,10 @@
 ;;       an exact amount match and clears the arm before swapping. A stranger's
 ;;       flash-loan naming this receiver reverts unless it matches an arm the
 ;;       owner set, and then it only does what the owner already asked for.
+;;       The core calls this callback without as-contract, so tx-sender is
+;;       whoever called flash-loan. The callback also requires that to be the
+;;       owner, so a stranger can't front-run an armed loan between the
+;;       owner's arm-loan and flash-loan transactions.
 ;;   C8  both minimums are in the OUTPUT token's units (micro-STX for leg 1,
 ;;       sats for leg 2), set by the owner, never derived from `amount`.
 ;;   D11 plain SIP-010 transfer to the core, never deposit or a swap into it.
@@ -58,6 +62,7 @@
 (define-constant ERR-ZERO-AMOUNT   (err u609))
 (define-constant ERR-NOT-PENDING   (err u610))
 (define-constant ERR-RESCUE-FAILED (err u611))
+(define-constant ERR-NOT-LOAN-OWNER (err u612))
 
 ;; =============================================
 ;; State
@@ -77,6 +82,8 @@
   (begin
     (asserts! (is-eq contract-caller FLASH-CORE) ERR-NOT-CORE)
     (asserts! (is-eq core FLASH-CORE) ERR-NOT-CORE)
+    ;; only the owner's own flash-loan can use the arm (closes the front-run)
+    (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-LOAN-OWNER)
     (let (
       (arm        (unwrap! (var-get armed) ERR-NOT-ARMED))
       (fee-bp     (unwrap! (contract-call? 'SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-sbtc-core

@@ -58,7 +58,11 @@ that in mind:
 7. **Armed state is bound and single-use.** Any setting the owner makes before a loan
    (target, mode, price feed, minimum output) is tied to the expected loan `amount`
    (`asserts! (is-eq amount armed-amount)`) and cleared in the callback. Without a
-   prepared setting, a stranger's loan reverts.
+   prepared setting, a stranger's loan reverts. Arming and borrowing are separate
+   transactions, so an arm alone leaves a window: a stranger can call `flash-loan`
+   for the armed amount first. The live cores and the v3 pools call the receiver
+   without `as-contract`, so `tx-sender` in the callback is the `flash-loan` caller;
+   also assert `(is-eq tx-sender owner)` after the B4 gate to close it.
 8. **Units.** Every minimum output is in the **output** token's units and is set
    explicitly by the owner, not derived from the input amount. Check against the DEX's
    deployed signature (Velar `amt-out-min`, Bitflow `min-dy`, ALEX `min-dy`).
