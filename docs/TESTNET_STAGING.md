@@ -770,10 +770,10 @@ mainnet:
 - Never `clarinet deployments apply --mainnet` from this repo
   (`deployments/README.md`, D6/ajv.6.6).
 - The v2 → v3 LP migration path (`Flashstack-ajv.4.4`) has to be decided first.
-- Two findings outside this plan apply before mainnet: sbtc-pool-v3's
-  `get-share-price` has the F-11 scaling gap (`Flashstack-ajv.3.4`, #123). Rescale it
-  before mainnet, or accept and document it. If it's rescaled, this plan runs against
-  the rescaled source.
+- sbtc-pool-v3's `get-share-price` F-11 scaling gap (`Flashstack-ajv.3.4`, #123) is
+  fixed: it now scales by `PRICE-PRECISION` (1e16) and reads `1e8` at launch. This plan
+  runs against the rescaled source, so a staged instance deployed before the fix is
+  not the audited version.
 
 ---
 

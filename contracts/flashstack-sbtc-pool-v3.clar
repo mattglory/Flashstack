@@ -29,7 +29,7 @@
 ;;   => each share worth more sBTC over time
 ;;
 ;; Collateral oracle:
-;;   get-share-price returns sats per share (scaled by SHARE-PRECISION)
+;;   get-share-price returns sats per share, scaled by PRICE-PRECISION (1e16)
 ;;   Lending protocols can call this directly  -  no external oracle needed
 ;;   Flash loan manipulation-resistant: reserve invariant guarantees
 ;;   pool balance only ever grows by >= fee per loan
@@ -80,6 +80,13 @@
 (define-data-var reentrancy-locked bool    false)
 
 (define-constant SHARE-PRECISION u100000000) ;; 1e8  -  matches sBTC sat precision
+;; ajv.3.4 (F-11 shape): deposit mints 1e8 shares per sat, so one share is
+;; worth ~1e-8 sat. Scaling the oracle by SHARE-PRECISION alone made it read
+;; 1 at launch and ignore any gain short of +100%. The oracle scales by
+;; 1e16 instead, so launch reads 1e8 and it resolves a change of 1 part in
+;; 1e8. Read-only output only; share mint/burn math is unchanged.
+;; Overflow: (21e6 BTC = 2.1e15 sats) * 1e16 = 2.1e31, far below u128 max.
+(define-constant PRICE-PRECISION u10000000000000000) ;; 1e16 = SHARE-PRECISION * 1e8
 
 ;; F-1 fix (v2): virtual shares + virtual assets (OpenZeppelin ERC-4626
 ;; inflation-attack mitigation). A permanent phantom position absorbs
@@ -272,9 +279,10 @@
 ;; Read-only  -  including collateral oracle
 ;; =============================================
 
-;; Current value of one pool share in sats, scaled by SHARE-PRECISION (1e8).
-;; Divide result by 1e8 to get sats per share.
-;; At launch: 1e8 (= 1 sat per share)
+;; Current value of one pool share in sats, scaled by PRICE-PRECISION (1e16).
+;; Divide result by 1e16 to get sats per share (equivalently, by 1e8 to get
+;; sats per 1e8 shares, the amount one sat mints at launch).
+;; At launch: 1e8 (= 1e-8 sat per share, i.e. 1 sat per 1e8 shares)
 ;; Over time: increases as flash loan fees accumulate
 ;;
 ;; This is the primary function lending protocols should consume.
@@ -286,7 +294,7 @@
     (current-shares (var-get total-shares))
   )
     ;; Virtual-offset price is well-defined at zero shares (no special case).
-    (ok (/ (* (+ pool-balance VIRTUAL-ASSETS) SHARE-PRECISION) (+ current-shares VIRTUAL-SHARES)))
+    (ok (/ (* (+ pool-balance VIRTUAL-ASSETS) PRICE-PRECISION) (+ current-shares VIRTUAL-SHARES)))
   )
 )
 
@@ -336,7 +344,7 @@
     (current-shares (var-get total-shares))
   )
     (ok {
-      share-price:   (/ (* (+ pool-balance VIRTUAL-ASSETS) SHARE-PRECISION) (+ current-shares VIRTUAL-SHARES)),
+      share-price:   (/ (* (+ pool-balance VIRTUAL-ASSETS) PRICE-PRECISION) (+ current-shares VIRTUAL-SHARES)),
       total-shares:  current-shares,
       pool-balance:  pool-balance,
       yield-accrued: (var-get total-fees),
