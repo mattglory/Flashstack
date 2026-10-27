@@ -28,8 +28,8 @@
     "@clarigen/cli": "^4.0.1",
     "@clarigen/core": "^4.0.1",
     "@clarigen/test": "^4.0.1",
-    "@stacks/clarinet-sdk": "^3.24.1",
-    "vitest": "^4.1.11"
+    "@stacks/clarinet-sdk": "^3.25.0",
+    "vitest": "^4.1.12"
   },
   "dependencies": {
     "@pythnetwork/pyth-lazer-sdk": "^5.2.1",
