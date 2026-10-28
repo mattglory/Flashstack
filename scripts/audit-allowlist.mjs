@@ -35,7 +35,9 @@ const FINDINGS_REGISTER = join(REPO_ROOT, "docs/security/FINDINGS_REGISTER.md");
 // on its own -- verified directly against both package.json trees on
 // 2026-10-07, not assumed. Listed anyway so a future lower --audit-level
 // doesn't silently start failing on an already-accepted finding.
-const ALLOWLIST = ["GHSA-vfj7-8cjw-p6xm", "GHSA-848j-6mx2-7j84"];
+// DEP-3 (zod, GHSA-mrhx-c7xc-m3w5): high, but no zod 3.x is patched and
+// @reown/appkit-wallet pins zod 3.22.4 exactly under the latest @stacks/connect.
+const ALLOWLIST = ["GHSA-vfj7-8cjw-p6xm", "GHSA-848j-6mx2-7j84", "GHSA-mrhx-c7xc-m3w5"];
 
 const SEVERITY_RANK = { info: 0, low: 1, moderate: 2, high: 3, critical: 4 };
 const auditLevel = (process.argv.find((a) => a.startsWith("--audit-level=")) ?? "--audit-level=high").split("=")[1];
