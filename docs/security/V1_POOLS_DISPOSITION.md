@@ -74,7 +74,7 @@ Each row is a mainnet read through the Hiro API, as in the verified-state sectio
 | Step | txid | Read at (UTC) | stx-pool admin | stx-pool approved receivers | sbtc-pool admin |
 |---|---|---|---|---|---|
 | Baseline | — | 2026-10-27 07:49 | `SPR9PQAN…` | `bitflow-arb-receiver`, `stx-test-receiver` | `SPR9PQAN…` |
-| 1. remove `bitflow-arb-receiver` (stx-pool) | | | | | |
+| 1. remove `bitflow-arb-receiver` (stx-pool) | `0xc259b102…258da51` (block 9,350,585, `(ok true)`) | 2026-10-29 06:33 | `SPR9PQAN…` | `stx-test-receiver` | `SPR9PQAN…` |
 | 2. remove `stx-test-receiver` (stx-pool) | | | | | |
 | 3. `transfer-admin` stx-pool → burn | | | | | |
 | 4. `transfer-admin` sbtc-pool → burn | | | | | |
