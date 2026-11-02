@@ -65,7 +65,7 @@ All confirmed live on Stacks mainnet 2026-09-15. Live state read on the same dat
 |---|---|---|---|---|
 | `flashstack-stx-pool` | `SP20XD46…` | Yes | **`paused=true`, balance 0, shares 0** | Deprecated. Drained and paused **for loans only** — `deposit` is still reachable (`Flashstack-ajv.4.5`). |
 | `flashstack-sbtc-pool` | `SP20XD46…` | Yes | **`paused=true`, balance 0, shares 0** | Deprecated. Drained and paused **for loans only** — `deposit` is still reachable (`Flashstack-ajv.4.5`). |
-| `flashstack-pool-oracle` | `SP20XD46…` | Yes | read-only | **Deprecated but still answering.** Reads the paused, empty v1 STX pool. |
+| `flashstack-pool-oracle` | `SP20XD46…` | Yes | read-only | **Deprecated but still answering.** Reads the paused, empty v1 STX pool, and anyone can set its price while that pool is empty (F-13). See [`V1_POOLS_DISPOSITION.md`](V1_POOLS_DISPOSITION.md). |
 | `flashstack-core` | `SP3TGRVG…` | Yes | not reviewed | Gen-1 flash-**mint** design (supply-equality invariant, not reserve-balance). Superseded. |
 | `sbtc-token` | `SP3TGRVG…` | Yes | not reviewed | **A FlashStack-published token named `sbtc-token` that is NOT canonical sBTC.** Canonical sBTC is `SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token`. Naming-confusion risk. |
 | `snp-flashstack-receiver`, `snp-flashstack-receiver-v3` | `SP3TGRVG…` | Yes | — | Legacy gen-1 SNP integration receivers, bound to the gen-1 core. **Source is now in the repo, verbatim** (D7, closed 2026-09-21). Both contain mock vault placeholders, and v3's `remove-vault` is a no-op stub (`is-not-removed-vault` always returns `true`). Immutable; not in the audit scope. |
@@ -121,7 +121,7 @@ Each is filed as a bead. None is silently resolved here.
 
 - `flashstack-yield-vault-v5` — live, holds funds, not reviewed.
 - The current approved-receiver whitelist on each live core (enumerable only per-principal via `is-approved-receiver`; needs a candidate list).
-- Whether `flashstack-pool-oracle` (v1) has external consumers who would be misled by a share price derived from an empty, paused pool.
+- Whether `flashstack-pool-oracle` (v1) has external consumers who would be misled by a share price derived from an empty, paused pool. *2026-10-22:* none known, and read-only consumers can't be enumerated from the chain; asked Matt (`V1_POOLS_DISPOSITION.md`). Re-verified both v1 pools paused, 0 balance, 0 shares, no transaction since 2026-07-30.
 
 ---
 
