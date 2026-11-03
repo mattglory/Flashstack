@@ -6,7 +6,7 @@
  * tests/script-safety.test.ts enforces by static scan:
  *
  *   1. Keys come from an environment variable only, or a hidden TTY prompt.
- *      Never from a file (no ./mbegu fallback), never typed inline on the
+ *      Never from a file (no plaintext seed-file fallback), never typed inline on the
  *      command line (that lands in shell history and /proc/<pid>/environ of
  *      every child). Load the variable first, without echo:
  *
@@ -153,4 +153,25 @@ export async function sendOrDryRun(gate, tx, send, label = "tx") {
   try { txid = tx.txid(); } catch { /* summary is best-effort */ }
   console.log(`  [dry run] would broadcast ${label}: txid ${txid} (signed locally, NOT sent)`);
   return null;
+}
+
+/** Thrown by stopIfDryRun; a script's top-level catch exits 0 on it. */
+export class DryRunStop extends Error {
+  constructor(label) {
+    super(`dry run: stopped before broadcasting ${label}`);
+    this.name = "DryRunStop";
+  }
+}
+
+/**
+ * For multi-step scripts whose later steps read on-chain state the earlier
+ * ones create: in a dry run, print the first tx and stop the whole run there
+ * (throws DryRunStop), rather than carrying on against a chain that never
+ * saw it. Returns normally when the gate is open.
+ */
+export async function stopIfDryRun(gate, tx, label = "tx") {
+  if (gate?.broadcast === true) return;
+  await sendOrDryRun(gate, tx, label);
+  console.log("  [dry run] later steps depend on this tx confirming on chain, so the run stops here.");
+  throw new DryRunStop(label);
 }
