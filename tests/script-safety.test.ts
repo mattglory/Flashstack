@@ -218,6 +218,29 @@ function violations(rel: string, src: string): string[] {
     out.push(`${rel}: builds signed transactions without broadcastGate()`);
   }
 
+  // 4c. no aliasing the broadcast/sign functions: an alias hides a sink from rules 4/4b
+  //     (`broadcastTransaction as bt`, or a namespace import of @stacks/transactions).
+  if (!isLib) {
+    lines.forEach((l, i) => {
+      if (/\b(broadcastTransaction|makeContractCall|makeContractDeploy|makeSTXTokenTransfer)\s+as\s+\w/.test(l) ||
+          /import\s+\*\s+as\s+\w+\s+from\s+["']@stacks\/transactions["']/.test(l)) {
+        out.push(`${rel}:${i + 1}: aliases a sign/broadcast function, which hides it from this scan`);
+      }
+    });
+  }
+
+  // 4d. no key material from files under any name (rule 1 only knows the old `mbegu` name).
+  //     Reading contract sources (.clar) is fine; reading anything named like a secret is not.
+  lines.forEach((l, i) => {
+    if (/\breadFile(Sync)?\s*\(/.test(l) && /seed|mnemonic|secret|private[-_]?key|wallet|\.key\b|\.pem\b/i.test(l)) {
+      out.push(`${rel}:${i + 1}: reads what looks like key material from a file; use loadMnemonic()`);
+    }
+  });
+
+  // NOTE: this is a text scan. It catches accidental regressions of known
+  // patterns, not a deliberate bypass (e.g. a broadcast placed after the gate check
+  // in a file that does call broadcastGate). Review of every scripts/ change stays the control.
+
   // 5. Allow mode needs the annotation on the line directly above
   lines.forEach((l, i) => {
     if (/PostConditionMode\s*\.\s*Allow\b|PostConditionMode\s*\[\s*["']Allow["']\s*\]|postConditionMode\s*:\s*["']allow["']/i.test(l)) {

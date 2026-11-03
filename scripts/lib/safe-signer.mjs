@@ -171,7 +171,7 @@ export class DryRunStop extends Error {
  */
 export async function stopIfDryRun(gate, tx, label = "tx") {
   if (gate?.broadcast === true) return;
-  await sendOrDryRun(gate, tx, label);
+  await sendOrDryRun(gate, tx, null, label);
   console.log("  [dry run] later steps depend on this tx confirming on chain, so the run stops here.");
   throw new DryRunStop(label);
 }
