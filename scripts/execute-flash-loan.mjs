@@ -2,10 +2,12 @@
  * Execute a FlashStack STX flash loan through your deployed receiver.
  *
  * Usage (Mac/Linux):
- *   RECEIVER=SP....yourname-flash-receiver-v1 DEPLOYER_MNEMONIC="word1 ... word24" node scripts/execute-flash-loan.mjs
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # hidden input; never type it inline
+ *   RECEIVER=SP....yourname-flash-receiver-v1 node scripts/execute-flash-loan.mjs
  *
  * Usage (Windows PowerShell):
- *   $env:RECEIVER="SP....yourname-flash-receiver-v1"; $env:DEPLOYER_MNEMONIC="word1 ... word24"; node scripts/execute-flash-loan.mjs
+ *   $env:DEPLOYER_MNEMONIC = Read-Host -MaskInput   # hidden input; never type it inline
+ *   $env:RECEIVER="SP....yourname-flash-receiver-v1"; node scripts/execute-flash-loan.mjs
  *
  * Environment variables:
  *   DEPLOYER_MNEMONIC  required -- your wallet's 24 words
@@ -15,6 +17,9 @@
  * Before running: your receiver contract needs a little STX to cover the
  * flash fee (0.05%). Send it 0.1 STX from your wallet first. You can get it
  * back later with the contract's withdraw function.
+ *
+ * Dry run by default (builds and signs locally, sends nothing). To broadcast:
+ *   EXECUTE=true node scripts/execute-flash-loan.mjs --yes-mainnet
  */
 
 import { makeContractCall, PostConditionMode, Cl, privateKeyToAddress } from "@stacks/transactions";
@@ -22,8 +27,10 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, sendOrDryRun } from "./lib/safe-signer.mjs";
 
-const MNEMONIC   = process.env.DEPLOYER_MNEMONIC;
+const MNEMONIC   = await loadMnemonic("DEPLOYER_MNEMONIC");
+const GATE       = broadcastGate({ network: "mainnet" }); // mainnet-only script
 const RECEIVER   = process.env.RECEIVER;
 const LOAN_STX   = parseFloat(process.env.LOAN_STX ?? "1");
 const LOAN_MICRO = Math.round(LOAN_STX * 1_000_000);
@@ -31,10 +38,6 @@ const API        = "https://api.hiro.so";
 const EXPLORER   = "https://explorer.hiro.so/txid";
 const FLASH_CORE = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
 
-if (!MNEMONIC) {
-  console.error("ERROR: Set DEPLOYER_MNEMONIC to your wallet's 24 words.");
-  process.exit(1);
-}
 if (!RECEIVER || !RECEIVER.includes(".")) {
   console.error("ERROR: Set RECEIVER to your full contract ID, e.g.");
   console.error("  RECEIVER=SP2ABC...XYZ.yourname-flash-receiver-v1");
@@ -82,11 +85,18 @@ async function main() {
     functionArgs:      [Cl.uint(LOAN_MICRO), Cl.principal(RECEIVER)],
     senderKey:         pk,
     network:           STACKS_MAINNET,
+    // safe-signer: allow-mode flash loan moves STX core->receiver->core
     postConditionMode: PostConditionMode.Allow,
     anchorMode:        1,
     nonce,
     fee:               300_000,
   });
+
+  if (!GATE.broadcast) {
+    await sendOrDryRun(GATE, tx, "flash-loan");
+    console.log("  Dry run (default). Re-run with EXECUTE=true --yes-mainnet to broadcast.");
+    return;
+  }
 
   const raw  = tx.serialize();
   const body = typeof raw === "string" ? Buffer.from(raw.replace(/^0x/, ""), "hex") : raw;

@@ -4,33 +4,39 @@
  * Deploys alex-arb-receiver and whitelists it in flashstack-stx-core.
  *
  * Usage:
- *   DEPLOYER_MNEMONIC="word1 ... word24" node scripts/deploy-alex-receiver.mjs
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # hidden input; never type it inline
+ *   node scripts/deploy-alex-receiver.mjs                              # dry run (default)
+ *   EXECUTE=true node scripts/deploy-alex-receiver.mjs --yes-mainnet   # broadcast
  */
 
-import { makeContractDeploy, makeContractCall, PostConditionMode, ClarityVersion, Cl } from "@stacks/transactions";
+import { makeContractDeploy, makeContractCall, PostConditionMode, ClarityVersion, Cl, privateKeyToAddress } from "@stacks/transactions";
 import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, describeGate, assertSigner, sendOrDryRun } from "./lib/safe-signer.mjs";
 import { readFileSync } from "fs";
 
-const MNEMONIC = process.env.DEPLOYER_MNEMONIC;
+const MNEMONIC = await loadMnemonic("DEPLOYER_MNEMONIC");
+const GATE     = broadcastGate({ network: "mainnet" }); // mainnet-only script
 const DEPLOYER = process.env.DEPLOYER_ADDRESS ?? "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
 const API      = "https://api.hiro.so";
 const EXPLORER = "https://explorer.hiro.so/txid";
 const network  = STACKS_MAINNET;
 
-if (!MNEMONIC) { console.error("ERROR: Set DEPLOYER_MNEMONIC"); process.exit(1); }
 
 async function getPrivateKey() {
   const wallet = await generateWallet({ secretKey: MNEMONIC, password: "" });
-  return wallet.accounts[0].stxPrivateKey;
+  const pk = wallet.accounts[0].stxPrivateKey;
+  assertSigner(privateKeyToAddress(pk, "mainnet"), DEPLOYER); // nonce is read for DEPLOYER
+  return pk;
 }
 async function getNonce() {
   const res = await fetch(`${API}/v2/accounts/${DEPLOYER}?proof=0`);
   return (await res.json()).nonce;
 }
 async function waitForConfirm(txid, label) {
+  if (!txid) return; // dry run: nothing was sent
   process.stdout.write(`  Waiting for "${label}"`);
   for (let i = 0; i < 80; i++) {
     await new Promise(r => setTimeout(r, 8000));
@@ -46,6 +52,7 @@ async function waitForConfirm(txid, label) {
   throw new Error(`Timeout: "${label}"`);
 }
 async function broadcast(tx) {
+  if (!GATE.broadcast) return sendOrDryRun(GATE, tx); // prints the summary, returns null
   const raw  = tx.serialize();
   const body = typeof raw === "string" ? Buffer.from(raw.replace(/^0x/, ""), "hex") : raw;
   const res  = await fetch(`${API}/v2/transactions`, {
@@ -63,7 +70,8 @@ async function main() {
   console.log("=======================================================");
   console.log("  FlashStack -- Deploy ALEX STX/ALEX Arb Receiver v5  ");
   console.log("=======================================================");
-  console.log(`  Deployer: ${DEPLOYER}\n`);
+  console.log(`  Deployer: ${DEPLOYER}`);
+  console.log(`  Mode:     ${describeGate(GATE)}\n`);
 
   const pk    = await getPrivateKey();
   let nonce   = await getNonce();
@@ -78,7 +86,7 @@ async function main() {
   const deployTx = await makeContractDeploy({
     contractName: NAME, codeBody: readFileSync(PATH, "utf8"),
     senderKey: pk, network, clarityVersion: ClarityVersion.Clarity3,
-    postConditionMode: PostConditionMode.Allow, anchorMode: 1, fee: 500_000, nonce: nonce++,
+    postConditionMode: PostConditionMode.Deny, // deploy: contract has no top-level asset movement anchorMode: 1, fee: 500_000, nonce: nonce++,
   });
   const deployTxid = await broadcast(deployTx);
   console.log(`  Broadcast: ${deployTxid}`);
@@ -91,7 +99,7 @@ async function main() {
   const wlTx = await makeContractCall({
     contractAddress: DEPLOYER, contractName: "flashstack-stx-core",
     functionName: "add-approved-receiver", functionArgs: [Cl.principal(receiver)],
-    senderKey: pk, network, postConditionMode: PostConditionMode.Allow,
+    senderKey: pk, network, postConditionMode: PostConditionMode.Deny, // admin call, moves no assets
     anchorMode: 1, fee: 100_000, nonce: nonce++,
   });
   const wlTxid = await broadcast(wlTx);

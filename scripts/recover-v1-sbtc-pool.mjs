@@ -7,13 +7,14 @@
  * hardened v2 pool.
  *
  * Usage:
- *   DRY_RUN=1 DEPLOYER_MNEMONIC="24 words" node scripts/recover-v1-sbtc-pool.mjs   # preview
- *             DEPLOYER_MNEMONIC="24 words" node scripts/recover-v1-sbtc-pool.mjs   # broadcast
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # hidden input; never type it inline
+ *   node scripts/recover-v1-sbtc-pool.mjs                              # preview (default)
+ *   EXECUTE=true node scripts/recover-v1-sbtc-pool.mjs --yes-mainnet   # broadcast
  *
  * Env:
  *   DEPLOYER_MNEMONIC  required -- 24-word mnemonic of SPR9PQ (holds the v1 shares)
  *   SHARES             optional -- shares to withdraw (default: all shares held)
- *   DRY_RUN            set to "1" to preview without broadcasting
+ *   EXECUTE            "true" (plus --yes-mainnet) to broadcast; default is a preview
  */
 
 import {
@@ -24,9 +25,12 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, describeGate, assertSigner } from "./lib/safe-signer.mjs";
 
-const MNEMONIC = process.env.DEPLOYER_MNEMONIC;
-const DRY_RUN  = process.env.DRY_RUN === "1";
+const MNEMONIC = await loadMnemonic("DEPLOYER_MNEMONIC"); // SPR9PQ, holds the v1 shares
+const GATE     = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const DRY_RUN  = !GATE.broadcast;
+const SECURE   = "SPR9PQANV6XHSDNRAX2GNKCA5Z1KH61961KE0BYG"; // expected signer
 
 const POOL_ADDR = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
 const POOL_NAME = "flashstack-sbtc-pool"; // v1 (paused/deprecated)
@@ -35,10 +39,6 @@ const SBTC_ASSET = "sbtc-token";
 const API       = "https://api.mainnet.hiro.so";
 const EXPLORER  = "https://explorer.hiro.so/txid";
 
-if (!MNEMONIC) {
-  console.error("ERROR: set DEPLOYER_MNEMONIC to the SPR9PQ wallet's 24 words.");
-  process.exit(1);
-}
 const hex = (cv) => "0x" + serializeCV(cv);
 async function callRead(fn, args) {
   const r = await fetch(`${API}/v2/contracts/call-read/${POOL_ADDR}/${POOL_NAME}/${fn}`, {
@@ -73,6 +73,7 @@ async function main() {
   console.log("=======================================================");
   console.log("  FlashStack -- Recover v1 sBTC Pool" + (DRY_RUN ? "  [DRY RUN]" : ""));
   console.log("=======================================================");
+  console.log(`  Mode:           ${describeGate(GATE)}`);
   console.log(`  Signer:         ${signer}`);
   console.log(`  v1 pool:        ${POOL_ADDR}.${POOL_NAME}`);
   console.log(`  Your shares:    ${myShares}${process.env.SHARES ? ` (withdrawing ${shares})` : " (withdrawing all)"}`);
@@ -93,10 +94,11 @@ async function main() {
     console.log("  DRY RUN -- would call:");
     console.log(`    ${POOL_ADDR}.${POOL_NAME}::withdraw(u${shares})`);
     console.log(`    post-condition: pool sends >= ${minRecv} sats sBTC (deny mode)`);
-    console.log("\n  Re-run without DRY_RUN=1 to broadcast, then seed v2 with the recovered sats.");
+    console.log("\n  Re-run with EXECUTE=true --yes-mainnet to broadcast, then seed v2 with the recovered sats.");
     return;
   }
 
+  assertSigner(signer, SECURE); // throws: never broadcast from the wrong key
   console.log("  Broadcasting withdraw...");
   const tx = await makeContractCall({
     contractAddress:   POOL_ADDR,
