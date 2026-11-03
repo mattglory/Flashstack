@@ -28,9 +28,8 @@ import {
  *   I9 fee == max(1, floor(amount*bps/10000)): calculate-fee and the realised fee
  *   I10 final drain: every wallet can withdraw all of its shares
  *
- * Deliberately NOT asserted in the random runs: "a successful deposit mints
- * > 0 shares". These pools do not have pool-v3's zero-share guard; see the
- * it.fails repro at the bottom of this file.
+ * The zero-share deposit case (F-14) is covered by the targeted regression
+ * test at the bottom of this file rather than by the random runs.
  */
 
 type Kind = "good" | "under" | "over" | "bad" | "reDeposit" | "reWithdraw";
@@ -302,12 +301,13 @@ for (const P of POOLS) {
 // guard was never ported to flashstack-stx-pool-v3 / flashstack-sbtc-pool-v3.
 // After any donation that pushes (B+1) above amount*(S+V), a small deposit is
 // taken in full and credited nothing; the value accrues to existing holders.
-// `it.fails`: these pass while the bug exists and will go red once the guard
-// is added -- flip them to `it` then.
+// FIXED (F-14): both pools now carry pool-v3's guard. The regression test
+// requires the exact ERR-ZERO-AMOUNT rejection and no balance change, so a
+// different error can't make it pass.
 // -------------------------------------------------------------------------
 for (const P of POOLS) {
   describe(`finding: ${P.pool} zero-share deposit`, () => {
-    it.fails("a successful deposit always mints > 0 shares (violated: dust deposit after a donation)", () => {
+    it("a deposit that would mint 0 shares is rejected with ERR-ZERO-AMOUNT and takes nothing (F-14)", () => {
       const { deployer, wallets } = accounts();
       const [attacker, victim] = wallets;
       const pool = `${deployer}.${P.pool}`;
@@ -321,8 +321,10 @@ for (const P of POOLS) {
       const before = P.asset === "stx" ? stxBalance(pool) : ftBalance("sbtc-token", pool);
       const r = call(P.pool, "deposit", [Cl.uint(1)], victim);
       const after = P.asset === "stx" ? stxBalance(pool) : ftBalance("sbtc-token", pool);
-      // Today: ok u0, and the pool kept the victim's unit.
-      inv(!(r.ok && r.val === 0n && after === before + 1n), "deposit minted 0 shares but took the funds", { r, before, after });
+      // Before the F-14 fix this returned (ok u0) and the pool kept the unit.
+      const ERR_ZERO_AMOUNT = P.asset === "stx" ? 401n : 701n;
+      inv(!r.ok && r.code === ERR_ZERO_AMOUNT, "dust deposit must fail with ERR-ZERO-AMOUNT", { r });
+      inv(after === before, "a rejected deposit must not move funds", { before, after });
     });
   });
 }
