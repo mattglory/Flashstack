@@ -53,7 +53,8 @@
  * Usage:
  *   LAZER_TOKEN="..." node scripts/keeper-zest-liquidations.mjs                  -- single scan
  *   WATCH=true LAZER_TOKEN="..." node scripts/keeper-zest-liquidations.mjs       -- loop every INTERVAL_MS, same shape as monitor-alex-arb.mjs
- *   EXECUTE=true WATCH=true LAZER_TOKEN="..." KEEPER_MNEMONIC="..." node scripts/keeper-zest-liquidations.mjs
+ *   read -rs KEEPER_MNEMONIC && export KEEPER_MNEMONIC   -- hidden input; never type it inline
+ *   EXECUTE=true WATCH=true LAZER_TOKEN="..." node scripts/keeper-zest-liquidations.mjs --yes-mainnet
  *
  * Environment variables:
  *   LAZER_TOKEN         — required (same account used by the scanner, for sBTC/USDC feeds)
@@ -66,7 +67,7 @@
  *                         the receiver's own get-owner() before anything is broadcast.
  *   FEED_45_AVAILABLE   — "true" once the Lazer plan is upgraded past Demo (default: false,
  *                         mode 4 candidates are skipped, not attempted)
- *   EXECUTE             — "true" to broadcast real transactions (default: dry-run)
+ *   EXECUTE             — "true" plus --yes-mainnet to broadcast real transactions (default: dry-run)
  *   MAX_ACCOUNTS        — cap accounts scanned, same as scan-zest-positions.mjs
  *   HIRO_API_KEY        — optional, raises the Hiro rate limit
  */
@@ -77,6 +78,7 @@ const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
 import { PythLazerClient } from "@pythnetwork/pyth-lazer-sdk";
+import { loadMnemonic, broadcastGate, describeGate } from "./lib/safe-signer.mjs";
 
 import {
   ASSET_BY_ID,
@@ -94,8 +96,9 @@ const API      = "https://api.hiro.so";
 const EXPLORER = "https://explorer.hiro.so/txid";
 const network  = STACKS_MAINNET;
 
-const MNEMONIC          = process.env.KEEPER_MNEMONIC;
-const EXECUTE           = process.env.EXECUTE === "true";
+const GATE              = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const EXECUTE           = GATE.broadcast;
+const MNEMONIC          = EXECUTE ? await loadMnemonic("KEEPER_MNEMONIC") : undefined; // must own the receiver contract
 const LAZER_TOKEN       = process.env.LAZER_TOKEN;
 const MAX_ACCOUNTS      = process.env.MAX_ACCOUNTS;
 const HIRO_API_KEY      = process.env.HIRO_API_KEY;
@@ -103,10 +106,6 @@ const WATCH             = process.env.WATCH === "true";
 const INTERVAL_MS       = parseInt(process.env.INTERVAL_MS ?? "300000"); // 5 min default -- a full scan is 1,334 accounts, no reason to hammer Hiro faster
 const FEED_45_AVAILABLE = process.env.FEED_45_AVAILABLE === "true";
 
-if (EXECUTE && !MNEMONIC) {
-  console.error("ERROR: EXECUTE=true requires KEEPER_MNEMONIC (must own the receiver contract)");
-  process.exit(1);
-}
 
 // Same deployer as every other FlashStack-controlled receiver this session.
 const DEPLOYER       = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
@@ -228,6 +227,7 @@ function fetchLazerEvmBuffer(feedIds) {
 
 // ── Broadcast one signed tx, return its txid (same helper as the ALEX/Bitflow monitors) ──
 async function broadcastOne(tx) {
+  if (!GATE.broadcast) throw new Error("broadcastOne called without the broadcast gate open"); // unreachable: execute path is gated
   const raw  = tx.serialize();
   const body = typeof raw === "string" ? Buffer.from(raw.replace(/^0x/, ""), "hex") : raw;
   const res  = await fetch(`${API}/v2/transactions`, {
@@ -363,6 +363,7 @@ async function executeLiquidation(pk, signer, nonce, candidate, decision) {
   const flashTx = await makeContractCall({
     contractAddress: DEPLOYER, contractName: coreName, functionName: "flash-loan",
     functionArgs: [Cl.uint(loanAmount), Cl.contractPrincipal(DEPLOYER, RECEIVER_NAME)],
+    // safe-signer: allow-mode flash loan moves core funds through the receiver; zeroSendPc still pins the signer's wallet
     senderKey: pk, network, postConditionMode: PostConditionMode.Allow, postConditions: [zeroSendPc], anchorMode: 1, nonce, fee: FEE_FLASH,
   });
   let txid = null;
@@ -469,7 +470,7 @@ async function scan() {
   if (toExecute.length === 0) return 0;
 
   if (!EXECUTE) {
-    console.log(`\n  (dry-run -- set EXECUTE=true KEEPER_MNEMONIC="..." to trigger)`);
+    console.log(`\n  (dry-run -- ${GATE.reason})`);
     return toExecute.length;
   }
 
@@ -501,7 +502,7 @@ async function main() {
   console.log("==========================================================");
   console.log("  FlashStack — Zest Liquidation Keeper");
   console.log("==========================================================");
-  console.log(`  Mode:     ${EXECUTE ? "LIVE EXECUTION" : "dry-run (mapping only)"}`);
+  console.log(`  Mode:     ${EXECUTE ? "LIVE EXECUTION" : "dry-run (mapping only)"} -- ${describeGate(GATE)}`);
   console.log(`  Watch:    ${WATCH ? `looping every ${INTERVAL_MS / 1000}s` : "single scan"}`);
   console.log(`  Receiver: ${RECEIVER}  (NOT YET DEPLOYED as of this writing -- see PR #98)`);
 

@@ -6,12 +6,13 @@
  * on flashstack-yield-vault to capture the yield for all depositors.
  *
  * Usage:
- *   node scripts/monitor-vault-compound.mjs
- *   EXECUTE=true LOAN_STX=50 DEPLOYER_MNEMONIC="..." node scripts/monitor-vault-compound.mjs
+ *   node scripts/monitor-vault-compound.mjs                     # monitor only (default)
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # hidden input; never type it inline
+ *   EXECUTE=true LOAN_STX=50 node scripts/monitor-vault-compound.mjs --yes-mainnet
  *
  * Environment variables:
  *   DEPLOYER_MNEMONIC  -- 24-word mnemonic (required for EXECUTE=true)
- *   EXECUTE            -- "true" to auto-execute when profitable (default: dry-run)
+ *   EXECUTE            -- "true" plus --yes-mainnet to auto-execute when profitable (default: dry-run)
  *   LOAN_STX           -- loan size in whole STX passed to compound() (default: 50)
  *   INTERVAL_MS        -- scan interval in ms (default: 30000)
  *   MIN_PROFIT_MICRO   -- minimum net profit in microSTX to trigger (default: 1000)
@@ -29,9 +30,11 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, describeGate } from "./lib/safe-signer.mjs";
 
-const MNEMONIC     = process.env.DEPLOYER_MNEMONIC;
-const EXECUTE      = process.env.EXECUTE === "true";
+const GATE         = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const EXECUTE      = GATE.broadcast;
+const MNEMONIC     = EXECUTE ? await loadMnemonic("DEPLOYER_MNEMONIC") : undefined; // only needed to sign
 const INTERVAL     = parseInt(process.env.INTERVAL_MS    ?? "30000");
 const LOAN_MICRO   = parseInt(process.env.LOAN_STX       ?? "50") * 1_000_000;
 const MIN_PROFIT   = parseInt(process.env.MIN_PROFIT_MICRO ?? "1000");
@@ -47,10 +50,6 @@ const BITFLOW_POOL = "stableswap-stx-ststx-v-1-2";
 const STSTX        = `SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststx-token`;
 const BITFLOW_LP   = `${BITFLOW_ADDR}.stx-ststx-lp-token-v-1-2`;
 
-if (EXECUTE && !MNEMONIC) {
-  console.error("ERROR: Set DEPLOYER_MNEMONIC to execute transactions");
-  process.exit(1);
-}
 
 function hiroFetch(url, opts = {}) {
   if (HIRO_API_KEY && typeof url === "string" && url.includes("hiro.so")) {
@@ -170,12 +169,14 @@ async function executeCompound(loanMicro) {
     ],
     senderKey:         pk,
     network,
+    // safe-signer: allow-mode flash loan moves STX core->vault->Bitflow->core
     postConditionMode: PostConditionMode.Allow,
     anchorMode:        1,
     nonce,
     fee:               500_000,  // 0.5 STX -- covers flash loan + two Bitflow swaps
   });
 
+  if (!GATE.broadcast) throw new Error("executeCompound called without the broadcast gate open"); // unreachable: gated by EXECUTE
   const raw  = tx.serialize();
   const body = typeof raw === "string" ? Buffer.from(raw.replace(/^0x/, ""), "hex") : raw;
   const res  = await fetch(`${API}/v2/transactions`, {
@@ -241,7 +242,7 @@ async function scan() {
     if (EXECUTE) {
       await executeCompound(arb.loanMicro);
     } else {
-      console.log(`  (dry-run -- set EXECUTE=true DEPLOYER_MNEMONIC="..." to execute)`);
+      console.log(`  (dry-run -- ${GATE.reason})`);
     }
   } else {
     const deficit = -profitSTX;
@@ -254,7 +255,7 @@ async function main() {
   console.log("================================================");
   console.log("  FlashStack Yield Vault -- Compound Monitor");
   console.log("================================================");
-  console.log(`  Mode:        ${EXECUTE ? "LIVE EXECUTION" : "dry-run (monitoring only)"}`);
+  console.log(`  Mode:        ${EXECUTE ? "LIVE EXECUTION" : "dry-run (monitoring only)"} -- ${describeGate(GATE)}`);
   console.log(`  Vault:       ${DEPLOYER}.flashstack-yield-vault-v5`);
   console.log(`  Loan size:   ${LOAN_MICRO / 1e6} STX per compound cycle`);
   console.log(`  Min profit:  ${MIN_PROFIT} microSTX (${MIN_PROFIT / 1e6} STX)`);
