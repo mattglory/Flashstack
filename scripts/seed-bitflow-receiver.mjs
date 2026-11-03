@@ -5,12 +5,13 @@
  * OWN balance inside the callback, so it must hold STX before the first loan.
  *
  * Usage:
- *   node scripts/seed-bitflow-receiver.mjs            # reads ./mbegu2 then ./mbegu
- *   MAINNET_MNEMONIC="w1 ... w24" node scripts/seed-bitflow-receiver.mjs
+ *   read -rs MAINNET_MNEMONIC && export MAINNET_MNEMONIC   # hidden input; never type it inline
+ *   node scripts/seed-bitflow-receiver.mjs                              # dry run (default)
+ *   EXECUTE=true node scripts/seed-bitflow-receiver.mjs --yes-mainnet   # broadcast
  *
  * Optional env:
  *   SEED_USTX=1000000   Seed size in microSTX (default 1 STX).
- *   DRY_RUN=1           Build + print, do NOT broadcast.
+ *   EXECUTE=true        Broadcast (mainnet also needs --yes-mainnet). Default: dry run.
  *   TX_FEE_USTX=10000   Tx fee (default 10_000 microSTX = 0.01 STX).
  */
 import { makeSTXTokenTransfer, privateKeyToAddress } from "@stacks/transactions";
@@ -18,22 +19,17 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
-import { readFileSync, existsSync } from "fs";
+import { loadMnemonic, broadcastGate, describeGate } from "./lib/safe-signer.mjs";
 
 const RECV_NAME = "hk-stx-bitflow-receiver-v1";
 const API       = "https://api.hiro.so";
 const EXPLORER  = "https://explorer.hiro.so/txid";
 const SEED      = BigInt(process.env.SEED_USTX ?? 1_000_000);
 const TX_FEE    = Number(process.env.TX_FEE_USTX ?? 10_000);
-const DRY_RUN   = process.env.DRY_RUN === "1";
+const GATE      = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const DRY_RUN   = !GATE.broadcast;
 const network   = STACKS_MAINNET;
 
-function loadMnemonic() {
-  if (process.env.MAINNET_MNEMONIC) return process.env.MAINNET_MNEMONIC.trim();
-  if (existsSync("mbegu2")) return readFileSync("mbegu2", "utf8").trim();
-  if (existsSync("mbegu"))  return readFileSync("mbegu", "utf8").trim();
-  throw new Error("Set MAINNET_MNEMONIC env var, or place 24-word mnemonic in ./mbegu2");
-}
 async function getNonce(addr) {
   return (await (await fetch(`${API}/v2/accounts/${addr}?proof=0`)).json()).nonce;
 }
@@ -63,7 +59,7 @@ async function waitForConfirm(txid, label) {
 }
 
 async function main() {
-  const mnemonic = loadMnemonic();
+  const mnemonic = await loadMnemonic("MAINNET_MNEMONIC");
   const wallet   = await generateWallet({ secretKey: mnemonic, password: "" });
   const pk       = wallet.accounts[0].stxPrivateKey;
   const sender   = privateKeyToAddress(pk, "mainnet");
@@ -80,14 +76,14 @@ async function main() {
   console.log(`  Recipient: ${recipient}`);
   console.log(`  Seed:      ${SEED} microSTX (${Number(SEED)/1e6} STX)`);
   console.log(`  Tx fee:    ${TX_FEE} microSTX`);
-  console.log(`  Mode:      ${DRY_RUN ? "DRY RUN (no broadcast)" : "LIVE BROADCAST"}\n`);
+  console.log(`  Mode:      ${describeGate(GATE)}\n`);
 
   const tx = await makeSTXTokenTransfer({
     recipient, amount: SEED, senderKey: pk, network, fee: TX_FEE, nonce,
     memo: "seed hk-stx-bitflow-receiver-v1",
   });
 
-  if (DRY_RUN) { console.log("  DRY_RUN=1 -- not broadcasting. Tx built OK."); return; }
+  if (DRY_RUN) { console.log("  Dry run (default) -- not broadcasting. Tx built OK."); return; }
 
   const txid = await broadcast(tx);
   console.log(`  Broadcast: ${txid}`);

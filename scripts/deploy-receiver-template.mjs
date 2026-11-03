@@ -2,16 +2,21 @@
  * Deploy your FlashStack STX receiver to Stacks mainnet.
  *
  * Usage (Mac/Linux):
- *   RECEIVER_NAME=yourname-flash-receiver-v1 DEPLOYER_MNEMONIC="word1 ... word24" node scripts/deploy-receiver-template.mjs
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # hidden input; never type it inline
+ *   RECEIVER_NAME=yourname-flash-receiver-v1 node scripts/deploy-receiver-template.mjs
  *
  * Usage (Windows PowerShell):
- *   $env:RECEIVER_NAME="yourname-flash-receiver-v1"; $env:DEPLOYER_MNEMONIC="word1 ... word24"; node scripts/deploy-receiver-template.mjs
+ *   $env:DEPLOYER_MNEMONIC = Read-Host -MaskInput   # hidden input; never type it inline
+ *   $env:RECEIVER_NAME="yourname-flash-receiver-v1"; node scripts/deploy-receiver-template.mjs
  *
  * Environment variables:
  *   DEPLOYER_MNEMONIC  required -- your wallet's 24 words (never share these)
  *   RECEIVER_NAME      contract name to deploy as (default: my-flash-receiver-v1)
  *                      use lowercase letters, numbers and dashes only
  *   CONTRACT_PATH      Clarity file to deploy (default: contracts/templates/stx-receiver-template.clar)
+ *
+ * Dry run by default (builds and signs locally, sends nothing). To broadcast:
+ *   EXECUTE=true node scripts/deploy-receiver-template.mjs --yes-mainnet
  */
 
 import { makeContractDeploy, PostConditionMode, ClarityVersion, privateKeyToAddress } from "@stacks/transactions";
@@ -19,20 +24,16 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, sendOrDryRun } from "./lib/safe-signer.mjs";
 import { readFileSync } from "fs";
 
-const MNEMONIC = process.env.DEPLOYER_MNEMONIC;
+const MNEMONIC = await loadMnemonic("DEPLOYER_MNEMONIC");
+const GATE     = broadcastGate({ network: "mainnet" }); // mainnet-only script
 const NAME     = process.env.RECEIVER_NAME  ?? "my-flash-receiver-v1";
 const PATH     = process.env.CONTRACT_PATH  ?? "contracts/templates/stx-receiver-template.clar";
 const API      = "https://api.hiro.so";
 const EXPLORER = "https://explorer.hiro.so/txid";
 
-if (!MNEMONIC) {
-  console.error("ERROR: Set DEPLOYER_MNEMONIC to your wallet's 24 words.");
-  console.error('  Mac/Linux:  DEPLOYER_MNEMONIC="word1 ... word24" node scripts/deploy-receiver-template.mjs');
-  console.error('  PowerShell: $env:DEPLOYER_MNEMONIC="word1 ... word24"; node scripts/deploy-receiver-template.mjs');
-  process.exit(1);
-}
 if (!/^[a-z0-9][a-z0-9-]*$/.test(NAME)) {
   console.error(`ERROR: RECEIVER_NAME "${NAME}" is invalid. Use lowercase letters, numbers and dashes.`);
   process.exit(1);
@@ -68,11 +69,17 @@ async function main() {
     senderKey:         pk,
     network:           STACKS_MAINNET,
     clarityVersion:    ClarityVersion.Clarity3,
-    postConditionMode: PostConditionMode.Allow,
+    postConditionMode: PostConditionMode.Deny, // deploy: no top-level asset movement
     anchorMode:        1,
     nonce,
     fee:               500_000,
   });
+
+  if (!GATE.broadcast) {
+    await sendOrDryRun(GATE, tx, "deploy receiver");
+    console.log("  Dry run (default). Re-run with EXECUTE=true --yes-mainnet to broadcast.");
+    return;
+  }
 
   const raw  = tx.serialize();
   const body = typeof raw === "string" ? Buffer.from(raw.replace(/^0x/, ""), "hex") : raw;

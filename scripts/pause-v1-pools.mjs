@@ -9,8 +9,9 @@
  * DRY-RUN BY DEFAULT. To broadcast, pass BOTH:  EXECUTE=true  and  --yes-mainnet
  *
  * Usage:
- *   DEPLOYER_MNEMONIC="…SPR9PQ… 24 words…" node scripts/pause-v1-pools.mjs                 # dry run
- *   DEPLOYER_MNEMONIC="…" EXECUTE=true node scripts/pause-v1-pools.mjs --yes-mainnet       # live
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # hidden input; never type it inline
+ *   node scripts/pause-v1-pools.mjs                 # dry run
+ *   EXECUTE=true node scripts/pause-v1-pools.mjs --yes-mainnet       # live
  *
  * Must be signed by the pools' admin (SPR9PQ… after the 2026-06-12 rotation);
  * otherwise the calls fail with ERR-NOT-ADMIN.
@@ -21,6 +22,7 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, assertSigner } from "./lib/safe-signer.mjs";
 
 const API      = "https://api.hiro.so";
 const EXPLORER = "https://explorer.hiro.so/txid";
@@ -32,14 +34,11 @@ const POOLS = [
   { address: V1, name: "flashstack-sbtc-pool" },
 ];
 
-const MNEMONIC = process.env.DEPLOYER_MNEMONIC;
-const EXECUTE  = process.env.EXECUTE === "true" && process.argv.includes("--yes-mainnet");
+const MNEMONIC = await loadMnemonic("DEPLOYER_MNEMONIC");
+const GATE     = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const EXECUTE  = GATE.broadcast;
 const FEE      = BigInt(process.env.FEE ?? "50000"); // 0.05 STX default; override with FEE=…
 
-if (!MNEMONIC) {
-  console.error("ERROR: set DEPLOYER_MNEMONIC (the pool admin wallet, SPR9PQ…)");
-  process.exit(1);
-}
 
 async function main() {
   const wallet = await generateWallet({ secretKey: MNEMONIC, password: "" });
@@ -62,7 +61,7 @@ async function main() {
   if (sender !== ADMIN) {
     console.error(`  ⚠ WARNING: signer is not the expected admin (${ADMIN}).`);
     console.error(`    set-paused will fail with ERR-NOT-ADMIN unless this wallet is the pool admin.`);
-    if (EXECUTE) { console.error("    Aborting live run — load the admin mnemonic."); process.exit(1); }
+    if (EXECUTE) assertSigner(sender, ADMIN); // throws: never broadcast from the wrong key
   }
 
   for (const p of POOLS) {

@@ -27,10 +27,17 @@
  * No transfer path (nothing to rotate, noted for completeness):
  *   - flashstack-pool-oracle, bitflow-arb-receiver, test receivers
  *
- * Usage:
- *   STEP=1 NEW_OWNER=SP... OLD_MNEMONIC="24 words of exposed wallet" node scripts/rotate-owner.mjs
- *   STEP=2 NEW_OWNER=SP... NEW_MNEMONIC="24 words of fresh wallet"   node scripts/rotate-owner.mjs
- *   STEP=3 NEW_OWNER=SP... OLD_MNEMONIC="24 words of exposed wallet" node scripts/rotate-owner.mjs
+ * Usage (load each mnemonic without echo; never type it on the command line):
+ *   export NEW_OWNER=SP...
+ *   read -rs OLD_MNEMONIC && export OLD_MNEMONIC   # exposed wallet, steps 1 and 3
+ *   read -rs NEW_MNEMONIC && export NEW_MNEMONIC   # fresh wallet, step 2
+ *   STEP=1 node scripts/rotate-owner.mjs                    # dry run (default)
+ *   STEP=1 EXECUTE=true node scripts/rotate-owner.mjs --yes-mainnet
+ *   STEP=2 EXECUTE=true node scripts/rotate-owner.mjs --yes-mainnet
+ *   STEP=3 EXECUTE=true node scripts/rotate-owner.mjs --yes-mainnet
+ *
+ * A dry run builds and signs each tx locally and prints its txid; nothing is
+ * sent, so later steps' on-chain checks will (correctly) fail in a dry run.
  */
 
 import {
@@ -42,6 +49,7 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, describeGate, assertSigner, sendOrDryRun } from "./lib/safe-signer.mjs";
 
 const STEP      = process.env.STEP;
 const NEW_OWNER = process.env.NEW_OWNER;
@@ -50,6 +58,7 @@ const OLD_DEPLOYER = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
 const API          = "https://api.hiro.so";
 const EXPLORER     = "https://explorer.hiro.so/txid";
 const network      = STACKS_MAINNET;
+const GATE         = broadcastGate({ network: "mainnet" }); // mainnet-only script
 const TX_FEE       = 100_000;          // 0.1 STX per tx
 const GAS_FUNDING  = 1_000_000;        // 1 STX sent to new wallet in step 1
 
@@ -94,6 +103,7 @@ async function readDataVarPrincipal(contractName, varName) {
 }
 
 async function broadcast(tx, label) {
+  if (!GATE.broadcast) return sendOrDryRun(GATE, tx, label); // prints the summary, returns null
   const raw  = tx.serialize();
   const body = typeof raw === "string" ? Buffer.from(raw.replace(/^0x/, ""), "hex") : raw;
   const res  = await fetch(`${API}/v2/transactions`, {
@@ -106,6 +116,7 @@ async function broadcast(tx, label) {
 }
 
 async function waitForConfirm(txid, label) {
+  if (!txid) return; // dry run: nothing was sent
   process.stdout.write(`  Waiting for ${label}`);
   for (let i = 0; i < 60; i++) {
     await new Promise(r => setTimeout(r, 10_000));
@@ -126,12 +137,15 @@ async function getAccount(addr) {
   return { nonce: acct.nonce, balance: parseInt(acct.balance, 16) };
 }
 
-async function signerFromMnemonic(mnemonic, expectedAddr, label) {
+async function signerFromMnemonic(envName, expectedAddr, label) {
+  const mnemonic = await loadMnemonic(envName);
   const wallet = await generateWallet({ secretKey: mnemonic, password: "" });
   const pk     = wallet.accounts[0].stxPrivateKey;
   const addr   = getAddressFromPrivateKey(pk, "mainnet");
-  if (addr !== expectedAddr) {
-    console.error(`ERROR: ${label} mnemonic derives ${addr}, expected ${expectedAddr}.`);
+  try {
+    assertSigner(addr, expectedAddr);
+  } catch (e) {
+    console.error(`ERROR: ${label} mnemonic: ${e.message}`);
     console.error("Wrong mnemonic, or the wallet uses a non-default derivation path. Aborting -- nothing was broadcast.");
     process.exit(1);
   }
@@ -142,7 +156,7 @@ async function contractCall(pk, contractName, functionName, args, nonce) {
   const tx = await makeContractCall({
     contractAddress: OLD_DEPLOYER, contractName, functionName,
     functionArgs: args, senderKey: pk, network,
-    postConditionMode: PostConditionMode.Allow,
+    postConditionMode: PostConditionMode.Deny, // propose/accept/transfer-admin/set-*: admin calls, move no assets
     anchorMode: 1, nonce, fee: TX_FEE,
   });
   const txid = await broadcast(tx, `${contractName}.${functionName}`);
@@ -168,7 +182,7 @@ async function readOwner(contractName) {
 // ── Steps ─────────────────────────────────────────────────────────────────────
 
 async function step1() {
-  const pk = await signerFromMnemonic(process.env.OLD_MNEMONIC, OLD_DEPLOYER, "OLD");
+  const pk = await signerFromMnemonic("OLD_MNEMONIC", OLD_DEPLOYER, "OLD");
   let { nonce, balance } = await getAccount(OLD_DEPLOYER);
   console.log(`  Old wallet balance: ${(balance / 1e6).toFixed(3)} STX, nonce ${nonce}\n`);
 
@@ -196,11 +210,12 @@ async function step1() {
   console.log("  STEP 1 COMPLETE");
   console.log("=======================================================");
   console.log("  Next: run step 2 signed by the NEW wallet:");
-  console.log(`    STEP=2 NEW_OWNER=${NEW_OWNER} NEW_MNEMONIC="..." node scripts/rotate-owner.mjs`);
+  console.log("    read -rs NEW_MNEMONIC && export NEW_MNEMONIC");
+  console.log(`    STEP=2 NEW_OWNER=${NEW_OWNER} EXECUTE=true node scripts/rotate-owner.mjs --yes-mainnet`);
 }
 
 async function step2() {
-  const pk = await signerFromMnemonic(process.env.NEW_MNEMONIC, NEW_OWNER, "NEW");
+  const pk = await signerFromMnemonic("NEW_MNEMONIC", NEW_OWNER, "NEW");
   let { nonce, balance } = await getAccount(NEW_OWNER);
   console.log(`  New wallet balance: ${(balance / 1e6).toFixed(3)} STX, nonce ${nonce}\n`);
 
@@ -219,11 +234,12 @@ async function step2() {
   console.log("  STEP 2 COMPLETE -- new wallet proven, two-step contracts transferred");
   console.log("=======================================================");
   console.log("  Next: run step 3 signed by the OLD wallet:");
-  console.log(`    STEP=3 NEW_OWNER=${NEW_OWNER} OLD_MNEMONIC="..." node scripts/rotate-owner.mjs`);
+  console.log("    read -rs OLD_MNEMONIC && export OLD_MNEMONIC");
+  console.log(`    STEP=3 NEW_OWNER=${NEW_OWNER} EXECUTE=true node scripts/rotate-owner.mjs --yes-mainnet`);
 }
 
 async function step3() {
-  const pk = await signerFromMnemonic(process.env.OLD_MNEMONIC, OLD_DEPLOYER, "OLD");
+  const pk = await signerFromMnemonic("OLD_MNEMONIC", OLD_DEPLOYER, "OLD");
 
   // Refuse to run the irreversible transfers until step 2 is verified on-chain
   console.log("Step 3a -- Verifying step 2 completed on-chain...");
@@ -296,7 +312,7 @@ async function main() {
     console.error("ERROR: NEW_OWNER is not set. The command line may have been mangled by quoting --");
     console.error("export the variables first instead:");
     console.error("  export NEW_OWNER=SP...");
-    console.error("  read -s OLD_MNEMONIC   (paste the 24 words, press enter -- input stays hidden)");
+    console.error("  read -rs OLD_MNEMONIC   (paste the 24 words, press enter -- input stays hidden)");
     console.error("  export OLD_MNEMONIC");
     console.error("  STEP=1 node scripts/rotate-owner.mjs");
     process.exit(1);
@@ -312,15 +328,12 @@ async function main() {
     console.error("ERROR: NEW_OWNER is the old deployer. Rotation requires a fresh wallet.");
     process.exit(1);
   }
-  if ((STEP === "1" || STEP === "3") && !process.env.OLD_MNEMONIC) {
-    console.error("ERROR: STEP " + STEP + " requires OLD_MNEMONIC"); process.exit(1);
-  }
-  if (STEP === "2" && !process.env.NEW_MNEMONIC) {
-    console.error("ERROR: STEP 2 requires NEW_MNEMONIC"); process.exit(1);
-  }
+  // OLD_MNEMONIC (steps 1, 3) / NEW_MNEMONIC (step 2) are loaded by signerFromMnemonic:
+  // env var, else a hidden TTY prompt, else a clear error.
 
   console.log(`  Old deployer: ${OLD_DEPLOYER}`);
-  console.log(`  New owner:    ${NEW_OWNER}\n`);
+  console.log(`  New owner:    ${NEW_OWNER}`);
+  console.log(`  Mode:         ${describeGate(GATE)}\n`);
 
   if (STEP === "1") await step1();
   if (STEP === "2") await step2();

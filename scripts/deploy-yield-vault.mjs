@@ -2,7 +2,9 @@
  * Deploy flashstack-yield-vault-v5 and whitelist it on flashstack-stx-core
  *
  * Usage:
- *   DEPLOYER_MNEMONIC="your 24-word mnemonic" node scripts/deploy-yield-vault.mjs
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # hidden input; never type it inline
+ *   node scripts/deploy-yield-vault.mjs                              # dry run (default)
+ *   EXECUTE=true node scripts/deploy-yield-vault.mjs --yes-mainnet   # broadcast
  *
  * What this does:
  *   1. Deploys flashstack-yield-vault-v5.clar to Stacks mainnet
@@ -26,27 +28,28 @@ import {
   PostConditionMode,
   ClarityVersion,
   Cl,
+  privateKeyToAddress,
 } from "@stacks/transactions";
 import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, describeGate, assertSigner, sendOrDryRun } from "./lib/safe-signer.mjs";
 import { readFileSync } from "fs";
 
-const MNEMONIC = process.env.DEPLOYER_MNEMONIC;
+const MNEMONIC = await loadMnemonic("DEPLOYER_MNEMONIC");
+const GATE     = broadcastGate({ network: "mainnet" }); // mainnet-only script
 const DEPLOYER = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
 const API      = "https://api.hiro.so";
 const EXPLORER = "https://explorer.hiro.so";
 const network  = STACKS_MAINNET;
 
-if (!MNEMONIC) {
-  console.error("ERROR: Set DEPLOYER_MNEMONIC");
-  process.exit(1);
-}
 
 async function getPrivateKey() {
   const wallet = await generateWallet({ secretKey: MNEMONIC, password: "" });
-  return wallet.accounts[0].stxPrivateKey;
+  const pk = wallet.accounts[0].stxPrivateKey;
+  assertSigner(privateKeyToAddress(pk, "mainnet"), DEPLOYER); // nonce is read for DEPLOYER
+  return pk;
 }
 
 async function getNonce() {
@@ -56,6 +59,7 @@ async function getNonce() {
 }
 
 async function broadcast(tx, label) {
+  if (!GATE.broadcast) return sendOrDryRun(GATE, tx, label); // prints the summary, returns null
   const raw  = tx.serialize();
   const body = typeof raw === "string" ? Buffer.from(raw.replace(/^0x/, ""), "hex") : raw;
   const res  = await fetch(`${API}/v2/transactions`, {
@@ -74,6 +78,7 @@ async function broadcast(tx, label) {
 }
 
 async function waitForConfirm(txid, label) {
+  if (!txid) return true; // dry run: nothing was sent
   process.stdout.write(`  Waiting for ${label}`);
   for (let i = 0; i < 60; i++) {
     await new Promise(r => setTimeout(r, 10_000));
@@ -102,7 +107,8 @@ async function main() {
   console.log("====================================");
   console.log(`Deployer: ${DEPLOYER}`);
   console.log(`Balance:  ${bal.toFixed(3)} STX`);
-  console.log(`Nonce:    ${nonce}\n`);
+  console.log(`Nonce:    ${nonce}`);
+  console.log(`Mode:     ${describeGate(GATE)}\n`);
 
   if (bal < 3) {
     console.error("Need at least 3 STX (deploy fee ~2.5 STX + whitelist ~0.3 STX)");
@@ -119,7 +125,7 @@ async function main() {
     senderKey:         pk,
     network,
     clarityVersion:    ClarityVersion.Clarity3,
-    postConditionMode: PostConditionMode.Allow,
+    postConditionMode: PostConditionMode.Deny, // deploy: contract has no top-level asset movement
     anchorMode:        1,
     nonce:             nonce++,
     fee:               2_500_000,
@@ -146,7 +152,7 @@ async function main() {
     functionArgs:      [Cl.principal(`${DEPLOYER}.flashstack-yield-vault-v5`)],
     senderKey:         pk,
     network,
-    postConditionMode: PostConditionMode.Allow,
+    postConditionMode: PostConditionMode.Deny, // admin call, moves no assets
     anchorMode:        1,
     nonce:             nonce++,
     fee:               300_000,

@@ -379,7 +379,10 @@ Whitelisting is typically processed the same day. There is no fee.
 # Fund your testnet address first:
 # https://explorer.hiro.so/sandbox/faucet?chain=testnet
 
-TESTNET_MNEMONIC="word1 ... word24" node scripts/deploy-testnet.mjs
+# Load the key without echo; never type it on the command line (shell history).
+read -rs TESTNET_MNEMONIC && export TESTNET_MNEMONIC
+node scripts/deploy-testnet.mjs                 # dry run: signs and prints the first tx, sends nothing
+EXECUTE=true node scripts/deploy-testnet.mjs    # broadcast
 ```
 
 This deploys all 5 contracts (trait, core, pool, oracle, test receiver), whitelists the receiver, seeds it, funds the reserve, and executes a flash loan — producing testnet txids as verification evidence.
