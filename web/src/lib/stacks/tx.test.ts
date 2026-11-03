@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LP_POOLS } from "./config";
+import { LP_POOLS, STX_RECEIVER_CONTRACTS, SBTC_RECEIVER_CONTRACTS } from "./config";
 import {
   assertApprovedReceiver,
   assertTxAllowed,
@@ -85,5 +85,19 @@ describe("tx guard", () => {
     expect(assertApprovedReceiver("sbtc", SBTC_RECEIVER)).toBe(SBTC_RECEIVER);
     expect(() => assertApprovedReceiver("stx", SBTC_RECEIVER)).toThrow(/unlisted receiver/);
     expect(() => assertApprovedReceiver("sbtc", `${CORE_DEPLOYER}.evil-receiver`)).toThrow(/unlisted receiver/);
+  });
+});
+
+// Deny mode is only correct because every listed receiver moves no asset other
+// than the loan and its repayment. A strategy receiver (DEX swaps, liquidations)
+// moves other assets, and Deny mode would abort every loan through it. Adding one
+// requires either declaring its movements or switching that receiver to Allow
+// mode while keeping the user-side zero-send conditions. This test forces that
+// decision instead of letting it surface as user-facing aborts.
+describe("deny-mode precondition", () => {
+  it("only repay-only test receivers are listed", () => {
+    for (const r of [...STX_RECEIVER_CONTRACTS, ...SBTC_RECEIVER_CONTRACTS]) {
+      expect(r.name, `${r.name}: see the comment above before listing a strategy receiver`).toMatch(/^(stx|sbtc)-test-receiver$/);
+    }
   });
 });
