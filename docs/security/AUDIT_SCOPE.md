@@ -24,14 +24,14 @@ is meant to happen **before** any TVL.
 | **1 — primary** | `contracts/flashstack-v3-receiver-trait.clar` | 22 | 3 / 3.0 | Not deployed |
 | **2a — cores** | `flashstack-stx-core-v2.clar` | 230 | 3 / 3.0 | Staged on testnet, see below |
 | **2a — cores** | `flashstack-sbtc-core-v2.clar` | 224 | 3 / 3.0 | Not deployed |
-| **2b — pools** | `flashstack-stx-pool-v3.clar` | 337 | 3 / 3.0 | Not deployed |
-| **2b — pools** | `flashstack-sbtc-pool-v3.clar` | 376 | 3 / 3.0 | Not deployed |
+| **2b — pools** | `flashstack-stx-pool-v3.clar` | 341 | 3 / 3.0 | Not deployed |
+| **2b — pools** | `flashstack-sbtc-pool-v3.clar` | 380 | 3 / 3.0 | Not deployed |
 
 ¹ Physical lines (`wc -l`), comments and blank lines included. Tier 1 is **508** (grew from
 505: CR-1 lowered `MAX-DECIMALS` from `u24` to `u8`, three comment lines explaining why).
 Tier 2
-adds **1,167** (grew from 1,096 since this packet's first pass — see below): **454** in the
-cores (reserve model, no LP shares) and **713** in the pools (LP shares). Please quote Tier 1
+adds **1,175** (grew from 1,096 since this packet's first pass — see below): **454** in the
+cores (reserve model, no LP shares) and **721** in the pools (LP shares). Please quote Tier 1
 alone and Tier 1 + 2, pricing 2a and 2b separately if you can.
 
 **Why the two pools grew.** Both now carry a per-asset reentrancy lock
@@ -44,7 +44,7 @@ capital via deposit-reentrancy during a flash-loan callback, with the dormant li
 confirmed never having had a receiver approved (`FINDINGS_REGISTER.md`, `F-9`). The v3 pools'
 guard is proven by a dedicated regression suite; not relying on "it probably also protects
 against F-9" without a test for it. `flashstack-sbtc-pool-v3` grew a further 8 lines
-(368 to 376, 2026-10-27, `F-11`): its `get-share-price` and
+(368 to 376, 2026-10-27, `F-11`; both pools then grew 4 lines, 2026-11-03, `F-14`: the zero-share deposit guard from `flashstack-pool-v3`): its `get-share-price` and
 `get-collateral-snapshot.share-price` now scale by `PRICE-PRECISION` (1e16) instead of
 `SHARE-PRECISION` (1e8), so the price reads `1e8` at launch and resolves fee accrual. Share
 mint/burn math is unchanged.
