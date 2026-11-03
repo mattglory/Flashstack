@@ -11,6 +11,7 @@ import {
 } from "@/lib/stacks/config";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { CoreStatusBadge, ReceiverNotApproved, NoApprovedReceivers } from "./ReceiverStatus";
+import { parseAmount } from "@/lib/utils/amount";
 
 const FEE_BP = 5; // 0.05%
 const MAX_LOAN_SATS = 10_000_000; // 0.1 BTC (10M sats)
@@ -34,7 +35,9 @@ export function SbtcFlashLoanForm() {
   const [receiver, setReceiver] = useState(SBTC_RECEIVER_CONTRACTS[0].name);
 
   // amount is in BTC (e.g. "0.0001"), convert to sats
-  const amountSats = amount ? Math.floor(parseFloat(amount) * 1e8) : 0;
+  const parsedAmount = amount ? parseAmount(amount, 8) : null;
+  const invalidAmount = amount !== "" && parsedAmount === null;
+  const amountSats = parsedAmount !== null ? Number(parsedAmount) : 0;
   const rawFee = Math.floor((amountSats * FEE_BP) / 10000);
   const fee = rawFee > 0 ? rawFee : amountSats > 0 ? 1 : 0;
   const totalOwed = amountSats + fee;
@@ -110,6 +113,9 @@ export function SbtcFlashLoanForm() {
             placeholder="0.00000000"
             className="w-full px-4 py-3 rounded-lg bg-surface border border-surface-border text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-brand-500 text-lg"
           />
+          {invalidAmount && (
+            <p className="text-red-400 text-xs mt-1">Enter a plain amount with at most 8 decimals</p>
+          )}
           {exceedsMax && (
             <p className="text-red-400 text-xs mt-1">Exceeds max single loan of 0.1 BTC (10M sats)</p>
           )}

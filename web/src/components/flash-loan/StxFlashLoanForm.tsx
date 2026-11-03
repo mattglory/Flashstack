@@ -8,6 +8,7 @@ import { useReceiverStatus } from "@/lib/hooks/useReceiverStatus";
 import { STX_CONTRACT_ADDRESS, STX_CONTRACT_NAME, STX_RECEIVER_CONTRACTS } from "@/lib/stacks/config";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { CoreStatusBadge, ReceiverNotApproved, NoApprovedReceivers } from "./ReceiverStatus";
+import { parseAmount } from "@/lib/utils/amount";
 
 const FEE_BP = 5; // 0.05%
 
@@ -24,7 +25,9 @@ export function StxFlashLoanForm() {
   const [amount, setAmount] = useState("");
   const [receiver, setReceiver] = useState(STX_RECEIVER_CONTRACTS[0].name);
 
-  const amountMicro = amount ? Math.floor(parseFloat(amount) * 1_000_000) : 0;
+  const parsedAmount = amount ? parseAmount(amount, 6) : null;
+  const invalidAmount = amount !== "" && parsedAmount === null;
+  const amountMicro = parsedAmount !== null ? Number(parsedAmount) : 0;
   const rawFee = Math.floor((amountMicro * FEE_BP) / 10000);
   const fee = rawFee > 0 ? rawFee : amountMicro > 0 ? 1 : 0;
   const totalOwed = amountMicro + fee;
@@ -93,6 +96,9 @@ export function StxFlashLoanForm() {
             placeholder="0.00"
             className="w-full px-4 py-3 rounded-lg bg-surface border border-surface-border text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-brand-500 text-lg"
           />
+          {invalidAmount && (
+            <p className="text-red-400 text-xs mt-1">Enter a plain amount with at most 6 decimals</p>
+          )}
           {exceedsMax && (
             <p className="text-red-400 text-xs mt-1">Exceeds max single loan of {MAX_LOAN_STX} STX</p>
           )}
