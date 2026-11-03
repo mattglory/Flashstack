@@ -16,8 +16,11 @@ First off, thank you for considering contributing to FlashStack! It's people lik
 
 ### Prerequisites
 
-- [Clarinet](https://github.com/hirosystems/clarinet) 2.0 or later
-- Node.js 16 or later
+- [Clarinet](https://github.com/stx-labs/clarinet) **at exactly the version CI pins** (the
+  download URL in `.github/workflows/test.yml`, currently 3.23.2). Older versions can't parse
+  `epoch = "4.0"`, and a different version makes `tests/mainnet-plan-guard.test.ts` skip
+  its deployment-safety checks instead of running them.
+- Node.js at the major in `.nvmrc` or later
 - Git
 - Basic understanding of Clarity smart contracts
 
@@ -30,14 +33,16 @@ First off, thank you for considering contributing to FlashStack! It's people lik
    cd flashstack
    ```
 
-2. **Install dependencies**
+2. **Install dependencies** from the lockfiles
    ```bash
-   npm install
+   npm ci && (cd web && npm ci)
    ```
 
-3. **Verify everything works**
+3. **Check your toolchain matches CI**, then verify
    ```bash
+   npm run doctor      # prints the exact checksum-verified clarinet install if yours differs
    clarinet check
+   npm test            # expect 0 skipped; a skip means your clarinet doesn't match CI
    ```
 
 4. **Create a branch**

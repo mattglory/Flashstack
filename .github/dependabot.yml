@@ -33,3 +33,15 @@ updates:
       # Block ALL major version upgrades — require manual migration
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+
+  # GitHub Actions: workflows pin actions to commit SHAs, so Dependabot is what
+  # moves them forward (it updates the SHA and the version comment together).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns:
+          - "*"
