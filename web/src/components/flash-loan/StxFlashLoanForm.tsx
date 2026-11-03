@@ -9,6 +9,7 @@ import { STX_CONTRACT_ADDRESS, STX_CONTRACT_NAME, STX_RECEIVER_CONTRACTS } from 
 import { StatCard } from "@/components/dashboard/StatCard";
 import { CoreStatusBadge, ReceiverNotApproved, NoApprovedReceivers } from "./ReceiverStatus";
 import { parseAmount } from "@/lib/utils/amount";
+import { explorerTxUrl } from "@/lib/utils/txid";
 
 const FEE_BP = 5; // 0.05%
 
@@ -153,7 +154,7 @@ export function StxFlashLoanForm() {
             <p className="text-green-400 text-sm font-medium">Transaction submitted</p>
             {txId && (
               <a
-                href={`https://explorer.hiro.so/txid/${txId}?chain=mainnet`}
+                href={explorerTxUrl(txId) ?? undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-green-400/80 text-xs underline mt-1 block"

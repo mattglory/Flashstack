@@ -6,6 +6,7 @@ import { useStacks } from "@/lib/hooks/useStacks";
 import { LP_POOLS, PoolAsset } from "@/lib/stacks/config";
 import { StateMark } from "@/components/ui/StateMark";
 import { parseAmount } from "@/lib/utils/amount";
+import { explorerTxUrl } from "@/lib/utils/txid";
 
 function fmt(base: bigint, decimals: number) {
   return (Number(base) / 10 ** decimals).toLocaleString(undefined, {
@@ -301,7 +302,7 @@ function TxSuccess({ txId, label }: { txId: string | null; label: string }) {
       <p className="text-green-400 font-medium">{label}</p>
       {txId && (
         <a
-          href={`https://explorer.hiro.so/txid/0x${txId}?chain=mainnet`}
+          href={explorerTxUrl(txId) ?? undefined}
           target="_blank" rel="noopener noreferrer"
           className="text-brand-400 hover:underline break-all mt-1 block"
         >

@@ -12,6 +12,7 @@ import {
 import { StatCard } from "@/components/dashboard/StatCard";
 import { CoreStatusBadge, ReceiverNotApproved, NoApprovedReceivers } from "./ReceiverStatus";
 import { parseAmount } from "@/lib/utils/amount";
+import { explorerTxUrl } from "@/lib/utils/txid";
 
 const FEE_BP = 5; // 0.05%
 const MAX_LOAN_SATS = 10_000_000; // 0.1 BTC (10M sats)
@@ -172,7 +173,7 @@ export function SbtcFlashLoanForm() {
             <p className="text-green-400 text-sm font-medium">Transaction submitted</p>
             {txId && (
               <a
-                href={`https://explorer.hiro.so/txid/${txId}?chain=mainnet`}
+                href={explorerTxUrl(txId) ?? undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-green-400/80 text-xs underline mt-1 block"
