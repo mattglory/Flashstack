@@ -5,11 +5,13 @@
  * Use this to reclaim STX for gas or other purposes.
  *
  * Usage:
- *   MAINNET_MNEMONIC="word1 ... word24" node scripts/withdraw-reserve.mjs
+ *   read -rs MAINNET_MNEMONIC && export MAINNET_MNEMONIC   # hidden input; never type it inline
+ *   node scripts/withdraw-reserve.mjs                              # dry run (default)
+ *   EXECUTE=true node scripts/withdraw-reserve.mjs --yes-mainnet   # broadcast
  *
  * Optional env:
  *   WITHDRAW_AMOUNT_USTX=...   Amount to withdraw in microSTX (default: 5_000_000 = 5 STX)
- *   DRY_RUN=1                  Print tx details without broadcasting
+ *   EXECUTE=true        Broadcast (mainnet also needs --yes-mainnet). Default: dry run.
  */
 
 import {
@@ -22,21 +24,18 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
-import { readFileSync, existsSync } from "fs";
+import { loadMnemonic, broadcastGate, describeGate, assertSigner } from "./lib/safe-signer.mjs";
 
 const CORE_ADDRESS  = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
+const ADMIN         = "SPR9PQANV6XHSDNRAX2GNKCA5Z1KH61961KE0BYG"; // core admin since the 2026-06-12 rotation
 const CORE_NAME     = "flashstack-stx-core";
 const API           = "https://api.hiro.so";
 const EXPLORER      = "https://explorer.hiro.so/txid";
 const CALL_FEE      = 10_000;
-const DRY_RUN       = process.env.DRY_RUN === "1";
+const GATE          = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const DRY_RUN       = !GATE.broadcast;
 const WITHDRAW_AMOUNT = Number(process.env.WITHDRAW_AMOUNT_USTX ?? 5_000_000);
 
-function loadMnemonic() {
-  if (process.env.MAINNET_MNEMONIC) return process.env.MAINNET_MNEMONIC.trim();
-  if (existsSync("mbegu")) return readFileSync("mbegu", "utf8").trim();
-  throw new Error("Set MAINNET_MNEMONIC env var, or place 24-word mnemonic in ./mbegu");
-}
 
 async function getNonce(addr) {
   const res = await fetch(`${API}/v2/accounts/${addr}?proof=0`);
@@ -96,7 +95,7 @@ async function waitForConfirm(txid) {
 }
 
 async function main() {
-  const mnemonic = loadMnemonic();
+  const mnemonic = await loadMnemonic("MAINNET_MNEMONIC");
   const wallet   = await generateWallet({ secretKey: mnemonic, password: "" });
   const pk       = wallet.accounts[0].stxPrivateKey;
   const sender   = privateKeyToAddress(pk, "mainnet");
@@ -113,7 +112,7 @@ async function main() {
   console.log(` Withdraw amount:  ${WITHDRAW_AMOUNT / 1e6} STX (${WITHDRAW_AMOUNT} microSTX)`);
   console.log(` Call fee:         ${CALL_FEE} microSTX`);
   console.log(` Nonce:            ${nonce}`);
-  console.log(` Mode:             ${DRY_RUN ? "DRY RUN" : "LIVE BROADCAST"}`);
+  console.log(` Mode:             ${describeGate(GATE)}`);
   console.log();
 
   if (BigInt(WITHDRAW_AMOUNT) > reserve) {
@@ -130,6 +129,7 @@ async function main() {
     functionArgs:    [Cl.uint(WITHDRAW_AMOUNT)],
     senderKey:       pk,
     network:         STACKS_MAINNET,
+    // safe-signer: allow-mode withdraw-reserve transfers STX out of the core contract to the admin
     postConditionMode: PostConditionMode.Allow,
     anchorMode:      1,
     fee:             CALL_FEE,
@@ -137,9 +137,11 @@ async function main() {
   });
 
   if (DRY_RUN) {
-    console.log(" DRY_RUN=1 — tx built but not broadcast.");
+    if (sender !== ADMIN) console.log(` WARNING: signer is not the core admin (${ADMIN}); a live run would abort.`);
+    console.log(" Dry run (default) -- tx built but not broadcast. Re-run with EXECUTE=true --yes-mainnet to broadcast.");
     return;
   }
+  assertSigner(sender, ADMIN); // throws: never broadcast from the wrong key
 
   const txid = await broadcast(tx);
   console.log(` Broadcast: ${txid}`);

@@ -10,12 +10,12 @@
  * Matt separately before the receiver can borrow.
  *
  * Usage:
- *   MAINNET_MNEMONIC="word1 ... word24" node scripts/deploy-hk-sbtc-receiver.mjs
- * Or, if ./mbegu2 (or ./mbegu) holds the 24-word mnemonic on a single line:
- *   node scripts/deploy-hk-sbtc-receiver.mjs
+ *   read -rs MAINNET_MNEMONIC && export MAINNET_MNEMONIC   # hidden input; never type it inline
+ *   node scripts/deploy-hk-sbtc-receiver.mjs                              # dry run (default)
+ *   EXECUTE=true node scripts/deploy-hk-sbtc-receiver.mjs --yes-mainnet   # broadcast
  *
  * Optional env:
- *   DRY_RUN=1            Build and print the tx fields but do NOT broadcast.
+ *   EXECUTE=true        Broadcast (mainnet also needs --yes-mainnet). Default: dry run.
  *   DEPLOY_FEE_USTX=...  Override the deploy fee (default 500_000 microSTX = 0.5 STX).
  */
 
@@ -24,22 +24,18 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
-import { readFileSync, existsSync } from "fs";
+import { loadMnemonic, broadcastGate, describeGate } from "./lib/safe-signer.mjs";
+import { readFileSync } from "fs";
 
 const NAME     = "hk-sbtc-real-receiver-v1";
 const PATH     = "contracts/hk-sbtc-real-receiver-v1.clar";
 const API      = "https://api.hiro.so";
 const EXPLORER = "https://explorer.hiro.so/txid";
 const FEE      = Number(process.env.DEPLOY_FEE_USTX ?? 500_000);
-const DRY_RUN  = process.env.DRY_RUN === "1";
+const GATE     = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const DRY_RUN  = !GATE.broadcast;
 const network  = STACKS_MAINNET;
 
-function loadMnemonic() {
-  if (process.env.MAINNET_MNEMONIC) return process.env.MAINNET_MNEMONIC.trim();
-  if (existsSync("mbegu2")) return readFileSync("mbegu2", "utf8").trim();
-  if (existsSync("mbegu"))  return readFileSync("mbegu", "utf8").trim();
-  throw new Error("Set MAINNET_MNEMONIC env var, or place 24-word mnemonic in ./mbegu2");
-}
 async function getNonce(addr) {
   return (await (await fetch(`${API}/v2/accounts/${addr}?proof=0`)).json()).nonce;
 }
@@ -74,7 +70,7 @@ async function waitForConfirm(txid, label) {
 }
 
 async function main() {
-  const mnemonic = loadMnemonic();
+  const mnemonic = await loadMnemonic("MAINNET_MNEMONIC");
   const wc = mnemonic.split(/\s+/).length;
   if (wc !== 24) throw new Error(`Expected 24-word mnemonic, got ${wc} words`);
 
@@ -94,7 +90,7 @@ async function main() {
   console.log(`  Contract: ${sender}.${NAME}`);
   console.log(`  Source:   ${PATH}`);
   console.log(`  Network:  mainnet`);
-  console.log(`  Mode:     ${DRY_RUN ? "DRY RUN (no broadcast)" : "LIVE BROADCAST"}`);
+  console.log(`  Mode:     ${describeGate(GATE)}`);
   console.log();
 
   if (balance < BigInt(FEE)) {
@@ -107,14 +103,14 @@ async function main() {
     senderKey:         pk,
     network,
     clarityVersion:    ClarityVersion.Clarity3,
-    postConditionMode: PostConditionMode.Allow,
+    postConditionMode: PostConditionMode.Deny, // deploy: contract has no top-level asset movement
     anchorMode:        1,
     fee:               FEE,
     nonce,
   });
 
   if (DRY_RUN) {
-    console.log("  DRY_RUN=1 -- not broadcasting. Set DRY_RUN=0 (or unset) to broadcast.");
+    console.log("  Dry run (default) -- not broadcasting. Re-run with EXECUTE=true --yes-mainnet to broadcast.");
     console.log(`  Built tx OK. Serialized length: ${tx.serialize().length} bytes-ish.`);
     return;
   }
