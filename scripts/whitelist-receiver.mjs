@@ -20,6 +20,8 @@ import {
   PostConditionMode,
   Cl,
   privateKeyToAddress,
+  hexToCV,
+  cvToJSON,
 } from "@stacks/transactions";
 import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
@@ -28,7 +30,6 @@ const { generateWallet } = walletPkg;
 import { loadMnemonic, broadcastGate, describeGate, assertSigner } from "./lib/safe-signer.mjs";
 
 const CORE_ADDRESS = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
-const ADMIN        = "SPR9PQANV6XHSDNRAX2GNKCA5Z1KH61961KE0BYG"; // core admin since the 2026-06-12 rotation
 const CORE_NAME    = process.env.CORE ?? "flashstack-stx-core";
 const API          = "https://api.hiro.so";
 const EXPLORER     = "https://explorer.hiro.so/txid";
@@ -111,7 +112,25 @@ async function waitForConfirm(txid) {
   throw new Error("Timeout waiting for confirmation");
 }
 
+// The expected signer is whoever the core says its admin is right now, read from
+// chain on every run. A hardcoded admin goes stale the moment admin rotates, and
+// then blocks the real admin while still accepting a retired key.
+async function fetchAdmin() {
+  const res = await fetch(`${API}/v2/contracts/call-read/${CORE_ADDRESS}/${CORE_NAME}/get-admin`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sender: CORE_ADDRESS, arguments: [] }),
+  });
+  const j = await res.json();
+  if (!j.okay) throw new Error(`get-admin on ${CORE_NAME} failed: ${j.cause}`);
+  const v = cvToJSON(hexToCV(j.result));          // bare principal, or (ok principal)
+  const admin = typeof v.value === "string" ? v.value : v.value?.value;
+  if (typeof admin !== "string" || !/^S[PM][0-9A-Z]+$/.test(admin)) throw new Error(`get-admin returned no principal: ${j.result}`);
+  return admin;
+}
+
 async function main() {
+  const ADMIN = await fetchAdmin();
   const mnemonic = await loadMnemonic("MAINNET_MNEMONIC");
   const wallet   = await generateWallet({ secretKey: mnemonic, password: "" });
   const pk       = wallet.accounts[0].stxPrivateKey;
