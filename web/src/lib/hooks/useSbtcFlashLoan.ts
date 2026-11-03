@@ -2,7 +2,8 @@
 
 import { useState, useCallback } from "react";
 import { useStacks } from "./useStacks";
-import { SBTC_CONTRACT_ADDRESS, SBTC_CONTRACT_NAME } from "@/lib/stacks/config";
+import { SBTC_CONTRACT_ADDRESS } from "@/lib/stacks/config";
+import { txIdFromResult } from "@/lib/utils/txid";
 
 interface SbtcFlashLoanState {
   status: "idle" | "pending" | "success" | "error";
@@ -11,7 +12,7 @@ interface SbtcFlashLoanState {
 }
 
 export function useSbtcFlashLoan() {
-  const { isWalletConnected } = useStacks();
+  const { isWalletConnected, stxAddress, network } = useStacks();
   const [state, setState] = useState<SbtcFlashLoanState>({
     status: "idle",
     txId: null,
@@ -24,31 +25,39 @@ export function useSbtcFlashLoan() {
         setState({ status: "error", txId: null, error: "Wallet not connected" });
         return;
       }
+      if (!stxAddress) {
+        setState({ status: "error", txId: null, error: "Wallet address unavailable" });
+        return;
+      }
 
       setState({ status: "pending", txId: null, error: null });
 
       try {
         const { request } = await import("@stacks/connect");
         const { Cl, cvToHex } = await import("@stacks/transactions");
+        const { assertApprovedReceiver, assertTxAllowed, sbtcFlashLoanPostConditions, SBTC_CORE_ID } =
+          await import("@/lib/stacks/tx");
 
-        const receiverPrincipal = `${SBTC_CONTRACT_ADDRESS}.${receiverName}`;
+        const contract = assertTxAllowed(network, SBTC_CORE_ID);
+        const receiverPrincipal = assertApprovedReceiver("sbtc", `${SBTC_CONTRACT_ADDRESS}.${receiverName}`);
+        const amount = BigInt(amountSats);
 
-        // PostConditionMode.Allow — flash loans move sBTC internally through
-        // receiver contracts. Allow mode disables restrictive wallet post-conditions.
+        // Deny mode: every sBTC movement (core -> receiver, receiver -> core)
+        // is declared, and the user is bound to send 0 sBTC and 0 STX.
+        // See lib/stacks/tx.ts.
         const result = await request("stx_callContract", {
-          contract: `${SBTC_CONTRACT_ADDRESS}.${SBTC_CONTRACT_NAME}`,
+          contract,
           functionName: "flash-loan",
           functionArgs: [
-            cvToHex(Cl.uint(BigInt(amountSats))),
+            cvToHex(Cl.uint(amount)),
             cvToHex(Cl.principal(receiverPrincipal)),
           ],
-          postConditionMode: "allow",
+          network,
+          postConditions: sbtcFlashLoanPostConditions(stxAddress, amount, receiverPrincipal),
+          postConditionMode: "deny",
         });
 
-        const txId =
-          typeof result === "object" && result !== null && "txid" in result
-            ? String((result as Record<string, unknown>).txid)
-            : null;
+        const txId = txIdFromResult(result);
 
         setState({ status: "success", txId, error: null });
       } catch (err) {
@@ -56,7 +65,7 @@ export function useSbtcFlashLoan() {
         setState({ status: "error", txId: null, error: message });
       }
     },
-    [isWalletConnected]
+    [isWalletConnected, stxAddress, network]
   );
 
   const reset = useCallback(() => {

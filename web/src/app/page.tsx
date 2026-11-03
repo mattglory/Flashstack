@@ -34,7 +34,7 @@ function useLiveStats() {
 }
 
 export default function LandingPage() {
-  const { loans, volume, reserve, maxLoan } = useLiveStats();
+  const { loans, reserve, maxLoan } = useLiveStats();
   const stxStatus = useReceiverStatus("stx", "mainnet");
   const sbtcStatus = useReceiverStatus("sbtc", "mainnet");
   const loansAvailable = stxStatus.available || sbtcStatus.available;
@@ -136,7 +136,7 @@ export default function LandingPage() {
       <section id="products" className="max-w-6xl mx-auto px-4 md:px-6 py-20">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">Two ways to use FlashStack</h2>
-          <p className="text-slate-400">Whether you're building strategies or providing liquidity.</p>
+          <p className="text-slate-400">Whether you&apos;re building strategies or providing liquidity.</p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-5">

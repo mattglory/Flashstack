@@ -5,6 +5,8 @@ import { usePool } from "@/lib/hooks/usePool";
 import { useStacks } from "@/lib/hooks/useStacks";
 import { LP_POOLS, PoolAsset } from "@/lib/stacks/config";
 import { StateMark } from "@/components/ui/StateMark";
+import { parseAmount } from "@/lib/utils/amount";
+import { explorerTxUrl } from "@/lib/utils/txid";
 
 function fmt(base: bigint, decimals: number) {
   return (Number(base) / 10 ** decimals).toLocaleString(undefined, {
@@ -43,6 +45,9 @@ export default function PoolPage() {
   const shareValue = stats ? computeShareValue(stats.poolBalance, stats.totalShares, meta.sharePrecision, meta.decimals) : "1.000000";
   const shareValueNum = parseFloat(shareValue);
 
+  const parsedDeposit = depositAmount ? parseAmount(depositAmount, meta.decimals) : null;
+  const invalidDeposit = depositAmount !== "" && parsedDeposit === null;
+
   const fee = depositAmount
     ? ((parseFloat(depositAmount) * (stats?.feeBasisPoints ?? 5)) / 10000).toFixed(meta.decimals === 8 ? 8 : 6)
     : "0";
@@ -55,9 +60,9 @@ export default function PoolPage() {
     : "0";
 
   const handleDeposit = () => {
-    if (!depositAmount) return;
-    const base = Math.floor(parseFloat(depositAmount) * 10 ** meta.decimals).toString();
-    executeDeposit(base);
+    const base = parseAmount(depositAmount, meta.decimals);
+    if (base === null || base === 0n) return;
+    executeDeposit(base.toString());
   };
 
   const handleWithdraw = () => {
@@ -187,12 +192,16 @@ export default function PoolPage() {
                 </div>
               )}
 
+              {invalidDeposit && (
+                <p className="text-sm text-red-400">Enter a plain amount with at most {meta.decimals} decimals</p>
+              )}
+
               {deposit.status === "success" && <TxSuccess txId={deposit.txId} label="Deposit confirmed" />}
               {deposit.status === "error" && <p className="text-sm text-red-400">{deposit.error}</p>}
 
               <button
                 onClick={handleDeposit}
-                disabled={deposit.status === "pending" || !depositAmount || parseFloat(depositAmount) <= 0}
+                disabled={deposit.status === "pending" || !parsedDeposit}
                 className="w-full py-3 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium text-sm transition-colors"
               >
                 {deposit.status === "pending" ? "Confirm in wallet..." : `Deposit ${meta.symbol}`}
@@ -293,7 +302,7 @@ function TxSuccess({ txId, label }: { txId: string | null; label: string }) {
       <p className="text-green-400 font-medium">{label}</p>
       {txId && (
         <a
-          href={`https://explorer.hiro.so/txid/0x${txId}?chain=mainnet`}
+          href={explorerTxUrl(txId) ?? undefined}
           target="_blank" rel="noopener noreferrer"
           className="text-brand-400 hover:underline break-all mt-1 block"
         >
