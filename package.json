@@ -29,6 +29,7 @@
     "@clarigen/core": "^4.0.1",
     "@clarigen/test": "^4.0.1",
     "@stacks/clarinet-sdk": "^3.25.0",
+    "fast-check": "^4.10.2",
     "vitest": "^4.1.12"
   },
   "dependencies": {
