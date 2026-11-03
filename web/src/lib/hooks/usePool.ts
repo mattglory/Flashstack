@@ -117,7 +117,7 @@ export function usePool(asset: PoolAsset) {
     } catch (err) {
       setWithdraw({ status: "error", txId: null, error: err instanceof Error ? err.message : "Failed" });
     }
-  }, [isWalletConnected, pool, address]);
+  }, [isWalletConnected, pool]);
 
   return {
     stats,
