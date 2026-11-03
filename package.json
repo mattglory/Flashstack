@@ -11,7 +11,8 @@
     "console": "clarinet console",
     "devnet": "clarinet integrate",
     "clarigen": "clarigen",
-    "gen": "clarigen generate"
+    "gen": "clarigen generate",
+    "doctor": "node scripts/doctor.mjs"
   },
   "keywords": [
     "stacks",
