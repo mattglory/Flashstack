@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run"
   },
   "dependencies": {
     "@stacks/connect": "^8.2.6",
@@ -24,7 +25,8 @@
     "eslint-config-next": "^16.4.2",
     "postcss": "^8.5.30",
     "tailwindcss": "^3.4.4",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "vitest": "^4.1.12"
   },
   "overrides": {
     "@types/react": "19.3.0",

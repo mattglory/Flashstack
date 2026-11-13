@@ -5,6 +5,7 @@ import { useStacks } from "./useStacks";
 import { LP_POOLS, PoolAsset } from "@/lib/stacks/config";
 import { fetchPoolStats, fetchPoolUserPosition } from "@/lib/stacks/pool-client";
 import type { PoolStats, PoolUserPosition } from "@/lib/stacks/types";
+import { txIdFromResult } from "@/lib/utils/txid";
 
 type TxStatus = "idle" | "pending" | "success" | "error";
 
@@ -61,29 +62,29 @@ export function usePool(asset: PoolAsset) {
     setDeposit({ status: "pending", txId: null, error: null });
     try {
       const { request } = await import("@stacks/connect");
-      const { Cl, cvToHex, Pc } = await import("@stacks/transactions");
+      const { Cl, cvToHex } = await import("@stacks/transactions");
+      const { assertTxAllowed, depositPostConditions } = await import("@/lib/stacks/tx");
+
+      const poolId = assertTxAllowed(network, `${pool.address}.${pool.name}`);
 
       // Bound the deposit: the wallet enforces that exactly `amount` leaves the user.
       const amt = BigInt(amountMicroStx);
-      const postCondition = pool.nativeStx
-        ? Pc.principal(address).willSendEq(amt).ustx()
-        : Pc.principal(address).willSendEq(amt).ft(pool.tokenContract! as `${string}.${string}`, pool.tokenName!);
 
       const result = await request("stx_callContract", {
-        contract: `${pool.address}.${pool.name}`,
+        contract: poolId,
         functionName: "deposit",
         functionArgs: [cvToHex(Cl.uint(amt))],
-        postConditions: [postCondition],
+        network,
+        postConditions: depositPostConditions(pool, address, amt),
         postConditionMode: "deny",
       });
 
-      const txId = typeof result === "object" && result !== null && "txid" in result
-        ? String((result as Record<string, unknown>).txid) : null;
+      const txId = txIdFromResult(result);
       setDeposit({ status: "success", txId, error: null });
     } catch (err) {
       setDeposit({ status: "error", txId: null, error: err instanceof Error ? err.message : "Failed" });
     }
-  }, [isWalletConnected, pool, address]);
+  }, [isWalletConnected, pool, address, network]);
 
   // Withdraw shares from pool. minReceive = the minimum the pool must send back
   // (in the asset's base units), enforced by a deny-mode post-condition.
@@ -95,29 +96,26 @@ export function usePool(asset: PoolAsset) {
     setWithdraw({ status: "pending", txId: null, error: null });
     try {
       const { request } = await import("@stacks/connect");
-      const { Cl, cvToHex, Pc } = await import("@stacks/transactions");
+      const { Cl, cvToHex } = await import("@stacks/transactions");
+      const { assertTxAllowed, withdrawPostConditions } = await import("@/lib/stacks/tx");
 
-      const poolId = `${pool.address}.${pool.name}` as `${string}.${string}`;
-      const min = BigInt(minReceive);
-      const postCondition = pool.nativeStx
-        ? Pc.principal(poolId).willSendGte(min).ustx()
-        : Pc.principal(poolId).willSendGte(min).ft(pool.tokenContract! as `${string}.${string}`, pool.tokenName!);
+      const poolId = assertTxAllowed(network, `${pool.address}.${pool.name}`);
 
       const result = await request("stx_callContract", {
         contract: poolId,
         functionName: "withdraw",
         functionArgs: [cvToHex(Cl.uint(BigInt(shares)))],
-        postConditions: [postCondition],
+        network,
+        postConditions: withdrawPostConditions(pool, BigInt(minReceive)),
         postConditionMode: "deny",
       });
 
-      const txId = typeof result === "object" && result !== null && "txid" in result
-        ? String((result as Record<string, unknown>).txid) : null;
+      const txId = txIdFromResult(result);
       setWithdraw({ status: "success", txId, error: null });
     } catch (err) {
       setWithdraw({ status: "error", txId: null, error: err instanceof Error ? err.message : "Failed" });
     }
-  }, [isWalletConnected, pool, address]);
+  }, [isWalletConnected, pool, network]);
 
   return {
     stats,

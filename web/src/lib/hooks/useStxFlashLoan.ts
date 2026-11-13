@@ -2,7 +2,8 @@
 
 import { useState, useCallback } from "react";
 import { useStacks } from "./useStacks";
-import { STX_CONTRACT_ADDRESS, STX_CONTRACT_NAME, STX_RECEIVER_CONTRACTS } from "@/lib/stacks/config";
+import { STX_CONTRACT_ADDRESS } from "@/lib/stacks/config";
+import { txIdFromResult } from "@/lib/utils/txid";
 
 interface StxFlashLoanState {
   status: "idle" | "pending" | "success" | "error";
@@ -11,7 +12,7 @@ interface StxFlashLoanState {
 }
 
 export function useStxFlashLoan() {
-  const { isWalletConnected } = useStacks();
+  const { isWalletConnected, stxAddress, network } = useStacks();
   const [state, setState] = useState<StxFlashLoanState>({
     status: "idle",
     txId: null,
@@ -24,31 +25,38 @@ export function useStxFlashLoan() {
         setState({ status: "error", txId: null, error: "Wallet not connected" });
         return;
       }
+      if (!stxAddress) {
+        setState({ status: "error", txId: null, error: "Wallet address unavailable" });
+        return;
+      }
 
       setState({ status: "pending", txId: null, error: null });
 
       try {
         const { request } = await import("@stacks/connect");
         const { Cl, cvToHex } = await import("@stacks/transactions");
+        const { assertApprovedReceiver, assertTxAllowed, stxFlashLoanPostConditions, STX_CORE_ID } =
+          await import("@/lib/stacks/tx");
 
-        const receiverPrincipal = `${STX_CONTRACT_ADDRESS}.${receiverName}`;
+        const contract = assertTxAllowed(network, STX_CORE_ID);
+        const receiverPrincipal = assertApprovedReceiver("stx", `${STX_CONTRACT_ADDRESS}.${receiverName}`);
+        const amount = BigInt(amountMicroStx);
 
-        // PostConditionMode.Allow (0x02) — flash loans move STX internally
-        // through receiver contracts. Leather adds restrictive post-conditions
-        // by default which block these internal transfers. Allow mode disables that.
+        // Deny mode: every movement (core -> receiver, receiver -> core) is
+        // declared, and the user is bound to send 0 STX. See lib/stacks/tx.ts.
         const result = await request("stx_callContract", {
-          contract: `${STX_CONTRACT_ADDRESS}.${STX_CONTRACT_NAME}`,
+          contract,
           functionName: "flash-loan",
           functionArgs: [
-            cvToHex(Cl.uint(BigInt(amountMicroStx))),
+            cvToHex(Cl.uint(amount)),
             cvToHex(Cl.principal(receiverPrincipal)),
           ],
-          postConditionMode: "allow",
+          network,
+          postConditions: stxFlashLoanPostConditions(stxAddress, amount, receiverPrincipal),
+          postConditionMode: "deny",
         });
 
-        const txId = typeof result === "object" && result !== null && "txid" in result
-          ? String((result as Record<string, unknown>).txid)
-          : null;
+        const txId = txIdFromResult(result);
 
         setState({ status: "success", txId, error: null });
       } catch (err) {
@@ -56,7 +64,7 @@ export function useStxFlashLoan() {
         setState({ status: "error", txId: null, error: message });
       }
     },
-    [isWalletConnected]
+    [isWalletConnected, stxAddress, network]
   );
 
   const reset = useCallback(() => {
