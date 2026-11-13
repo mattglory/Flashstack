@@ -81,8 +81,14 @@ procedure with `TESTNET_` swapped for `MAINNET_` moves real funds.
    ```bash
    read -rs TESTNET_MNEMONIC && export TESTNET_MNEMONIC   # leading space, not echoed
    ```
+   Every signing script loads keys this way (via `scripts/lib/safe-signer.mjs`): an
+   exported variable, or a hidden prompt when run on a TTY. None reads a key file.
    `settings/Testnet.toml` is gitignored; `settings/Testnet.toml.example` is the
    committed template. Keep it that way.
+6. **Dry run is the default** for every signing script (R-03). Testnet scripts
+   broadcast only with `EXECUTE=true`; mainnet scripts need `EXECUTE=true` **and**
+   `--yes-mainnet`. A dry run of a multi-step testnet script signs and prints the
+   first tx, then stops, since later steps read state the first one creates.
 
 ---
 
@@ -727,7 +733,8 @@ sized to the 9,900 sats K1 already holds, so no new manual sBTC transfer is need
 4. [x] **`scripts/deploy-testnet-v3-pools.mjs`**: copies `deploy-testnet-pool-v3.mjs`'s
    helpers (`deployIfNeeded`, the explicit Clarity 3, the confirmation polling,
    `assertFullyLocalized`) and adds:
-   - **dry run by default.** It needs `--broadcast` to sign or send anything. The
+   - **dry run by default.** It needs `--broadcast` **and** `EXECUTE=true` (the shared
+     safe-signer gate, R-03) to sign or send anything; either alone is refused. The
      dry run still runs the read-only preflight: K1/K2 STX balances and nonces, K1's
      sBTC balance (line B), the fee totals against the YAML's `totals:`, and which
      names are already published.
@@ -761,8 +768,8 @@ sized to the 9,900 sats K1 already holds, so no new manual sBTC transfer is need
 node scripts/deploy-testnet-v3-pools.mjs --line=a              # dry run, check preflight
 read -rs TESTNET_MNEMONIC   && export TESTNET_MNEMONIC
 read -rs TESTNET_MNEMONIC_2 && export TESTNET_MNEMONIC_2
-node scripts/deploy-testnet-v3-pools.mjs --line=a --broadcast
-node scripts/deploy-testnet-v3-pools.mjs --line=b --broadcast
+EXECUTE=true node scripts/deploy-testnet-v3-pools.mjs --line=a --broadcast
+EXECUTE=true node scripts/deploy-testnet-v3-pools.mjs --line=b --broadcast
 ```
 
 ### Vetting records (pre-run; the deployed-source and approval fields are filled at A4/A6, B4/B6, A14/B14)

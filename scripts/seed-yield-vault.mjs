@@ -2,17 +2,23 @@
  * Seed flashstack-yield-vault-v5 with an initial STX deposit.
  *
  * Usage:
- *   DEPLOYER_MNEMONIC="..." node scripts/seed-yield-vault.mjs
- *   DEPOSIT_STX=10 DEPLOYER_MNEMONIC="..." node scripts/seed-yield-vault.mjs
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # hidden input; never type it inline
+ *   node scripts/seed-yield-vault.mjs
+ *   DEPOSIT_STX=10 node scripts/seed-yield-vault.mjs
+ *
+ * Dry run by default (builds and signs locally, sends nothing). To broadcast:
+ *   EXECUTE=true node scripts/seed-yield-vault.mjs --yes-mainnet
  */
 
-import { makeContractCall, PostConditionMode, Cl, fetchCallReadOnlyFunction, cvToJSON } from "@stacks/transactions";
+import { makeContractCall, PostConditionMode, Cl, fetchCallReadOnlyFunction, cvToJSON, privateKeyToAddress } from "@stacks/transactions";
 import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, sendOrDryRun, assertSigner } from "./lib/safe-signer.mjs";
 
-const MNEMONIC     = process.env.DEPLOYER_MNEMONIC;
+const MNEMONIC     = await loadMnemonic("DEPLOYER_MNEMONIC");
+const GATE         = broadcastGate({ network: "mainnet" }); // mainnet-only script
 const DEPOSIT_STX  = parseInt(process.env.DEPOSIT_STX ?? "5");
 const DEPOSIT_MICRO = DEPOSIT_STX * 1_000_000;
 
@@ -21,11 +27,10 @@ const VAULT    = "flashstack-yield-vault-v5";
 const API      = "https://api.hiro.so";
 const EXPLORER = "https://explorer.hiro.so/txid";
 
-if (!MNEMONIC) { console.error("ERROR: Set DEPLOYER_MNEMONIC"); process.exit(1); }
-
 async function main() {
   const wallet = await generateWallet({ secretKey: MNEMONIC, password: "" });
   const pk     = wallet.accounts[0].stxPrivateKey;
+  assertSigner(privateKeyToAddress(pk, "mainnet"), DEPLOYER); // nonce is read for DEPLOYER
 
   const acct  = await fetch(`${API}/v2/accounts/${DEPLOYER}?proof=0`).then(r => r.json());
   const bal   = parseInt(acct.balance, 16) / 1e6;
@@ -47,11 +52,18 @@ async function main() {
     functionArgs:      [Cl.uint(DEPOSIT_MICRO)],
     senderKey:         pk,
     network:           STACKS_MAINNET,
+    // safe-signer: allow-mode deposit transfers STX from the signer into the vault
     postConditionMode: PostConditionMode.Allow,
     anchorMode:        1,
     nonce,
     fee:               300_000,
   });
+
+  if (!GATE.broadcast) {
+    await sendOrDryRun(GATE, tx, "deposit");
+    console.log("  Dry run (default). Re-run with EXECUTE=true --yes-mainnet to broadcast.");
+    return;
+  }
 
   const raw  = tx.serialize();
   const body = typeof raw === "string" ? Buffer.from(raw.replace(/^0x/, ""), "hex") : raw;

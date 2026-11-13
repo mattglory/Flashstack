@@ -24,8 +24,9 @@
  * DRY-RUN BY DEFAULT. To broadcast, pass BOTH: EXECUTE=true and --yes-mainnet
  *
  * Usage:
- *   DEPLOYER_MNEMONIC="…SPR9PQ… 24 words…" node scripts/remove-vulnerable-stx-core-receivers.mjs
- *   DEPLOYER_MNEMONIC="…" EXECUTE=true node scripts/remove-vulnerable-stx-core-receivers.mjs --yes-mainnet
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # hidden input; never type it inline
+ *   node scripts/remove-vulnerable-stx-core-receivers.mjs
+ *   EXECUTE=true node scripts/remove-vulnerable-stx-core-receivers.mjs --yes-mainnet
  *
  * Must be signed by flashstack-stx-core's admin (SPR9PQ… after the
  * 2026-06-12 rotation -- confirmed live via get-admin before this script was
@@ -37,6 +38,7 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, assertSigner } from "./lib/safe-signer.mjs";
 
 const API      = "https://api.hiro.so";
 const EXPLORER = "https://explorer.hiro.so/txid";
@@ -45,14 +47,11 @@ const CORE     = { address: "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5", name: "
 
 const RECEIVERS = ["alex-arb-receiver", "bitflow-arb-receiver", "zest-liquidation-receiver"];
 
-const MNEMONIC = process.env.DEPLOYER_MNEMONIC;
-const EXECUTE  = process.env.EXECUTE === "true" && process.argv.includes("--yes-mainnet");
+const MNEMONIC = await loadMnemonic("DEPLOYER_MNEMONIC");
+const GATE     = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const EXECUTE  = GATE.broadcast;
 const FEE      = BigInt(process.env.FEE ?? "50000"); // 0.05 STX default; override with FEE=…
 
-if (!MNEMONIC) {
-  console.error("ERROR: set DEPLOYER_MNEMONIC (the core admin wallet, SPR9PQ…)");
-  process.exit(1);
-}
 
 async function getStxBalance(contractName) {
   const res = await fetch(`${API}/extended/v1/address/${CORE.address}.${contractName}/balances`).then((r) => r.json());
@@ -80,7 +79,7 @@ async function main() {
   if (sender !== ADMIN) {
     console.error(`  ⚠ WARNING: signer is not the expected admin (${ADMIN}).`);
     console.error(`    remove-approved-receiver will fail with ERR-NOT-ADMIN unless this wallet is the core admin.`);
-    if (EXECUTE) { console.error("    Aborting live run — load the admin mnemonic."); process.exit(1); }
+    if (EXECUTE) assertSigner(sender, ADMIN); // throws: never broadcast from the wrong key
   }
 
   for (const name of RECEIVERS) {

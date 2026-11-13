@@ -10,7 +10,9 @@
  *   4. Whitelists velar-sbtc-arb-receiver in flashstack-sbtc-core
  *
  * Usage:
- *   DEPLOYER_MNEMONIC="word1 ... word24" node scripts/deploy-lp-oracle-and-sbtc-pool.mjs
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # hidden input; never type it inline
+ *   node scripts/deploy-lp-oracle-and-sbtc-pool.mjs                              # dry run (default)
+ *   EXECUTE=true node scripts/deploy-lp-oracle-and-sbtc-pool.mjs --yes-mainnet   # broadcast
  */
 
 import {
@@ -19,31 +21,32 @@ import {
   PostConditionMode,
   ClarityVersion,
   Cl,
+  privateKeyToAddress,
 } from "@stacks/transactions";
 import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, describeGate, assertSigner, sendOrDryRun } from "./lib/safe-signer.mjs";
 import { readFileSync } from "fs";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const MNEMONIC  = process.env.DEPLOYER_MNEMONIC;
+const MNEMONIC  = await loadMnemonic("DEPLOYER_MNEMONIC");
+const GATE      = broadcastGate({ network: "mainnet" }); // mainnet-only script
 const DEPLOYER  = process.env.DEPLOYER_ADDRESS ?? "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
 const API       = "https://api.hiro.so";
 const EXPLORER  = "https://explorer.hiro.so/txid";
 const network   = STACKS_MAINNET;
 
-if (!MNEMONIC) {
-  console.error("ERROR: Set DEPLOYER_MNEMONIC");
-  process.exit(1);
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function getPrivateKey() {
   const wallet = await generateWallet({ secretKey: MNEMONIC, password: "" });
-  return wallet.accounts[0].stxPrivateKey;
+  const pk = wallet.accounts[0].stxPrivateKey;
+  assertSigner(privateKeyToAddress(pk, "mainnet"), DEPLOYER); // nonce is read for DEPLOYER
+  return pk;
 }
 
 async function getNonce() {
@@ -53,6 +56,7 @@ async function getNonce() {
 }
 
 async function waitForConfirm(txid, label) {
+  if (!txid) return; // dry run: nothing was sent
   process.stdout.write(`  Waiting for "${label}"`);
   for (let i = 0; i < 80; i++) {
     await new Promise(r => setTimeout(r, 8000));
@@ -74,6 +78,7 @@ async function waitForConfirm(txid, label) {
 }
 
 async function broadcast(tx) {
+  if (!GATE.broadcast) { await sendOrDryRun(GATE, tx); return { txid: null }; }
   // serialize() may return hex string or Uint8Array depending on SDK version
   const raw = tx.serialize();
   const bytes = typeof raw === "string"
@@ -105,7 +110,7 @@ async function deployContract(privateKey, nonce, name, sourcePath) {
     senderKey:         privateKey,
     network,
     clarityVersion:    ClarityVersion.Clarity3,
-    postConditionMode: PostConditionMode.Allow,
+    postConditionMode: PostConditionMode.Deny, // deploy: contract has no top-level asset movement
     anchorMode:        1,
     fee:               500_000,
     nonce,
@@ -123,7 +128,7 @@ async function callContract(privateKey, nonce, contractAddress, contractName, fn
     functionArgs:      args,
     senderKey:         privateKey,
     network,
-    postConditionMode: PostConditionMode.Allow,
+    postConditionMode: PostConditionMode.Deny, // only add-approved-receiver (admin call, moves no assets)
     anchorMode:        1,
     fee:               100_000,
     nonce,
@@ -139,7 +144,8 @@ async function main() {
   console.log("╔══════════════════════════════════════════════════════╗");
   console.log("║   FlashStack — LP Oracle + sBTC Pool + Velar Arb    ║");
   console.log("╚══════════════════════════════════════════════════════╝");
-  console.log(`  Deployer: ${DEPLOYER}\n`);
+  console.log(`  Deployer: ${DEPLOYER}`);
+  console.log(`  Mode:     ${describeGate(GATE)}\n`);
 
   const privateKey = await getPrivateKey();
   let nonce = await getNonce();

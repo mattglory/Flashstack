@@ -12,10 +12,12 @@
  *    Alerts when USDA is ±0.5% from peg — receiver contract needed to execute
  *
  * Usage:
- *   node scripts/monitor-opportunities.mjs
- *   EXECUTE=true DEPLOYER_MNEMONIC="..." node scripts/monitor-opportunities.mjs
+ *   node scripts/monitor-opportunities.mjs                       # monitor only (default)
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # hidden input; never type it inline
+ *   EXECUTE=true node scripts/monitor-opportunities.mjs --yes-mainnet
  *
- * Set EXECUTE=true to auto-trigger when profitable. Default is dry-run.
+ * Set EXECUTE=true (flash-loan arb) and/or EXECUTE_USDA=true (USDA peg trades),
+ * plus --yes-mainnet, to auto-trigger when profitable. Default is dry-run.
  */
 
 import { makeContractCall, broadcastTransaction, PostConditionMode, Cl, fetchCallReadOnlyFunction, cvToJSON } from "@stacks/transactions";
@@ -23,13 +25,17 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, describeGate } from "./lib/safe-signer.mjs";
 
-// Note: use --env-file=.env flag for reliable env loading before SDK init.
-// Manual .env loader below is a fallback for older node or missing flag.
+// Keys come from the environment (loaded with read -rs) or a hidden prompt --
+// never from a plaintext .env file.
 
-const MNEMONIC      = process.env.DEPLOYER_MNEMONIC;
-const EXECUTE       = process.env.EXECUTE === "true";
-const EXECUTE_USDA  = process.env.EXECUTE_USDA === "true"; // execute USDA peg trades directly
+// Two independent switches, each through the same gate (mainnet: flag + --yes-mainnet).
+const GATE          = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const USDA_GATE     = broadcastGate({ network: "mainnet", env: { EXECUTE: process.env.EXECUTE_USDA } });
+const EXECUTE       = GATE.broadcast;
+const EXECUTE_USDA  = USDA_GATE.broadcast; // execute USDA peg trades directly
+const MNEMONIC      = (EXECUTE || EXECUTE_USDA) ? await loadMnemonic("DEPLOYER_MNEMONIC") : undefined;
 const COMPOUND      = process.env.COMPOUND === "true"; // auto-deposit profit to LP pool
 const INTERVAL      = parseInt(process.env.INTERVAL_MS ?? "30000");
 const LOAN_STX      = parseInt(process.env.LOAN_STX ?? "10") * 1_000_000; // default 10 STX test size
@@ -85,10 +91,6 @@ const VELAR_ADDR     = "SP1Y5YSTAHZ88XYK1VPDH24GY0HPX5J4JECTMY4A1";
 const VELAR_NAME     = "univ2-core";
 const VELAR_POOL_ABTC = 3; // wSTX/aBTC pool ID
 
-if ((EXECUTE || EXECUTE_USDA) && !MNEMONIC) {
-  console.error("Set DEPLOYER_MNEMONIC to execute transactions");
-  process.exit(1);
-}
 
 // ── Bitflow: get how much stSTX you get for X STX ──────────────────────────
 async function getBitflowDy(stxAmount) {
@@ -321,11 +323,13 @@ async function executeUsdaSell(usdaMicro, minStxMicro) {
     ],
     senderKey:         pk,
     network,
+    // safe-signer: allow-mode Arkadiko swap moves USDA/STX between the signer and the AMM
     postConditionMode: PostConditionMode.Allow,
     anchorMode:        1,
     nonce,
     fee:               200_000,
   });
+  if (!USDA_GATE.broadcast) throw new Error("USDA trade without the broadcast gate open"); // unreachable: gated by EXECUTE_USDA
   const result = await broadcastTransaction({ transaction: tx, network });
   if (result.error) { console.error(`  FAILED: ${result.error} - ${result.reason}`); return null; }
   console.log(`  Broadcast: ${result.txid}`);
@@ -351,11 +355,13 @@ async function executeUsdaBuy(stxMicro, minUsdaMicro) {
     ],
     senderKey:         pk,
     network,
+    // safe-signer: allow-mode Arkadiko swap moves USDA/STX between the signer and the AMM
     postConditionMode: PostConditionMode.Allow,
     anchorMode:        1,
     nonce,
     fee:               200_000,
   });
+  if (!USDA_GATE.broadcast) throw new Error("USDA trade without the broadcast gate open"); // unreachable: gated by EXECUTE_USDA
   const result = await broadcastTransaction({ transaction: tx, network });
   if (result.error) { console.error(`  FAILED: ${result.error} - ${result.reason}`); return null; }
   console.log(`  Broadcast: ${result.txid}`);
@@ -383,12 +389,14 @@ async function executeBitflowArb(stxAmount) {
     ],
     senderKey:         pk,
     network,
+    // safe-signer: allow-mode flash loan moves STX core->receiver->Bitflow->core
     postConditionMode: PostConditionMode.Allow,
     anchorMode:        1,
     nonce,
     fee:               300_000,
   });
 
+  if (!GATE.broadcast) throw new Error("flash loan without the broadcast gate open"); // unreachable: gated by EXECUTE
   const result = await broadcastTransaction({ transaction: tx, network });
   if (result.error) {
     console.error(`  FAILED: ${result.error} - ${result.reason}`);
@@ -432,6 +440,7 @@ async function executeBitflowArb(stxAmount) {
       functionArgs:      [Cl.uint(profit)],
       senderKey:         pk,
       network,
+      // safe-signer: allow-mode LP deposit transfers the signer's STX into the pool
       postConditionMode: PostConditionMode.Allow,
       anchorMode:        1,
       nonce:             nonce2,
@@ -602,7 +611,7 @@ async function scan() {
       if (EXECUTE) {
         await executeBitflowArb(LOAN_STX);
       } else {
-        console.log(`  (dry-run — set EXECUTE=true to trigger)`);
+        console.log(`  (dry-run — ${GATE.reason})`);
       }
     } else {
       const deficit = (arb.totalOwed - arb.stxBack) / 1e6;
@@ -659,7 +668,7 @@ async function scan() {
             const minStx = Math.floor(stxBack * 0.98); // 2% slippage
             await executeUsdaSell(usdaAmt, minStx);
           } else {
-            console.log(`  Run with EXECUTE_USDA=true DEPLOYER_MNEMONIC=... to sell now`);
+            console.log(`  Run with EXECUTE_USDA=true ... --yes-mainnet to sell now`);
           }
         } else {
           console.log(`  Not profitable after AMM fees (net: ${(netProfit/1e6).toFixed(4)} STX) — holding USDA`);
@@ -681,7 +690,7 @@ async function scan() {
           const minUsda = Math.floor(usdaOut * 0.98);
           await executeUsdaBuy(USDA_TRADE_STX, minUsda);
         } else {
-          console.log(`  Run with EXECUTE_USDA=true USDA_TRADE_STX=${USDA_TRADE_STX/1e6} DEPLOYER_MNEMONIC=... to buy`);
+          console.log(`  Run with EXECUTE_USDA=true USDA_TRADE_STX=${USDA_TRADE_STX/1e6} ... --yes-mainnet to buy`);
         }
       } else {
         console.log(`  Set USDA_TRADE_STX=N to specify how much STX to spend buying USDA`);
@@ -796,7 +805,8 @@ async function scan() {
 async function main() {
   console.log("FlashStack Opportunity Monitor");
   console.log("==============================");
-  console.log(`Mode:          ${EXECUTE ? "LIVE EXECUTION" : "dry-run (monitoring only)"}`);
+  console.log(`Mode:          ${EXECUTE ? "LIVE EXECUTION" : "dry-run (monitoring only)"} -- ${describeGate(GATE)}`);
+  console.log(`USDA trades:   ${describeGate(USDA_GATE)}`);
   console.log(`Compound mode: ${COMPOUND ? "ON  — profit auto-deposits to LP pool (share value increases)" : "OFF — profit stays in deployer wallet"}`);
   console.log(`Loan test size: ${LOAN_STX / 1e6} STX (set LOAN_STX=N to change)`);
   console.log(`Scan interval:  ${INTERVAL / 1000}s`);
@@ -809,8 +819,9 @@ async function main() {
   console.log(`  [6] aBTC cross-DEX              — Velar Pool 3 aBTC price vs ALEX Pool 45 aBTC price`);
   console.log(`\nTip: Run at stacking cycle boundaries (~every 2 weeks) for best stSTX arb`);
   console.log(`Tip: EXECUTE=true COMPOUND=true LOAN_STX=50          — live stSTX arb, auto-compounds to pool`);
-  console.log(`Tip: EXECUTE_USDA=true DEPLOYER_MNEMONIC=...          — sell wallet USDA when above peg`);
-  console.log(`Tip: EXECUTE_USDA=true USDA_TRADE_STX=50 DEPLOYER_MNEMONIC=... — buy USDA when below peg\n`);
+  console.log(`Tip: EXECUTE_USDA=true ... --yes-mainnet                — sell wallet USDA when above peg`);
+  console.log(`Tip: EXECUTE_USDA=true USDA_TRADE_STX=50 ... --yes-mainnet — buy USDA when below peg`);
+  console.log(`     (export DEPLOYER_MNEMONIC first: read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC)\n`);
 
   await scan();
   setInterval(scan, INTERVAL);

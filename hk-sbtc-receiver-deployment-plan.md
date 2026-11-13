@@ -61,7 +61,7 @@ Architecture = **M1 skeleton** (caller gate, dynamic fee, fail-closed repay, own
 
 ## 5. Mainnet runbook (execute only when ready)
 
-All scripts read the 24-word mnemonic from `./mbegu2` then `./mbegu` (gitignored live key) or `MAINNET_MNEMONIC`. Run each with `DRY_RUN=1` first.
+All scripts read the 24-word mnemonic from `MAINNET_MNEMONIC` only (load it with `read -rs MAINNET_MNEMONIC && export MAINNET_MNEMONIC`, or let the script prompt with input hidden). The old seed-file fallback was removed (R-03). Each script is a dry run by default; add `EXECUTE=true` and `--yes-mainnet` to broadcast. (The `DRY_RUN=1` rows in the table above record runs made before that change.)
 
 1. **Acquire sBTC seed:** `node scripts/buy-sbtc.mjs` (default 3.5 STX → ~1,000 sats). Verify wallet sBTC balance.
 2. **Deploy:** `node scripts/deploy-hk-sbtc-receiver.mjs` (~0.5 STX). Note the contract id.

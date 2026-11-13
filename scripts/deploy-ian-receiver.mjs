@@ -2,10 +2,15 @@
  * Deploy ian-stx-receiver-v1 to Stacks mainnet
  *
  * Usage (Windows PowerShell):
- *   $env:DEPLOYER_MNEMONIC="word1 word2 ... word24"; node scripts/deploy-ian-receiver.mjs
+ *   $env:DEPLOYER_MNEMONIC = Read-Host -MaskInput   # hidden input; never type it inline
+ *   node scripts/deploy-ian-receiver.mjs
  *
  * Usage (Mac/Linux):
- *   DEPLOYER_MNEMONIC="word1 word2 ... word24" node scripts/deploy-ian-receiver.mjs
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # hidden input; never type it inline
+ *   node scripts/deploy-ian-receiver.mjs
+ *
+ * Dry run by default (builds and signs locally, sends nothing). To broadcast:
+ *   EXECUTE=true node scripts/deploy-ian-receiver.mjs --yes-mainnet
  */
 
 import { makeContractDeploy, PostConditionMode, ClarityVersion } from "@stacks/transactions";
@@ -13,17 +18,13 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, sendOrDryRun } from "./lib/safe-signer.mjs";
 import { readFileSync } from "fs";
 
-const MNEMONIC = process.env.DEPLOYER_MNEMONIC;
+const MNEMONIC = await loadMnemonic("DEPLOYER_MNEMONIC");
+const GATE     = broadcastGate({ network: "mainnet" }); // mainnet-only script
 const API      = "https://api.hiro.so";
 const EXPLORER = "https://explorer.hiro.so/txid";
-
-if (!MNEMONIC) {
-  console.error("ERROR: Set DEPLOYER_MNEMONIC");
-  console.error('  Windows PowerShell: $env:DEPLOYER_MNEMONIC="word1 ... word24"; node scripts/deploy-ian-receiver.mjs');
-  process.exit(1);
-}
 
 async function main() {
   const wallet = await generateWallet({ secretKey: MNEMONIC, password: "" });
@@ -60,11 +61,17 @@ async function main() {
     senderKey:         pk,
     network:           STACKS_MAINNET,
     clarityVersion:    ClarityVersion.Clarity3,
-    postConditionMode: PostConditionMode.Allow,
+    postConditionMode: PostConditionMode.Deny, // deploy: no top-level asset movement
     anchorMode:        1,
     nonce,
     fee:               500_000,
   });
+
+  if (!GATE.broadcast) {
+    await sendOrDryRun(GATE, tx, "deploy ian-stx-receiver-v1");
+    console.log("  Dry run (default). Re-run with EXECUTE=true --yes-mainnet to broadcast.");
+    return;
+  }
 
   const raw  = tx.serialize();
   const body = typeof raw === "string" ? Buffer.from(raw.replace(/^0x/, ""), "hex") : raw;

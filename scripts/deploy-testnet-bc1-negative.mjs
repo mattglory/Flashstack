@@ -23,7 +23,8 @@
  *   Run:
  *      read -rs TESTNET_MNEMONIC   && export TESTNET_MNEMONIC
  *      read -rs TESTNET_MNEMONIC_2 && export TESTNET_MNEMONIC_2
- *      node scripts/deploy-testnet-bc1-negative.mjs
+ *      node scripts/deploy-testnet-bc1-negative.mjs                # dry run: prints the first tx, stops
+ *      EXECUTE=true node scripts/deploy-testnet-bc1-negative.mjs   # broadcast
  *
  * Sequence:
  *   1. transfer-admin(second key) as DEPLOYER — propose
@@ -64,23 +65,18 @@ import networkPkg from "@stacks/network";
 const { STACKS_TESTNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, describeGate, stopIfDryRun, DryRunStop } from "./lib/safe-signer.mjs";
 import { callReadOnly as callReadOnlyRaw, assertEqual } from "./lib/testnet-readonly.mjs";
 
-const MNEMONIC   = process.env.TESTNET_MNEMONIC;
-const MNEMONIC_2 = process.env.TESTNET_MNEMONIC_2;
+const MNEMONIC   = await loadMnemonic("TESTNET_MNEMONIC");   // original deployer (current admin)
+const MNEMONIC_2 = await loadMnemonic("TESTNET_MNEMONIC_2"); // second key
+const GATE      = broadcastGate({ network: "testnet" }); // testnet-only script: EXECUTE=true to broadcast
+console.log(`  Mode: ${describeGate(GATE)}`);
 const API        = "https://api.testnet.hiro.so";
 const EXPLORER   = "https://explorer.hiro.so/txid";
 const network    = STACKS_TESTNET;
 const CONTRACT   = "flashstack-stx-core-v2";
 
-if (!MNEMONIC || !MNEMONIC_2) {
-  console.error("ERROR: Set both TESTNET_MNEMONIC (original deployer) and TESTNET_MNEMONIC_2 (second key).");
-  console.error("");
-  console.error("  read -rs TESTNET_MNEMONIC   && export TESTNET_MNEMONIC");
-  console.error("  read -rs TESTNET_MNEMONIC_2 && export TESTNET_MNEMONIC_2");
-  console.error("  node scripts/deploy-testnet-bc1-negative.mjs");
-  process.exit(1);
-}
 
 async function keyAndAddress(mnemonic) {
   const wallet = await generateWallet({ secretKey: mnemonic, password: "" });
@@ -135,6 +131,7 @@ async function waitForConfirm(txid, label, expectedRejection = null) {
 }
 
 async function broadcast(tx) {
+  await stopIfDryRun(GATE, tx); // dry run: print the first tx, then stop the run
   const raw   = tx.serialize();
   const bytes = typeof raw === "string"
     ? Buffer.from(raw.replace(/^0x/, ""), "hex")
@@ -158,7 +155,7 @@ async function broadcast(tx) {
 async function callContract(privateKey, nonce, contractAddress, contractName, fn, args, fee = 100_000) {
   const tx = await makeContractCall({
     contractAddress, contractName, functionName: fn, functionArgs: args,
-    senderKey: privateKey, network, postConditionMode: PostConditionMode.Allow,
+    senderKey: privateKey, network, postConditionMode: PostConditionMode.Deny, // transfer-admin/accept-admin: move no assets
     anchorMode: 1, fee, nonce,
   });
   const txid = await broadcast(tx);
@@ -264,6 +261,10 @@ async function main() {
 }
 
 main().catch(e => {
+  if (e instanceof DryRunStop) {
+    console.log(`\n${e.message}. Re-run with EXECUTE=true to broadcast.`);
+    process.exit(0);
+  }
   console.error("\nFAILED:", e.message);
   process.exit(1);
 });
