@@ -33,8 +33,9 @@
  * DRY-RUN BY DEFAULT. To broadcast, pass BOTH: EXECUTE=true and --yes-mainnet
  *
  * Usage:
- *   ADMIN_MNEMONIC="...24 words..." node scripts/remove-vulnerable-receivers-phase2.mjs
- *   ADMIN_MNEMONIC="..." EXECUTE=true node scripts/remove-vulnerable-receivers-phase2.mjs --yes-mainnet
+ *   read -rs ADMIN_MNEMONIC && export ADMIN_MNEMONIC   # hidden input; never type it inline
+ *   node scripts/remove-vulnerable-receivers-phase2.mjs
+ *   EXECUTE=true node scripts/remove-vulnerable-receivers-phase2.mjs --yes-mainnet
  */
 
 import { makeContractCall, broadcastTransaction, Cl, PostConditionMode, privateKeyToAddress } from "@stacks/transactions";
@@ -42,6 +43,7 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, assertSigner } from "./lib/safe-signer.mjs";
 
 const API      = "https://api.hiro.so";
 const EXPLORER = "https://explorer.hiro.so/txid";
@@ -65,14 +67,11 @@ const TARGETS = [
 
 const SBTC_CONTRACT = "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token";
 
-const MNEMONIC = process.env.ADMIN_MNEMONIC;
-const EXECUTE  = process.env.EXECUTE === "true" && process.argv.includes("--yes-mainnet");
+const MNEMONIC = await loadMnemonic("ADMIN_MNEMONIC");
+const GATE     = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const EXECUTE  = GATE.broadcast;
 const FEE      = BigInt(process.env.FEE ?? "50000"); // 0.05 STX default; override with FEE=...
 
-if (!MNEMONIC) {
-  console.error("ERROR: set ADMIN_MNEMONIC (the shared core admin wallet, SPR9PQAN...)");
-  process.exit(1);
-}
 
 async function getBalances(address, name) {
   const res = await fetch(`${API}/extended/v1/address/${address}.${name}/balances`).then((r) => r.json());
@@ -102,7 +101,7 @@ async function main() {
   if (sender !== ADMIN) {
     console.error(`  ⚠ WARNING: signer is not the expected admin (${ADMIN}).`);
     console.error(`    remove-approved-receiver will fail with ERR-NOT-ADMIN on either core unless this wallet is the admin.`);
-    if (EXECUTE) { console.error("    Aborting live run — load the admin mnemonic."); process.exit(1); }
+    if (EXECUTE) assertSigner(sender, ADMIN); // throws: never broadcast from the wrong key
   }
 
   for (const { core, name } of TARGETS) {

@@ -2,12 +2,17 @@
  * Execute a 1 STX flash loan using ian-stx-receiver-v1
  *
  * Usage (Windows PowerShell):
- *   $env:DEPLOYER_MNEMONIC="word1 ... word24"; node scripts/execute-ian-flash-loan.mjs
+ *   $env:DEPLOYER_MNEMONIC = Read-Host -MaskInput   # hidden input; never type it inline
+ *   node scripts/execute-ian-flash-loan.mjs
  *
  * Usage (Mac/Linux):
- *   DEPLOYER_MNEMONIC="word1 ... word24" node scripts/execute-ian-flash-loan.mjs
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # hidden input; never type it inline
+ *   node scripts/execute-ian-flash-loan.mjs
  *
  * Before running: seed the receiver with at least 1 STX so it can cover the fee.
+ *
+ * Dry run by default (builds and signs locally, sends nothing). To broadcast:
+ *   EXECUTE=true node scripts/execute-ian-flash-loan.mjs --yes-mainnet
  */
 
 import { makeContractCall, PostConditionMode, Cl } from "@stacks/transactions";
@@ -15,19 +20,15 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, sendOrDryRun } from "./lib/safe-signer.mjs";
 
-const MNEMONIC    = process.env.DEPLOYER_MNEMONIC;
+const MNEMONIC    = await loadMnemonic("DEPLOYER_MNEMONIC");
+const GATE        = broadcastGate({ network: "mainnet" }); // mainnet-only script
 const LOAN_MICRO  = 1_000_000; // 1 STX
 const API         = "https://api.hiro.so";
 const EXPLORER    = "https://explorer.hiro.so/txid";
 const FLASH_CORE  = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
 const RECEIVER    = "SP3F4D91XKMH76JSC9CA7ZKN5PDP442JE2KWDB63A.ian-stx-receiver-v1";
-
-if (!MNEMONIC) {
-  console.error("ERROR: Set DEPLOYER_MNEMONIC");
-  console.error('  Windows: $env:DEPLOYER_MNEMONIC="word1 ... word24"; node scripts/execute-ian-flash-loan.mjs');
-  process.exit(1);
-}
 
 async function main() {
   const wallet  = await generateWallet({ secretKey: MNEMONIC, password: "" });
@@ -73,11 +74,18 @@ async function main() {
     functionArgs:      [Cl.uint(LOAN_MICRO), Cl.principal(RECEIVER)],
     senderKey:         pk,
     network:           STACKS_MAINNET,
+    // safe-signer: allow-mode flash loan moves STX core->receiver->core
     postConditionMode: PostConditionMode.Allow,
     anchorMode:        1,
     nonce,
     fee:               300_000,
   });
+
+  if (!GATE.broadcast) {
+    await sendOrDryRun(GATE, tx, "flash-loan");
+    console.log("  Dry run (default). Re-run with EXECUTE=true --yes-mainnet to broadcast.");
+    return;
+  }
 
   const raw  = tx.serialize();
   const body = typeof raw === "string" ? Buffer.from(raw.replace(/^0x/, ""), "hex") : raw;

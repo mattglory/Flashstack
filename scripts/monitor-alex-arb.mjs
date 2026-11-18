@@ -16,12 +16,13 @@
  *   back for more STX, repay FlashStack (0.05% fee), keep the spread.
  *
  * Usage:
- *   node scripts/monitor-alex-arb.mjs
- *   EXECUTE=true LOAN_STX=50 DEPLOYER_MNEMONIC="..." node scripts/monitor-alex-arb.mjs
+ *   node scripts/monitor-alex-arb.mjs                                   # monitor only (default)
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # hidden input; never type it inline
+ *   EXECUTE=true LOAN_STX=50 node scripts/monitor-alex-arb.mjs --yes-mainnet   # live execution
  *
  * Environment variables:
  *   DEPLOYER_MNEMONIC  — 24-word mnemonic (required for EXECUTE=true)
- *   EXECUTE            — "true" to auto-execute when profitable (default: dry-run)
+ *   EXECUTE            — "true" plus --yes-mainnet to auto-execute when profitable (default: dry-run)
  *   LOAN_STX           — loan size in whole STX (default: 10)
  *   INTERVAL_MS        — scan interval in ms (default: 30000)
  *   MIN_PROFIT_STX     — minimum profit threshold in whole STX (default: 0.01)
@@ -41,9 +42,11 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, describeGate } from "./lib/safe-signer.mjs";
 
-const MNEMONIC       = process.env.DEPLOYER_MNEMONIC;
-const EXECUTE        = process.env.EXECUTE === "true";
+const GATE           = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const EXECUTE        = GATE.broadcast;
+const MNEMONIC       = EXECUTE ? await loadMnemonic("DEPLOYER_MNEMONIC") : undefined; // only needed to sign
 const INTERVAL       = parseInt(process.env.INTERVAL_MS    ?? "30000");
 const LOAN_STX_MICRO = parseInt(process.env.LOAN_STX       ?? "10") * 1_000_000;
 const MIN_PROFIT     = parseFloat(process.env.MIN_PROFIT_STX ?? "0.01") * 1_000_000;
@@ -67,10 +70,6 @@ const WSTX_SCALE = 100n;
 // FlashStack receiver
 const RECEIVER = `${DEPLOYER}.alex-arb-receiver-v5`;
 
-if (EXECUTE && !MNEMONIC) {
-  console.error("ERROR: Set DEPLOYER_MNEMONIC to execute transactions");
-  process.exit(1);
-}
 
 function hiroFetch(url, opts = {}) {
   if (HIRO_API_KEY && typeof url === "string" && url.includes("hiro.so")) {
@@ -201,6 +200,7 @@ async function checkAlexArb(loanMicro) {
 
 // ── Broadcast one signed tx, return its txid ────────────────────────────────────
 async function broadcastOne(tx) {
+  if (!GATE.broadcast) throw new Error("broadcastOne called without the broadcast gate open"); // unreachable: execute path is gated
   const raw  = tx.serialize();
   const body = typeof raw === "string" ? Buffer.from(raw.replace(/^0x/, ""), "hex") : raw;
   const res  = await fetch(`${API}/v2/transactions`, {
@@ -247,7 +247,7 @@ async function executeAlexArb(loanMicro, alexOut) {
     functionArgs:      [Cl.uint(minAlexOut)],
     senderKey:         pk,
     network,
-    postConditionMode: PostConditionMode.Allow,
+    postConditionMode: PostConditionMode.Deny, // owner setter, moves no assets
     anchorMode:        1,
     nonce,
     fee:               50_000,
@@ -265,6 +265,7 @@ async function executeAlexArb(loanMicro, alexOut) {
     functionArgs:      [Cl.uint(loanMicro), Cl.principal(RECEIVER)],
     senderKey:         pk,
     network,
+    // safe-signer: allow-mode flash loan moves STX core->receiver->ALEX AMM->core
     postConditionMode: PostConditionMode.Allow,
     anchorMode:        1,
     nonce,
@@ -323,7 +324,7 @@ async function scan() {
     if (EXECUTE) {
       await executeAlexArb(arb.loanMicro, arb.alexOut);
     } else {
-      console.log(`  (dry-run -- set EXECUTE=true DEPLOYER_MNEMONIC="..." to trigger)`);
+      console.log(`  (dry-run -- ${GATE.reason})`);
     }
   } else {
     const deficit = (Number(arb.owed) + Number(arb.gasCost) - Number(arb.stxBackMicro)) / 1e6;
@@ -335,7 +336,7 @@ async function main() {
   console.log("================================================");
   console.log("  FlashStack - ALEX STX/ALEX Arb Monitor");
   console.log("================================================");
-  console.log(`  Mode:       ${EXECUTE ? "LIVE EXECUTION" : "dry-run (monitoring only)"}`);
+  console.log(`  Mode:       ${EXECUTE ? "LIVE EXECUTION" : "dry-run (monitoring only)"} -- ${describeGate(GATE)}`);
   console.log(`  Loan size:  ${LOAN_STX_MICRO / 1e6} STX`);
   console.log(`  Min profit: ${MIN_PROFIT / 1e6} STX`);
   console.log(`  Interval:   ${INTERVAL / 1000}s`);
@@ -344,7 +345,7 @@ async function main() {
   console.log(`  Token X:    token-wstx-v2  (factor u${ALEX_FACTOR})`);
   console.log(`  Token Y:    token-alex`);
   console.log(`\n  Tips:`);
-  console.log(`    EXECUTE=true LOAN_STX=100 DEPLOYER_MNEMONIC="..." -- live execution`);
+  console.log(`    EXECUTE=true LOAN_STX=100 ... --yes-mainnet          -- live execution (export DEPLOYER_MNEMONIC via read -rs)`);
   console.log(`    LOAN_STX=500                                       -- larger loan, more profit`);
   console.log(`    MIN_PROFIT_STX=0.1                                 -- raise profit threshold`);
   console.log(`    INTERVAL_MS=10000                                  -- scan every 10s`);

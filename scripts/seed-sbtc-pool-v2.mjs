@@ -8,13 +8,14 @@
  * seeding it as the admin bootstraps the pool with no inflation exposure.
  *
  * Usage:
- *   DRY_RUN=1 AMOUNT_SATS=100000 DEPLOYER_MNEMONIC="24 words" node scripts/seed-sbtc-pool-v2.mjs   # preview
- *   AMOUNT_SATS=100000          DEPLOYER_MNEMONIC="24 words" node scripts/seed-sbtc-pool-v2.mjs   # broadcast
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # hidden input; never type it inline
+ *   AMOUNT_SATS=100000 node scripts/seed-sbtc-pool-v2.mjs                              # preview (default)
+ *   AMOUNT_SATS=100000 EXECUTE=true node scripts/seed-sbtc-pool-v2.mjs --yes-mainnet   # broadcast
  *
  * Env:
  *   DEPLOYER_MNEMONIC  required -- 24-word mnemonic of the admin wallet (SPR9PQ...)
  *   AMOUNT_SATS        sats to deposit (default: 100000 = 0.001 BTC)
- *   DRY_RUN            set to "1" to preview without broadcasting
+ *   EXECUTE            "true" (plus --yes-mainnet) to broadcast; default is a preview
  */
 
 import { makeContractCall, PostConditionMode, Pc, Cl, privateKeyToAddress } from "@stacks/transactions";
@@ -22,10 +23,12 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, describeGate } from "./lib/safe-signer.mjs";
 
-const MNEMONIC    = process.env.DEPLOYER_MNEMONIC;
+const MNEMONIC    = await loadMnemonic("DEPLOYER_MNEMONIC"); // SPR9PQ admin wallet
 const AMOUNT_SATS = BigInt(process.env.AMOUNT_SATS ?? "100000");
-const DRY_RUN     = process.env.DRY_RUN === "1";
+const GATE        = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const DRY_RUN     = !GATE.broadcast;
 
 // v2 pool under the secure wallet (NOT the paused v1 under SP20XD46).
 const POOL        = "SPR9PQANV6XHSDNRAX2GNKCA5Z1KH61961KE0BYG";
@@ -35,10 +38,6 @@ const SBTC_ASSET  = "sbtc-token"; // define-fungible-token name inside the sBTC 
 const API         = "https://api.mainnet.hiro.so";
 const EXPLORER    = "https://explorer.hiro.so/txid";
 
-if (!MNEMONIC) {
-  console.error("ERROR: set DEPLOYER_MNEMONIC to the admin wallet's 24 words.");
-  process.exit(1);
-}
 if (AMOUNT_SATS <= 0n) {
   console.error("ERROR: AMOUNT_SATS must be a positive integer.");
   process.exit(1);
@@ -64,6 +63,7 @@ async function main() {
   console.log("=======================================================");
   console.log("  FlashStack -- Seed sBTC Pool v2" + (DRY_RUN ? "  [DRY RUN]" : ""));
   console.log("=======================================================");
+  console.log(`  Mode:            ${describeGate(GATE)}`);
   console.log(`  Signer:          ${signer}`);
   console.log(`  Target pool:     ${POOL}.${POOL_NAME}`);
   console.log(`  STX balance:     ${stxBal.toFixed(3)} STX`);
@@ -94,7 +94,7 @@ async function main() {
     console.log(`    ${POOL}.${POOL_NAME}::deposit(u${AMOUNT_SATS})`);
     console.log(`    post-condition: signer sends == ${AMOUNT_SATS} sats sBTC (deny mode)`);
     console.log(`    nonce ${nonce}, fee 0.2 STX`);
-    console.log("\n  Re-run without DRY_RUN=1 to broadcast.");
+    console.log("\n  Re-run with EXECUTE=true --yes-mainnet to broadcast.");
     return;
   }
 

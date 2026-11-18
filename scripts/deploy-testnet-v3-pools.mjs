@@ -7,8 +7,11 @@
  * fee and expected result. Approved by Matt 2026-10-19 (all five section 6e
  * questions: yes), to run against the rescaled sbtc-pool-v3 (ajv.3.4, #138).
  *
- * DRY RUN BY DEFAULT. Without --broadcast this signs nothing and sends nothing:
- * it runs the read-only preflight against the testnet API and prints the plan.
+ * DRY RUN BY DEFAULT. Without BOTH --broadcast and EXECUTE=true this signs
+ * nothing and sends nothing: it runs the read-only preflight against the
+ * testnet API and prints the plan. (EXECUTE=true is the safe-signer gate every
+ * signing script shares; --broadcast is kept so the plan's commands still read
+ * the same. Either one alone is refused.)
  *
  * Helpers are copied from deploy-testnet-pool-v3.mjs (section 6d) as they are:
  * deployIfNeeded (deployment scars), the explicit clarityVersion (Clarity 3 for
@@ -38,8 +41,8 @@
  *   node scripts/deploy-testnet-v3-pools.mjs --line=a              # dry run
  *   read -rs TESTNET_MNEMONIC   && export TESTNET_MNEMONIC
  *   read -rs TESTNET_MNEMONIC_2 && export TESTNET_MNEMONIC_2
- *   node scripts/deploy-testnet-v3-pools.mjs --line=a --broadcast
- *   node scripts/deploy-testnet-v3-pools.mjs --line=b --broadcast   # after line A
+ *   EXECUTE=true node scripts/deploy-testnet-v3-pools.mjs --line=a --broadcast
+ *   EXECUTE=true node scripts/deploy-testnet-v3-pools.mjs --line=b --broadcast   # after line A
  */
 
 import {
@@ -58,6 +61,7 @@ import networkPkg from "@stacks/network";
 const { STACKS_TESTNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, describeGate } from "./lib/safe-signer.mjs";
 import { readFileSync } from "fs";
 import { createHash } from "crypto";
 import { localize, assertFullyLocalized, TESTNET_EQUIVALENT } from "./lib/testnet-localize.mjs";
@@ -210,7 +214,10 @@ async function waitForResult(txid, label) {
   throw new Error(`Timeout waiting for "${label}" (${txid}). Check it by hand before doing anything else.`);
 }
 
+const GATE = broadcastGate({ network: "testnet" }); // testnet-only script
+
 async function broadcast(tx) {
+  if (!GATE.broadcast) throw new Error("broadcast called without the safe-signer gate open"); // unreachable: main() checks first
   const raw   = tx.serialize();
   const bytes = typeof raw === "string" ? Buffer.from(raw.replace(/^0x/, ""), "hex") : raw;
   const res  = await fetch(`${API}/v2/transactions`, {
@@ -239,13 +246,14 @@ async function sendDeploy(signer, name) {
   const source = patchSource(readFileSync(`contracts/${name}.clar`, "utf8"), K1, name);
   return broadcast(await makeContractDeploy({
     ...txBase(signer, FEE.deploy), contractName: name, codeBody: source,
-    clarityVersion: ClarityVersion.Clarity3, postConditionMode: PostConditionMode.Allow,
+    clarityVersion: ClarityVersion.Clarity3, postConditionMode: PostConditionMode.Deny, // deploy: no top-level asset movement
   }));
 }
 
 async function sendCall(signer, contractAddress, contractName, fn, args, fee) {
   return broadcast(await makeContractCall({
     ...txBase(signer, fee), contractAddress, contractName, functionName: fn, functionArgs: args,
+    // safe-signer: allow-mode plan steps move STX/sBTC (deposits, seeds, flash loans); expected-failure codes assume Allow
     postConditionMode: PostConditionMode.Allow,
   }));
 }
@@ -550,7 +558,13 @@ async function preflight(lineKey, L, steps) {
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const { line, broadcast: live } = parseArgs(process.argv);
+  const { line, broadcast: wantBroadcast } = parseArgs(process.argv);
+  if (wantBroadcast !== GATE.broadcast) {
+    throw new Error(wantBroadcast
+      ? "refusing to run: --broadcast also needs EXECUTE=true (the shared safe-signer gate)"
+      : "refusing to run: EXECUTE=true also needs --broadcast for this script");
+  }
+  const live = wantBroadcast && GATE.broadcast;
   const L = LINES[line];
   const steps = line === "b" ? [P1, ...lineSteps(L)] : lineSteps(L);
 
@@ -558,7 +572,7 @@ async function main() {
   console.log("║  FlashStack — Testnet stage, v3 pools (section 6e)   ║");
   console.log("╚══════════════════════════════════════════════════════╝");
   console.log(`  Line:     ${line.toUpperCase()} (${L.pool})`);
-  console.log(`  Mode:     ${live ? "BROADCAST" : "DRY RUN (nothing is signed or sent; add --broadcast to run)"}`);
+  console.log(`  Mode:     ${live ? "BROADCAST" : "DRY RUN (nothing is signed or sent; add EXECUTE=true and --broadcast to run)"} -- ${describeGate(GATE)}`);
   console.log(`  Network:  testnet (${API})`);
   console.log(`  Signers:  K1 ${K1}, K2 ${K2}`);
   console.log();
@@ -592,8 +606,7 @@ async function main() {
   }
   if (problems.length) throw new Error("refusing to broadcast with preflight problems (see above)");
 
-  const m1 = process.env.TESTNET_MNEMONIC, m2 = process.env.TESTNET_MNEMONIC_2;
-  if (!m1 || !m2) throw new Error("--broadcast needs TESTNET_MNEMONIC (K1) and TESTNET_MNEMONIC_2 (K2); see the header");
+  const m1 = await loadMnemonic("TESTNET_MNEMONIC"), m2 = await loadMnemonic("TESTNET_MNEMONIC_2"); // K1, K2; see the header
   const k1 = await keyAndAddress(m1), k2 = await keyAndAddress(m2);
   if (k1.address !== K1) throw new Error(`TESTNET_MNEMONIC derives ${k1.address}, not K1 ${K1}`);
   if (k2.address !== K2) throw new Error(`TESTNET_MNEMONIC_2 derives ${k2.address}, not K2 ${K2}`);

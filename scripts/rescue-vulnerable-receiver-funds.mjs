@@ -34,9 +34,11 @@
  *
  * DRY-RUN BY DEFAULT. To broadcast, pass BOTH: EXECUTE=true and --yes-mainnet
  *
- * Usage:
- *   RESCUE_TO="SP..."  DEPLOYER_MNEMONIC="...24 words..." node scripts/rescue-vulnerable-receiver-funds.mjs --group=A
- *   RESCUE_TO="SP..."  SIGNER_MNEMONIC="...24 words..."   node scripts/rescue-vulnerable-receiver-funds.mjs --group=B
+ * Usage (load the key without echo first; never type it on the command line):
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # group A
+ *   read -rs SIGNER_MNEMONIC   && export SIGNER_MNEMONIC     # group B
+ *   RESCUE_TO="SP..." node scripts/rescue-vulnerable-receiver-funds.mjs --group=A
+ *   RESCUE_TO="SP..." node scripts/rescue-vulnerable-receiver-funds.mjs --group=B
  *   (add EXECUTE=true --yes-mainnet to broadcast; omit to dry-run)
  */
 
@@ -45,6 +47,7 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, assertSigner } from "./lib/safe-signer.mjs";
 
 const API      = "https://api.hiro.so";
 const EXPLORER = "https://explorer.hiro.so/txid";
@@ -67,7 +70,8 @@ const SBTC_CONTRACT = "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token";
 
 const GROUP     = (process.argv.find((a) => a.startsWith("--group=")) ?? "").split("=")[1];
 const RESCUE_TO = process.env.RESCUE_TO;
-const EXECUTE   = process.env.EXECUTE === "true" && process.argv.includes("--yes-mainnet");
+const GATE      = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const EXECUTE   = GATE.broadcast;
 const FEE       = BigInt(process.env.FEE ?? "50000"); // 0.05 STX default; override with FEE=...
 
 if (GROUP !== "A" && GROUP !== "B") {
@@ -78,11 +82,8 @@ if (!RESCUE_TO) {
   console.error("ERROR: set RESCUE_TO to the address that should receive the rescued funds");
   process.exit(1);
 }
-const MNEMONIC = GROUP === "A" ? process.env.DEPLOYER_MNEMONIC : process.env.SIGNER_MNEMONIC;
-if (!MNEMONIC) {
-  console.error(`ERROR: set ${GROUP === "A" ? "DEPLOYER_MNEMONIC (SP20XD46... deployer wallet)" : "SIGNER_MNEMONIC (any funded wallet)"}`);
-  process.exit(1);
-}
+// Group A: DEPLOYER_MNEMONIC (SP20XD46... deployer wallet). Group B: SIGNER_MNEMONIC (any funded wallet).
+const MNEMONIC = await loadMnemonic(GROUP === "A" ? "DEPLOYER_MNEMONIC" : "SIGNER_MNEMONIC");
 
 async function getStxBalance(address, name) {
   const res = await fetch(`${API}/extended/v1/address/${address}.${name}/balances`).then((r) => r.json());
@@ -139,7 +140,7 @@ async function main() {
   if (GROUP === "A" && sender !== DEPLOYER) {
     console.error(`  ⚠ WARNING: signer is not the deployer wallet (${DEPLOYER}).`);
     console.error(`    rescue-stx will fail with ERR-NOT-OWNER unless this wallet deployed the receiver.`);
-    if (EXECUTE) { console.error("    Aborting live run."); process.exit(1); }
+    if (EXECUTE) assertSigner(sender, DEPLOYER); // throws: never broadcast from the wrong key
   }
 
   if (GROUP === "A") {
@@ -156,6 +157,7 @@ async function main() {
         // Allow, not Deny: this call itself moves the STX we're rescuing (the
         // receiver's own repay transfer), and we don't declare a matching
         // post-condition -- Deny with none declared aborts the whole tx.
+        // safe-signer: allow-mode rescue moves the receiver's own STX out to RESCUE_TO
         senderKey: pk, network: STACKS_MAINNET, postConditionMode: PostConditionMode.Allow, fee: FEE, nonce,
       });
       const res = await broadcastTransaction({ transaction: tx, network: STACKS_MAINNET });
@@ -182,6 +184,7 @@ async function main() {
         functionArgs: [Cl.uint(amount), Cl.principal(RESCUE_TO)],
         // Allow, not Deny: same reason as Group A above -- this transfers the
         // STX/sBTC we're rescuing and we don't declare a post-condition for it.
+        // safe-signer: allow-mode self-call moves the receiver's STX/sBTC out to RESCUE_TO
         senderKey: pk, network: STACKS_MAINNET, postConditionMode: PostConditionMode.Allow, fee: FEE, nonce,
       });
       const res = await broadcastTransaction({ transaction: tx, network: STACKS_MAINNET });

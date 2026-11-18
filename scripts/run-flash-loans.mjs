@@ -3,40 +3,43 @@
  * Waits for each transaction to confirm before sending the next.
  *
  * Usage:
- *   DEPLOYER_MNEMONIC="your twelve word..." \
- *   DEPLOYER_ADDRESS="SP..." \
- *   NETWORK=mainnet \
- *   node scripts/run-flash-loans.mjs
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # hidden input; never type it inline
+ *   DEPLOYER_ADDRESS="ST..." NETWORK=testnet node scripts/run-flash-loans.mjs                 # dry run
+ *   DEPLOYER_ADDRESS="ST..." NETWORK=testnet EXECUTE=true node scripts/run-flash-loans.mjs    # broadcast
+ *   (mainnet broadcast also needs --yes-mainnet)
  *
  * Environment variables:
  *   DEPLOYER_MNEMONIC  — BIP-39 mnemonic for the deployer wallet (required)
- *   DEPLOYER_ADDRESS   — STX address matching the mnemonic (required)
- *   NETWORK            — "mainnet" or "testnet" (default: mainnet)
+ *   DEPLOYER_ADDRESS   — STX address matching the mnemonic (required, checked)
+ *   NETWORK            — "mainnet" or "testnet" (required; no default)
+ *   EXECUTE            — "true" to broadcast; default is a dry run
  */
 
-import { makeContractCall, broadcastTransaction, PostConditionMode, Cl } from "@stacks/transactions";
+import { makeContractCall, broadcastTransaction, PostConditionMode, Cl, privateKeyToAddress } from "@stacks/transactions";
 import networkPkg from "@stacks/network";
 const { STACKS_TESTNET, STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, describeGate, assertSigner, resolveNetwork, sendOrDryRun } from "./lib/safe-signer.mjs";
 
-const MNEMONIC = process.env.DEPLOYER_MNEMONIC;
 const DEPLOYER = process.env.DEPLOYER_ADDRESS;
-const NET = process.env.NETWORK ?? "mainnet";
+const NET = resolveNetwork(process.env); // throws unless NETWORK=mainnet|testnet
+const GATE = broadcastGate({ network: NET });
 
-if (!MNEMONIC || !DEPLOYER) {
-  console.error("ERROR: Set DEPLOYER_MNEMONIC and DEPLOYER_ADDRESS environment variables.");
-  console.error("  Example:");
-  console.error('  DEPLOYER_MNEMONIC="word1 word2 ..." DEPLOYER_ADDRESS="SP..." node scripts/run-flash-loans.mjs');
+if (!DEPLOYER) {
+  console.error("ERROR: Set DEPLOYER_ADDRESS (and DEPLOYER_MNEMONIC, loaded with: read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC).");
   process.exit(1);
 }
+const MNEMONIC = await loadMnemonic("DEPLOYER_MNEMONIC");
 
-const network = NET === "testnet" ? STACKS_TESTNET : STACKS_MAINNET;
-const API = NET === "testnet" ? "https://api.testnet.hiro.so" : "https://api.hiro.so";
+const network = { mainnet: STACKS_MAINNET, testnet: STACKS_TESTNET }[NET]; // NET is already validated
+const API = { mainnet: "https://api.hiro.so", testnet: "https://api.testnet.hiro.so" }[NET];
 
 async function getPrivateKey() {
   const wallet = await generateWallet({ secretKey: MNEMONIC, password: "" });
-  return wallet.accounts[0].stxPrivateKey;
+  const pk = wallet.accounts[0].stxPrivateKey;
+  assertSigner(privateKeyToAddress(pk, NET), DEPLOYER);
+  return pk;
 }
 
 async function getNonce() {
@@ -46,6 +49,7 @@ async function getNonce() {
 }
 
 async function waitForConfirm(txid, label) {
+  if (!txid) return true; // dry run: nothing was sent
   process.stdout.write(`  Waiting for ${label} to confirm`);
   for (let i = 0; i < 60; i++) {
     await new Promise(r => setTimeout(r, 10000)); // wait 10s per attempt
@@ -73,10 +77,12 @@ async function callContract(privateKey, nonce, contractName, functionName, args)
     functionArgs: args,
     senderKey: privateKey,
     network,
+    // safe-signer: allow-mode shared helper; flash-mint mints and moves sBTC through the receiver
     postConditionMode: PostConditionMode.Allow,
     anchorMode: 1,
     nonce,
   });
+  if (!GATE.broadcast) return sendOrDryRun(GATE, tx, `${contractName}.${functionName}`);
   const result = await broadcastTransaction({ transaction: tx, network });
   if (result.error) throw new Error(`Broadcast failed: ${result.error} — ${result.reason}`);
   return result.txid;
@@ -86,6 +92,7 @@ async function main() {
   console.log("FlashStack Flash Loan Executor");
   console.log("==============================");
   console.log(`Network:  ${NET}`);
+  console.log(`Mode:     ${describeGate(GATE)}`);
   console.log(`Deployer: ${DEPLOYER}\n`);
 
   const privateKey = await getPrivateKey();

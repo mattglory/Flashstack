@@ -10,8 +10,10 @@
  * After this script confirms, the receiver is armed. Run the monitor with EXECUTE=true.
  *
  * Usage:
- *   DEPLOYER_MNEMONIC="..." node scripts/preflight-alex-arb.mjs
- *   LOAN_STX=500 MIN_PROFIT_STX=0.5 SLIPPAGE_PCT=1 DEPLOYER_MNEMONIC="..." node scripts/preflight-alex-arb.mjs
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC   # hidden input; never type it inline
+ *   node scripts/preflight-alex-arb.mjs                                  # quote + dry run (default)
+ *   LOAN_STX=500 MIN_PROFIT_STX=0.5 SLIPPAGE_PCT=1 node scripts/preflight-alex-arb.mjs
+ *   EXECUTE=true node scripts/preflight-alex-arb.mjs --yes-mainnet       # broadcast the setters
  *
  * Environment variables:
  *   DEPLOYER_MNEMONIC  required -- 24-word mnemonic
@@ -25,8 +27,10 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, describeGate, sendOrDryRun } from "./lib/safe-signer.mjs";
 
-const MNEMONIC        = process.env.DEPLOYER_MNEMONIC;
+const MNEMONIC        = await loadMnemonic("DEPLOYER_MNEMONIC");
+const GATE            = broadcastGate({ network: "mainnet" }); // mainnet-only script
 const LOAN_STX        = parseInt(process.env.LOAN_STX        ?? "100");
 const MIN_PROFIT_STX  = parseFloat(process.env.MIN_PROFIT_STX ?? "0.1");
 const SLIPPAGE_PCT    = parseFloat(process.env.SLIPPAGE_PCT   ?? "1");
@@ -47,7 +51,6 @@ const ALEX_TOKEN  = `${ALEX_ADDR}.token-alex`;
 const ALEX_FACTOR = 100_000_000n;
 const WSTX_SCALE  = 100n;
 
-if (!MNEMONIC) { console.error("ERROR: Set DEPLOYER_MNEMONIC"); process.exit(1); }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,6 +65,7 @@ async function callReadOnly(contractAddr, contractName, fn, args) {
 }
 
 async function broadcast(tx, label) {
+  if (!GATE.broadcast) return sendOrDryRun(GATE, tx, label); // prints the summary, returns null
   const raw  = tx.serialize();
   const body = typeof raw === "string" ? Buffer.from(raw.replace(/^0x/, ""), "hex") : raw;
   const res  = await fetch(`${API}/v2/transactions`, {
@@ -74,6 +78,7 @@ async function broadcast(tx, label) {
 }
 
 async function waitForConfirm(txid, label) {
+  if (!txid) return; // dry run: nothing was sent
   process.stdout.write(`  Waiting for ${label}`);
   for (let i = 0; i < 60; i++) {
     await new Promise(r => setTimeout(r, 10_000));
@@ -121,7 +126,8 @@ async function main() {
   console.log(`  Loan size:    ${LOAN_STX} STX (${LOAN_MICRO} microSTX)`);
   console.log(`  Min profit:   ${MIN_PROFIT_STX} STX (${MIN_PROFIT_MICRO} microSTX)`);
   console.log(`  Slippage tol: ${SLIPPAGE_PCT}%`);
-  console.log(`  Receiver:     ${DEPLOYER}.${RECEIVER}\n`);
+  console.log(`  Receiver:     ${DEPLOYER}.${RECEIVER}`);
+  console.log(`  Mode:         ${describeGate(GATE)}\n`);
 
   // Step 1: Get live quote
   console.log("Step 1 -- Fetching live ALEX AMM quote...");
@@ -191,7 +197,7 @@ async function main() {
     functionArgs:      [Cl.uint(minAlexOut)],
     senderKey:         pk,
     network,
-    postConditionMode: PostConditionMode.Allow,
+    postConditionMode: PostConditionMode.Deny, // owner setter, moves no assets
     anchorMode:        1,
     nonce:             nonce++,
     fee:               100_000,
@@ -210,7 +216,7 @@ async function main() {
     functionArgs:      [Cl.uint(MIN_PROFIT_MICRO)],
     senderKey:         pk,
     network,
-    postConditionMode: PostConditionMode.Allow,
+    postConditionMode: PostConditionMode.Deny, // owner setter, moves no assets
     anchorMode:        1,
     nonce:             nonce++,
     fee:               100_000,
@@ -227,7 +233,7 @@ async function main() {
   console.log(`  min-alex-out set: ${minAlexOut}`);
   console.log(`  min-profit set:   ${MIN_PROFIT_MICRO} microSTX`);
   console.log("\n  Now execute the arb:");
-  console.log(`    EXECUTE=true LOAN_STX=${LOAN_STX} DEPLOYER_MNEMONIC="..." node scripts/monitor-alex-arb.mjs`);
+  console.log(`    EXECUTE=true LOAN_STX=${LOAN_STX} node scripts/monitor-alex-arb.mjs --yes-mainnet   (DEPLOYER_MNEMONIC exported via read -rs)`);
   console.log("\n  NOTE: These values are valid for the current pool state only.");
   console.log("  Re-run this script if more than a few minutes pass before executing.");
   console.log("=======================================================");

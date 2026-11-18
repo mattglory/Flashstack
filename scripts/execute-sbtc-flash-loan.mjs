@@ -6,13 +6,13 @@
  * (add-approved-receiver), and (c) seeded with sBTC (>= round-trip loss + fee).
  *
  * Usage:
- *   MAINNET_MNEMONIC="word1 ... word24" node scripts/execute-sbtc-flash-loan.mjs
- * Or with ./mbegu2 (or ./mbegu) holding the 24-word mnemonic:
- *   node scripts/execute-sbtc-flash-loan.mjs
+ *   read -rs MAINNET_MNEMONIC && export MAINNET_MNEMONIC   # hidden input; never type it inline
+ *   node scripts/execute-sbtc-flash-loan.mjs                              # dry run (default)
+ *   EXECUTE=true node scripts/execute-sbtc-flash-loan.mjs --yes-mainnet   # broadcast
  *
  * Optional env:
  *   AMOUNT_SATS=1000   Loan size in sats (default 1000 -- Matt's stated demo size).
- *   DRY_RUN=1          Build + print, do NOT broadcast.
+ *   EXECUTE=true        Broadcast (mainnet also needs --yes-mainnet). Default: dry run.
  *   TX_FEE_USTX=...    Tx fee (default 300_000 microSTX = 0.3 STX).
  */
 
@@ -21,7 +21,7 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
-import { readFileSync, existsSync } from "fs";
+import { loadMnemonic, broadcastGate, describeGate } from "./lib/safe-signer.mjs";
 
 const CORE_ADDR  = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
 const CORE_NAME  = "flashstack-sbtc-core";
@@ -32,15 +32,10 @@ const API        = "https://api.hiro.so";
 const EXPLORER   = "https://explorer.hiro.so/txid";
 const AMOUNT     = BigInt(process.env.AMOUNT_SATS ?? 1000);
 const TX_FEE     = Number(process.env.TX_FEE_USTX ?? 300_000);
-const DRY_RUN    = process.env.DRY_RUN === "1";
+const GATE       = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const DRY_RUN    = !GATE.broadcast;
 const network    = STACKS_MAINNET;
 
-function loadMnemonic() {
-  if (process.env.MAINNET_MNEMONIC) return process.env.MAINNET_MNEMONIC.trim();
-  if (existsSync("mbegu2")) return readFileSync("mbegu2", "utf8").trim();
-  if (existsSync("mbegu"))  return readFileSync("mbegu", "utf8").trim();
-  throw new Error("Set MAINNET_MNEMONIC env var, or place 24-word mnemonic in ./mbegu2");
-}
 async function getNonce(addr) {
   return (await (await fetch(`${API}/v2/accounts/${addr}?proof=0`)).json()).nonce;
 }
@@ -93,7 +88,7 @@ async function waitForConfirm(txid, label) {
 }
 
 async function main() {
-  const mnemonic = loadMnemonic();
+  const mnemonic = await loadMnemonic("MAINNET_MNEMONIC");
   const wallet   = await generateWallet({ secretKey: mnemonic, password: "" });
   const pk       = wallet.accounts[0].stxPrivateKey;
   const sender   = privateKeyToAddress(pk, "mainnet");
@@ -111,7 +106,7 @@ async function main() {
   console.log(`  Receiver:  ${receiver}`);
   console.log(`  Amount:    ${AMOUNT} sats`);
   console.log(`  Tx fee:    ${TX_FEE} microSTX`);
-  console.log(`  Mode:      ${DRY_RUN ? "DRY RUN (no broadcast)" : "LIVE BROADCAST"}`);
+  console.log(`  Mode:      ${describeGate(GATE)}`);
   console.log();
 
   // --- Preflight read-only checks ---
@@ -145,7 +140,7 @@ async function main() {
   if (problems.length) {
     console.log("\n  PREFLIGHT WARNINGS:");
     problems.forEach(p => console.log(`   - ${p}`));
-    if (!DRY_RUN) throw new Error("Preflight failed; refusing to broadcast. Fix the above or run with DRY_RUN=1.");
+    if (!DRY_RUN) throw new Error("Preflight failed; refusing to broadcast. Fix the above or run without EXECUTE=true for a dry run.");
   }
 
   const tx = await makeContractCall({
@@ -155,6 +150,7 @@ async function main() {
     functionArgs:    [Cl.uint(AMOUNT), Cl.contractPrincipal(sender, RECV_NAME)],
     senderKey:       pk,
     network,
+    // safe-signer: allow-mode flash loan moves sBTC core->receiver->DEX->core
     postConditionMode: PostConditionMode.Allow,
     anchorMode:      1,
     fee:             TX_FEE,
@@ -162,7 +158,7 @@ async function main() {
   });
 
   if (DRY_RUN) {
-    console.log("\n  DRY_RUN=1 -- not broadcasting. Tx built OK.");
+    console.log("\n  Dry run (default) -- not broadcasting. Tx built OK.");
     return;
   }
 

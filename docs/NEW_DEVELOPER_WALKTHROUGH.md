@@ -101,20 +101,29 @@ You don't need to edit anything.
 Pick a contract name with your own name in it, e.g. `jane-flash-receiver-v1`
 (lowercase letters, numbers, dashes only).
 
+Never type your 24 words on the command line: they end up in your shell
+history. Load them into a variable with input hidden (paste, then Enter).
+If you skip this, the script asks for them itself, also hidden.
+
 **Mac/Linux:**
 ```
-RECEIVER_NAME=yourname-flash-receiver-v1 DEPLOYER_MNEMONIC="your 24 words separated by spaces" node scripts/deploy-receiver-template.mjs
+read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC
+RECEIVER_NAME=yourname-flash-receiver-v1 node scripts/deploy-receiver-template.mjs                           # dry run
+RECEIVER_NAME=yourname-flash-receiver-v1 EXECUTE=true node scripts/deploy-receiver-template.mjs --yes-mainnet  # deploy
 ```
 
-**Windows PowerShell:**
+**Windows PowerShell (7.1+):**
 ```
+$env:DEPLOYER_MNEMONIC = Read-Host -MaskInput
 $env:RECEIVER_NAME="yourname-flash-receiver-v1"
-$env:DEPLOYER_MNEMONIC="your 24 words separated by spaces"
-node scripts/deploy-receiver-template.mjs
+node scripts/deploy-receiver-template.mjs                          # dry run
+$env:EXECUTE="true"; node scripts/deploy-receiver-template.mjs --yes-mainnet   # deploy
 ```
 
-The script prints your wallet address, broadcasts the deployment (~0.5 STX
-fee), and waits for confirmation (1–5 minutes). When it finishes you'll see:
+The first run is a dry run: it signs the deployment locally and prints its
+txid, and sends nothing. Re-run with `EXECUTE=true` and `--yes-mainnet` to
+broadcast it (~0.5 STX fee); the script then waits for confirmation (1–5
+minutes). When it finishes you'll see:
 
 ```
   DEPLOY COMPLETE
@@ -149,14 +158,17 @@ withdraw it back in Step 10.
 
 **Mac/Linux:**
 ```
-RECEIVER=SP2ABC...XYZ.yourname-flash-receiver-v1 DEPLOYER_MNEMONIC="your 24 words" node scripts/execute-flash-loan.mjs
+read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC
+RECEIVER=SP2ABC...XYZ.yourname-flash-receiver-v1 node scripts/execute-flash-loan.mjs                           # dry run
+RECEIVER=SP2ABC...XYZ.yourname-flash-receiver-v1 EXECUTE=true node scripts/execute-flash-loan.mjs --yes-mainnet  # execute
 ```
 
-**Windows PowerShell:**
+**Windows PowerShell (7.1+):**
 ```
+$env:DEPLOYER_MNEMONIC = Read-Host -MaskInput
 $env:RECEIVER="SP2ABC...XYZ.yourname-flash-receiver-v1"
-$env:DEPLOYER_MNEMONIC="your 24 words"
-node scripts/execute-flash-loan.mjs
+node scripts/execute-flash-loan.mjs                          # dry run
+$env:EXECUTE="true"; node scripts/execute-flash-loan.mjs --yes-mainnet   # execute
 ```
 
 The script borrows 1 STX through your receiver and waits for confirmation.

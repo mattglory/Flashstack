@@ -4,11 +4,10 @@
  * DRY-RUN BY DEFAULT — prints the plan and broadcasts nothing.
  * To actually deploy, pass BOTH:  EXECUTE=true  and  --yes-mainnet
  *
- * Usage:
- *   DEPLOYER_MNEMONIC="… 24 words of the SECURE wallet (SPR9PQ…) …" \
- *     node scripts/deploy-pool-v2.mjs                 # dry run
- *   DEPLOYER_MNEMONIC="…" EXECUTE=true \
- *     node scripts/deploy-pool-v2.mjs --yes-mainnet   # live deploy
+ * Usage (DEPLOYER_MNEMONIC = the SECURE wallet, SPR9PQ…; load it without echo):
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC
+ *   node scripts/deploy-pool-v2.mjs                                 # dry run
+ *   EXECUTE=true node scripts/deploy-pool-v2.mjs --yes-mainnet      # live deploy
  *
  * Deploys under whichever wallet signs. It REFUSES to deploy under the
  * compromised SP20XD46… namespace — the v2 pools must live under the secure
@@ -20,6 +19,7 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate } from "./lib/safe-signer.mjs";
 import { readFileSync } from "fs";
 
 const API      = "https://api.hiro.so";
@@ -34,14 +34,11 @@ const CONTRACTS = [
   { name: "flashstack-pool-oracle-v2", path: "contracts/flashstack-pool-oracle-v2.clar" },
 ];
 
-const MNEMONIC = process.env.DEPLOYER_MNEMONIC;
-const EXECUTE  = process.env.EXECUTE === "true" && process.argv.includes("--yes-mainnet");
+const MNEMONIC = await loadMnemonic("DEPLOYER_MNEMONIC");
+const GATE     = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const EXECUTE  = GATE.broadcast;
 const FEE      = BigInt(process.env.FEE ?? "3000000"); // 3 STX default per deploy; override with FEE=…
 
-if (!MNEMONIC) {
-  console.error("ERROR: set DEPLOYER_MNEMONIC (the SECURE post-rotation wallet, SPR9PQ…)");
-  process.exit(1);
-}
 
 async function main() {
   const wallet = await generateWallet({ secretKey: MNEMONIC, password: "" });

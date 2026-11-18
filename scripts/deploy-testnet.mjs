@@ -18,8 +18,10 @@
  *      Never reuse a wallet that has ever held mainnet funds.
  *   2. Fund it at: https://explorer.hiro.so/sandbox/faucet?chain=testnet
  *      (1000 STX per request — run 3-4 times to cover deploy fees + reserve)
- *   3. Run:
- *      TESTNET_MNEMONIC="word1 ... word24" node scripts/deploy-testnet.mjs
+ *   3. Run (dry run by default; EXECUTE=true broadcasts):
+ *      read -rs TESTNET_MNEMONIC && export TESTNET_MNEMONIC   # hidden input; never type it inline
+ *      node scripts/deploy-testnet.mjs                  # dry run: prints the first tx, stops
+ *      EXECUTE=true node scripts/deploy-testnet.mjs     # broadcast
  *      (testnet address is derived automatically from the mnemonic)
  *
  * Modes:
@@ -64,6 +66,7 @@ import networkPkg from "@stacks/network";
 const { STACKS_TESTNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, describeGate, stopIfDryRun, DryRunStop } from "./lib/safe-signer.mjs";
 import { readFileSync } from "fs";
 import { localize, assertFullyLocalized } from "./lib/testnet-localize.mjs";
 import { callReadOnly as callReadOnlyRaw, assertEqual } from "./lib/testnet-readonly.mjs";
@@ -78,7 +81,9 @@ const callReadOnly = (sender, contractAddress, contractName, fn, args = []) =>
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const MNEMONIC  = process.env.TESTNET_MNEMONIC;
+const MNEMONIC  = await loadMnemonic("TESTNET_MNEMONIC");
+const GATE      = broadcastGate({ network: "testnet" }); // testnet-only script: EXECUTE=true to broadcast
+console.log(`  Mode: ${describeGate(GATE)}`);
 const API       = "https://api.testnet.hiro.so";
 // --steps=all (default) runs the whole line. --steps=admin re-runs Step 8 ONLY,
 // against an already-deployed core: the BC1 evidence in docs/TESTNET_STAGING.md
@@ -104,15 +109,6 @@ const RESERVE_AMOUNT = 50_000_000;
 const RECEIVER_SEED_AMOUNT = 1_000_000;
 
 
-if (!MNEMONIC) {
-  console.error("ERROR: Set TESTNET_MNEMONIC");
-  console.error("");
-  console.error("  TESTNET_MNEMONIC=\"word1 ... word24\" node scripts/deploy-testnet.mjs");
-  console.error("");
-  console.error("  Fund your testnet address first:");
-  console.error("  https://explorer.hiro.so/sandbox/faucet?chain=testnet");
-  process.exit(1);
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -175,6 +171,7 @@ async function waitForConfirm(txid, label) {
 }
 
 async function broadcast(tx) {
+  await stopIfDryRun(GATE, tx); // dry run: print the first tx, then stop the run
   const raw   = tx.serialize();
   const bytes = typeof raw === "string"
     ? Buffer.from(raw.replace(/^0x/, ""), "hex")
@@ -204,7 +201,7 @@ async function deployContract(privateKey, nonce, name, sourcePath, deployer) {
     senderKey:         privateKey,
     network,
     clarityVersion:    ClarityVersion.Clarity3,
-    postConditionMode: PostConditionMode.Allow,
+    postConditionMode: PostConditionMode.Deny, // deploy: no top-level asset movement
     anchorMode:        1,
     fee:               500_000,
     nonce,
@@ -223,6 +220,7 @@ async function callContract(privateKey, nonce, contractAddress, contractName, fn
     functionArgs:      args,
     senderKey:         privateKey,
     network,
+    // safe-signer: allow-mode shared helper; drives reserve deposits and flash loans on testnet
     postConditionMode: PostConditionMode.Allow,
     anchorMode:        1,
     fee,
@@ -515,6 +513,10 @@ async function main() {
 }
 
 main().catch(e => {
+  if (e instanceof DryRunStop) {
+    console.log(`\n${e.message}. Re-run with EXECUTE=true to broadcast.`);
+    process.exit(0);
+  }
   console.error("\nFAILED:", e.message);
   process.exit(1);
 });

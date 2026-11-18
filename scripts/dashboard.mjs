@@ -232,8 +232,10 @@ const server = createServer(async (req, res) => {
   res.end(html(ethData, arbData, walletBal, pm2));
 });
 
-server.listen(PORT, () => {
-  console.log(`\n FlashStack Dashboard running at http://localhost:${PORT}`);
+// Loopback only: the page shows wallet balances and pm2 process state, so it
+// must not be reachable from the LAN.
+server.listen(PORT, "127.0.0.1", () => {
+  console.log(`\n FlashStack Dashboard running at http://127.0.0.1:${PORT}`);
   console.log(` Auto-refreshes every 30 seconds`);
   console.log(` Press Ctrl+C to stop\n`);
 });

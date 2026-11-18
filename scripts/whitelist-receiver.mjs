@@ -4,11 +4,15 @@
  * Calls add-approved-receiver so the given principal can call flash-loan.
  *
  * Usage:
- *   RECEIVER="SP3NZYZA88ENNF0FCR57KBGPFY5RAXWHXXVSB6FBW.hk-stx-real-receiver-v1" \
- *   MAINNET_MNEMONIC="word1 ... word24" node scripts/whitelist-receiver.mjs
+ *   read -rs MAINNET_MNEMONIC && export MAINNET_MNEMONIC   # hidden input; never type it inline
+ *   export RECEIVER="SP3NZYZA88ENNF0FCR57KBGPFY5RAXWHXXVSB6FBW.hk-stx-real-receiver-v1"
+ *   node scripts/whitelist-receiver.mjs                              # dry run (default)
+ *   EXECUTE=true node scripts/whitelist-receiver.mjs --yes-mainnet   # broadcast
+ *
+ * Must be signed by the core admin (SPR9PQAN... after the 2026-06-12 rotation).
  *
  * Optional:
- *   DRY_RUN=1   Build tx but do not broadcast
+ *   EXECUTE=true        Broadcast (mainnet also needs --yes-mainnet). Default: dry run.
  */
 
 import {
@@ -16,24 +20,28 @@ import {
   PostConditionMode,
   Cl,
   privateKeyToAddress,
+  hexToCV,
+  cvToJSON,
 } from "@stacks/transactions";
 import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
-import { readFileSync, existsSync } from "fs";
+import { loadMnemonic, broadcastGate, describeGate, assertSigner } from "./lib/safe-signer.mjs";
 
 const CORE_ADDRESS = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
 const CORE_NAME    = process.env.CORE ?? "flashstack-stx-core";
 const API          = "https://api.hiro.so";
 const EXPLORER     = "https://explorer.hiro.so/txid";
 const CALL_FEE     = 10_000;
-const DRY_RUN      = process.env.DRY_RUN === "1";
+const GATE         = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const DRY_RUN      = !GATE.broadcast;
 const RECEIVER     = process.env.RECEIVER;
 
 if (!RECEIVER) {
   console.error("ERROR: Set RECEIVER env var");
-  console.error('  RECEIVER="SP....contract-name" MAINNET_MNEMONIC="..." node scripts/whitelist-receiver.mjs');
+  console.error('  read -rs MAINNET_MNEMONIC && export MAINNET_MNEMONIC');
+  console.error('  RECEIVER="SP....contract-name" node scripts/whitelist-receiver.mjs');
   process.exit(1);
 }
 
@@ -44,11 +52,6 @@ if (!receiverAddress || !receiverName) {
   process.exit(1);
 }
 
-function loadMnemonic() {
-  if (process.env.MAINNET_MNEMONIC) return process.env.MAINNET_MNEMONIC.trim();
-  if (existsSync("mbegu")) return readFileSync("mbegu", "utf8").trim();
-  throw new Error("Set MAINNET_MNEMONIC env var, or place 24-word mnemonic in ./mbegu");
-}
 
 async function getNonce(addr) {
   const res = await fetch(`${API}/v2/accounts/${addr}?proof=0`);
@@ -109,8 +112,26 @@ async function waitForConfirm(txid) {
   throw new Error("Timeout waiting for confirmation");
 }
 
+// The expected signer is whoever the core says its admin is right now, read from
+// chain on every run. A hardcoded admin goes stale the moment admin rotates, and
+// then blocks the real admin while still accepting a retired key.
+async function fetchAdmin() {
+  const res = await fetch(`${API}/v2/contracts/call-read/${CORE_ADDRESS}/${CORE_NAME}/get-admin`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sender: CORE_ADDRESS, arguments: [] }),
+  });
+  const j = await res.json();
+  if (!j.okay) throw new Error(`get-admin on ${CORE_NAME} failed: ${j.cause}`);
+  const v = cvToJSON(hexToCV(j.result));          // bare principal, or (ok principal)
+  const admin = typeof v.value === "string" ? v.value : v.value?.value;
+  if (typeof admin !== "string" || !/^S[PM][0-9A-Z]+$/.test(admin)) throw new Error(`get-admin returned no principal: ${j.result}`);
+  return admin;
+}
+
 async function main() {
-  const mnemonic = loadMnemonic();
+  const ADMIN = await fetchAdmin();
+  const mnemonic = await loadMnemonic("MAINNET_MNEMONIC");
   const wallet   = await generateWallet({ secretKey: mnemonic, password: "" });
   const pk       = wallet.accounts[0].stxPrivateKey;
   const sender   = privateKeyToAddress(pk, "mainnet");
@@ -124,7 +145,7 @@ async function main() {
   console.log(` Balance:      ${Number(balance) / 1e6} STX`);
   console.log(` Nonce:        ${nonce}`);
   console.log(` Receiver:     ${RECEIVER}`);
-  console.log(` Mode:         ${DRY_RUN ? "DRY RUN" : "LIVE BROADCAST"}`);
+  console.log(` Mode:         ${describeGate(GATE)}`);
   console.log();
 
   if (balance < BigInt(CALL_FEE)) {
@@ -132,9 +153,11 @@ async function main() {
   }
 
   if (DRY_RUN) {
-    console.log(" DRY_RUN=1 — skipping broadcast.");
+    if (sender !== ADMIN) console.log(` WARNING: signer is not the core admin (${ADMIN}); a live run would abort.`);
+    console.log(" Dry run (default) -- skipping broadcast. Re-run with EXECUTE=true --yes-mainnet to broadcast.");
     return;
   }
+  assertSigner(sender, ADMIN); // throws: never broadcast from the wrong key
 
   const tx = await makeContractCall({
     contractAddress: CORE_ADDRESS,
@@ -143,7 +166,7 @@ async function main() {
     functionArgs:    [Cl.principal(RECEIVER)],
     senderKey:       pk,
     network:         STACKS_MAINNET,
-    postConditionMode: PostConditionMode.Allow,
+    postConditionMode: PostConditionMode.Deny, // admin call, moves no assets
     anchorMode:      1,
     fee:             CALL_FEE,
     nonce,

@@ -10,13 +10,15 @@
  * sats spend ~3.4 STX; ~1,500 sats ~5.1 STX. See minimum_seed_analysis.md.
  *
  * Usage:
- *   node scripts/buy-sbtc.mjs                  # reads ./mbegu2 then ./mbegu
+ *   read -rs MAINNET_MNEMONIC && export MAINNET_MNEMONIC   # hidden input; never type it inline
+ *   node scripts/buy-sbtc.mjs                              # dry run (default)
+ *   EXECUTE=true node scripts/buy-sbtc.mjs --yes-mainnet   # broadcast
  *   BUY_USTX=5100000 node scripts/buy-sbtc.mjs # spend 5.1 STX (~1500 sats)
  *
  * Optional env:
  *   BUY_USTX=3500000   STX to spend, in microSTX (default 3.5 STX ~= 1000 sats).
  *   MIN_OUT_SATS=1     Minimum sBTC out (default 1; deep pool + tiny trade).
- *   DRY_RUN=1          Build + print (with live quote), do NOT broadcast.
+ *   EXECUTE=true        Broadcast (mainnet also needs --yes-mainnet). Default: dry run.
  *   TX_FEE_USTX=...    Tx fee (default 200_000 microSTX = 0.2 STX).
  */
 
@@ -25,7 +27,7 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
-import { readFileSync, existsSync } from "fs";
+import { loadMnemonic, broadcastGate, describeGate } from "./lib/safe-signer.mjs";
 
 const ROUTER_ADDR = "SP1Y5YSTAHZ88XYK1VPDH24GY0HPX5J4JECTMY4A1";
 const ROUTER_NAME = "univ2-router";
@@ -39,15 +41,10 @@ const EXPLORER    = "https://explorer.hiro.so/txid";
 const BUY_USTX    = BigInt(process.env.BUY_USTX ?? 3_500_000);
 const MIN_OUT     = BigInt(process.env.MIN_OUT_SATS ?? 1);
 const TX_FEE      = Number(process.env.TX_FEE_USTX ?? 200_000);
-const DRY_RUN     = process.env.DRY_RUN === "1";
+const GATE        = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const DRY_RUN     = !GATE.broadcast;
 const network     = STACKS_MAINNET;
 
-function loadMnemonic() {
-  if (process.env.MAINNET_MNEMONIC) return process.env.MAINNET_MNEMONIC.trim();
-  if (existsSync("mbegu2")) return readFileSync("mbegu2", "utf8").trim();
-  if (existsSync("mbegu"))  return readFileSync("mbegu", "utf8").trim();
-  throw new Error("Set MAINNET_MNEMONIC env var, or place 24-word mnemonic in ./mbegu2");
-}
 async function getNonce(addr) {
   return (await (await fetch(`${API}/v2/accounts/${addr}?proof=0`)).json()).nonce;
 }
@@ -100,7 +97,7 @@ async function waitForConfirm(txid, label) {
 }
 
 async function main() {
-  const mnemonic = loadMnemonic();
+  const mnemonic = await loadMnemonic("MAINNET_MNEMONIC");
   const wallet   = await generateWallet({ secretKey: mnemonic, password: "" });
   const pk       = wallet.accounts[0].stxPrivateKey;
   const sender   = privateKeyToAddress(pk, "mainnet");
@@ -127,7 +124,7 @@ async function main() {
   console.log(`  Expected out:  ${expSats === null ? "(quote unavailable)" : expSats + " sats (advisory)"}`);
   console.log(`  Min out:       ${MIN_OUT} sats`);
   console.log(`  Tx fee:        ${TX_FEE} microSTX`);
-  console.log(`  Mode:          ${DRY_RUN ? "DRY RUN (no broadcast)" : "LIVE BROADCAST"}\n`);
+  console.log(`  Mode:          ${describeGate(GATE)}\n`);
 
   if (balance < BUY_USTX + BigInt(TX_FEE)) {
     throw new Error(`Insufficient STX: ${balance} < spend ${BUY_USTX} + fee ${TX_FEE}`);
@@ -148,11 +145,12 @@ async function main() {
       Cl.uint(MIN_OUT),                    // amt-out-min
     ],
     senderKey: pk, network, fee: TX_FEE, nonce,
+    // safe-signer: allow-mode swap moves STX in and sBTC out through the Velar router
     postConditionMode: PostConditionMode.Allow,
     anchorMode: 1,
   });
 
-  if (DRY_RUN) { console.log("  DRY_RUN=1 -- not broadcasting. Tx built OK."); return; }
+  if (DRY_RUN) { console.log("  Dry run (default) -- not broadcasting. Tx built OK."); return; }
 
   const txid = await broadcast(tx);
   console.log(`  Broadcast: ${txid}`);

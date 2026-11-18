@@ -26,7 +26,8 @@
  *
  * Usage:
  *   node scripts/monitor-liquidations.mjs                          -- scan only (no mnemonic needed)
- *   EXECUTE=true DEPLOYER_MNEMONIC="..." node ...                  -- trigger liquidations live
+ *   read -rs DEPLOYER_MNEMONIC && export DEPLOYER_MNEMONIC  -- hidden input; never type it inline
+ *   EXECUTE=true node ... --yes-mainnet                            -- trigger liquidations live
  *   VAULT_OWNERS=SP1...,SP2... node ...                            -- monitor specific vaults
  *   INTERVAL_MS=10000 node ...                                     -- faster scan (10s)
  */
@@ -36,21 +37,19 @@ import networkPkg from "@stacks/network";
 const { STACKS_MAINNET } = networkPkg;
 import walletPkg from "@stacks/wallet-sdk";
 const { generateWallet } = walletPkg;
+import { loadMnemonic, broadcastGate, describeGate } from "./lib/safe-signer.mjs";
 
-// Note: use --env-file=.env flag for reliable env loading before SDK init.
-// Manual .env loader below is a fallback for older node or missing flag.
+// Keys come from the environment (loaded with read -rs) or a hidden prompt --
+// never from a plaintext .env file. HIRO_API_KEY may still be exported normally.
 
-const MNEMONIC      = process.env.DEPLOYER_MNEMONIC;
 const DEPLOYER      = "SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5";
-const EXECUTE       = process.env.EXECUTE === "true";
+const GATE          = broadcastGate({ network: "mainnet" }); // mainnet-only script
+const EXECUTE       = GATE.broadcast;
 const INTERVAL      = parseInt(process.env.INTERVAL_MS ?? "30000");
 const HIRO_API_KEY  = process.env.HIRO_API_KEY;
 
 // Require mnemonic only in execution mode
-if (EXECUTE && !MNEMONIC) {
-  console.error("Set DEPLOYER_MNEMONIC to execute liquidations");
-  process.exit(1);
-}
+const MNEMONIC      = EXECUTE ? await loadMnemonic("DEPLOYER_MNEMONIC") : undefined;
 
 // Custom fetchFn that injects the API key — passed directly to SDK calls
 // (globalThis.fetch monkey-patching is unreliable because SDK may capture
@@ -266,6 +265,7 @@ async function executeLiquidation(owner) {
     ],
     senderKey:         pk,
     network,
+    // safe-signer: allow-mode liquidate-vault moves Arkadiko collateral/fees to the caller
     postConditionMode: PostConditionMode.Allow,
     anchorMode:        1,
     nonce,
@@ -279,6 +279,7 @@ async function executeLiquidation(owner) {
     ? Buffer.from(serialized, "hex")
     : Buffer.from(serialized);
 
+  if (!GATE.broadcast) throw new Error("executeLiquidation called without the broadcast gate open"); // unreachable: gated by EXECUTE
   const resp = await fetch(`${API}/v2/transactions`, {
     method:  "POST",
     headers: { "Content-Type": "application/octet-stream" },
@@ -372,7 +373,7 @@ async function scan() {
               console.error(`  Liquidation failed: ${e.message}`);
             }
           } else {
-            console.log(`  (dry-run — set EXECUTE=true DEPLOYER_MNEMONIC=... to trigger)`);
+            console.log(`  (dry-run — ${GATE.reason})`);
           }
         } else {
           console.log(`  Profit too small after gas — skipping`);
@@ -401,7 +402,7 @@ async function scan() {
 async function main() {
   console.log("Arkadiko Liquidation Monitor v2");
   console.log("================================");
-  console.log(`Mode:          ${EXECUTE ? "LIVE EXECUTION" : "dry-run (scan only)"}`);
+  console.log(`Mode:          ${EXECUTE ? "LIVE EXECUTION" : "dry-run (scan only)"} -- ${describeGate(GATE)}`);
   console.log(`Scan interval: ${INTERVAL / 1000}s`);
   console.log(`Approach:      Direct JS call to liquidate-vault (no Clarity contract)`);
   console.log(`\nWatching for:`);
@@ -411,7 +412,7 @@ async function main() {
   console.log(`  Trigger fee:     ~0.5% of collateral per liquidation (paid by Arkadiko)`);
   console.log(`  Stability pool:  deposit USDA to earn 10% bonus on liquidated collateral`);
   console.log(`\nTip: VAULT_OWNERS=SP1...,SP2... — monitor specific addresses`);
-  console.log(`Tip: EXECUTE=true DEPLOYER_MNEMONIC=... — go live`);
+  console.log(`Tip: EXECUTE=true ... --yes-mainnet (DEPLOYER_MNEMONIC exported via read -rs) — go live`);
   if (!HIRO_API_KEY) {
     console.log(`\n⚠  No HIRO_API_KEY set — free tier is 25 req/min (shared).`);
     console.log(`   Get a free key at https://platform.hiro.so  (500 req/min)`);
