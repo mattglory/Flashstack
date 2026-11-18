@@ -76,8 +76,10 @@ Each row is a mainnet read through the Hiro API, as in the verified-state sectio
 | Baseline | — | 2026-10-27 07:49 | `SPR9PQAN…` | `bitflow-arb-receiver`, `stx-test-receiver` | `SPR9PQAN…` |
 | 1. remove `bitflow-arb-receiver` (stx-pool) | `0xc259b102…258da51` (block 9,350,585, `(ok true)`) | 2026-10-29 06:33 | `SPR9PQAN…` | `stx-test-receiver` | `SPR9PQAN…` |
 | 2. remove `stx-test-receiver` (stx-pool) | `0x6b478469…5a55a197` (block 9,364,378, `(ok true)`) | 2026-11-02 22:56 | `SPR9PQAN…` | none | `SPR9PQAN…` |
-| 3. `transfer-admin` stx-pool → burn | | | | | |
-| 4. `transfer-admin` sbtc-pool → burn | | | | | |
+| 3. `transfer-admin` stx-pool → burn | `0x6bca98f3…7ecd1cea` (block 9,399,841, `(ok true)`) | 2026-11-03 00:24 | `SP000000000000000000002Q6VF78` (burn) | none | `SPR9PQAN…` |
+| 4. `transfer-admin` sbtc-pool → burn | `0xf62f58b3…6a760787` (block 9,399,854, `(ok true)`) | 2026-11-03 06:12 | `SP000000000000000000002Q6VF78` (burn) | none | `SP000000000000000000002Q6VF78` (burn) |
+
+**Retirement complete.** Final read 2026-11-03 06:12 UTC (stacks tip 9,401,940): both pools' admin is the burn address `SP000000000000000000002Q6VF78`, so no key can call any admin function on either pool again. Both are paused with balance 0, and neither `bitflow-arb-receiver` nor `stx-test-receiver` is approved on `flashstack-stx-pool`. Every step was `success`, signed by the admin, in Deny mode, and arguments were checked character by character against the burn address. As recorded above, `deposit`/`withdraw` stay callable on both pools (F-6), so the v1 oracle's F-13 shape remains, and the do-not-integrate notice stands.
 
 Baseline also: both pools paused, balance 0, shares 0; `flashstack-sbtc-pool` has no approved receiver; `SPR9PQAN…` last transacted 2026-10-12 and has nothing in the mempool.
 
