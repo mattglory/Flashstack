@@ -3,7 +3,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["tests/**/*.ts"],
-    exclude: ["tests/setup.ts", "tests/clarigen-setup.ts"],
+    exclude: ["tests/setup.ts", "tests/clarigen-setup.ts", "tests/invariants-harness.ts"],
     setupFiles: ["tests/setup.ts"],
     // Run test files one at a time. `singleThread: true` used to sit here and
     // did nothing: it is not a vitest 4 option (it was `poolOptions.threads.
