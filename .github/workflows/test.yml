@@ -6,24 +6,37 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege: every job gets a read-only token unless it declares more.
+# Actions are pinned to full commit SHAs (tag in the trailing comment); Dependabot's
+# github-actions ecosystem keeps them current.
+permissions:
+  contents: read
+
 jobs:
   test-contracts:
     name: Test Smart Contracts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: "20"
+          node-version-file: .nvmrc
           cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
+      # Pinned and checksum-verified. The sha256 is the release's own checksums.txt
+      # entry for this asset (cross-checked against a local download, 2026-11-03).
+      # tests/mainnet-plan-guard.test.ts and scripts/doctor.mjs both read the version
+      # from the download URL below, so keep that URL shape when bumping.
       - name: Install Clarinet
+        env:
+          CLARINET_SHA256: 80edf7bc8a3cc8bc72d3fe5d107ecbc39902d437feb9092d60afc4ac99a87a3f
         run: |
-          curl -L https://github.com/stx-labs/clarinet/releases/download/v3.23.2/clarinet-linux-x64-glibc.tar.gz -o clarinet.tar.gz
+          curl -fsSL https://github.com/stx-labs/clarinet/releases/download/v3.23.2/clarinet-linux-x64-glibc.tar.gz -o clarinet.tar.gz
+          echo "${CLARINET_SHA256}  clarinet.tar.gz" | sha256sum -c -
           tar -xzf clarinet.tar.gz
           chmod +x ./clarinet
           sudo mv ./clarinet /usr/local/bin/
@@ -39,16 +52,22 @@ jobs:
     name: Build Frontend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: "20"
+          node-version-file: .nvmrc
           cache: "npm"
           cache-dependency-path: web/package-lock.json
 
       - name: Install dependencies
         run: cd web && npm ci
+
+      # Type-check separately from the build so a type error is reported as one.
+      # (Lint is not a step yet: `npm run lint` has 5 pre-existing errors on main;
+      # it becomes a step once those are fixed, so the gate starts green.)
+      - name: Type-check
+        run: cd web && npx tsc --noEmit
 
       - name: Build Next.js app
         run: cd web && npm run build

@@ -8,16 +8,22 @@ on:
   schedule:
     - cron: "0 9 * * 1"  # Every Monday 9am UTC
 
+# Least privilege: every job gets a read-only token unless it declares more.
+# Actions are pinned to full commit SHAs (tag in the trailing comment); Dependabot's
+# github-actions ecosystem keeps them current.
+permissions:
+  contents: read
+
 jobs:
   dependency-audit:
     name: Dependency Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: "20"
+          node-version-file: .nvmrc
 
       # No continue-on-error: this step must be able to fail. It used to be set,
       # which made the job pass unconditionally -- PR #61's run printed several
@@ -53,12 +59,12 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@4bfa242aa49c5f7c6770b98670d354a7dfac05f8 # v3.39.1
         with:
           languages: javascript
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@4bfa242aa49c5f7c6770b98670d354a7dfac05f8 # v3.39.1
