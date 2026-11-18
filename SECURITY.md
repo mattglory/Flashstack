@@ -4,25 +4,31 @@
 
 FlashStack takes security seriously. As a flash loan protocol handling valuable assets, we prioritize the security of our smart contracts and the safety of our users' funds.
 
-## 🛡️ Supported Versions
+## 🛡️ Scope
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.0.x   | ✅ Yes (Current)   |
-| < 1.0   | ❌ No              |
+In scope: the live mainnet contracts listed in [README.md](./README.md) and
+[docs/security/CONTRACT_INVENTORY.md](./docs/security/CONTRACT_INVENTORY.md), the successor
+contracts in `/contracts`, the web app in `/web`, and the operator scripts in `/scripts`.
+Live contracts are immutable: a fix means pausing, de-approving, rotating or migrating, not
+patching in place.
 
-## 🔍 Known Security Features
+## 🔍 Security Properties and Limits
 
-### Zero-Risk Design
-- **Atomic Transactions**: All flash loans execute atomically - if repayment fails, the entire transaction reverts
-- **No Custody**: FlashStack never holds user funds
-- **Collateral Verification**: All collateral checks happen on-chain via PoX-4
-- **Zero Inflation**: Guaranteed by atomic mint-burn cycles
+- **Atomic repayment check**: every core and pool reads its balance before and after the
+  receiver callback and reverts the whole transaction unless it grew by at least the fee.
+- **Funds are held by contracts**: the cores hold admin-supplied reserves and the LP pools hold
+  depositors' funds. LP `withdraw` is not admin-gated or pause-gated.
+- **Admin powers**: each live contract has a single admin principal that can pause flash loans,
+  approve or remove receivers, set fees and caps, and (on the cores) withdraw the reserve.
+  Pausing a live contract stops flash loans only; it does not stop deposits or withdrawals.
+- **Receiver allow-list**: only admin-approved receivers can take loans during the beta.
+- **Known issues**: every finding and its status is in
+  [docs/security/FINDINGS_REGISTER.md](./docs/security/FINDINGS_REGISTER.md).
 
 ### Smart Contract Audits
-- ⏳ **Status**: Pending audit (scheduled Q1 2026)
-- 🧪 **Testing**: 100% success rate across 8 receiver contracts
-- 📊 **Volume Tested**: 27M sBTC processed without failures
+- **Status**: not yet audited by a third party. No audit firm is engaged yet.
+- **Scope packet**: [docs/security/AUDIT_SCOPE.md](./docs/security/AUDIT_SCOPE.md)
+- **Internal review**: see `docs/security/` (threat model, per-contract reviews, findings register)
 
 ## 🚨 Reporting a Vulnerability
 
@@ -33,9 +39,10 @@ We appreciate responsible disclosure of security vulnerabilities.
 **For critical vulnerabilities** (affecting funds or protocol operation):
 
 1. **DO NOT** create a public GitHub issue
-2. **Contact us privately** via:
-   - Twitter DM: [@FlashStackBTC](https://twitter.com/FlashStackBTC)
-   - GitHub: Open a private security advisory at [github.com/mattglory/flashstack/security/advisories](https://github.com/mattglory/flashstack/security/advisories)
+2. **Report privately** via:
+   - **Preferred**: GitHub private vulnerability reporting at
+     [github.com/mattglory/Flashstack/security/advisories/new](https://github.com/mattglory/Flashstack/security/advisories/new)
+   - Twitter DM: [@FlashStackBTC](https://twitter.com/FlashStackBTC) (to ask for a contact only; please don't send exploit details by DM)
 
 **For non-critical issues** (documentation, minor bugs):
 - Create a public issue on GitHub
@@ -71,7 +78,7 @@ Suggested Fix:
 [Optional - your ideas for fixing it]
 
 Contract Affected:
-[e.g., flashstack-core.clar, function: flash-mint]
+[e.g., SP20XD46NGAX05ZQZDKFYCCX49A3852BQABNP0VG5.flashstack-sbtc-core, function: flash-loan]
 
 Disclosure Timeline Preference:
 [When you're comfortable with public disclosure]
@@ -79,29 +86,23 @@ Disclosure Timeline Preference:
 
 ## ⏱️ Response Timeline
 
-We are committed to responding quickly:
+Targets (FlashStack is a small team; we'll tell you if we expect to miss one):
 
 | Severity | First Response | Fix Timeline | Public Disclosure |
 |----------|---------------|--------------|-------------------|
-| Critical | 24 hours      | 7 days       | After fix deployed |
-| High     | 48 hours      | 14 days      | After fix deployed |
-| Medium   | 5 days        | 30 days      | After fix deployed |
+| Critical | 24 hours      | 7 days       | After containment |
+| High     | 48 hours      | 14 days      | After containment |
+| Medium   | 5 days        | 30 days      | After containment |
 | Low      | 7 days        | 60 days      | Immediate (GitHub issue) |
+
+"Fix" on a live contract usually means containment (pause, de-approve a receiver, rotate admin)
+or migration to a successor, because deployed contracts can't be changed.
 
 ## 🏆 Bug Bounty Program
 
-### Current Status
-- 🔄 **Status**: Coming Soon (Q1 2026)
-- 💰 **Rewards**: Based on severity and impact
-- 📋 **Scope**: All smart contracts in `/contracts` directory
-
-### Anticipated Reward Range
-- **Critical**: Up to 10,000 STX or equivalent sBTC
-- **High**: Up to 5,000 STX
-- **Medium**: Up to 1,000 STX
-- **Low**: Recognition + swag
-
-*Exact amounts TBD and dependent on fundraising success*
+There is **no bug bounty programme today**, and no rewards are currently offered. If one
+launches, its scope and terms will be published here first. Responsible reports are still very
+welcome and will be credited (see Hall of Fame).
 
 ## 🔐 Security Best Practices
 
@@ -127,19 +128,14 @@ We are committed to responding quickly:
 
 ### For Developers
 
-1. **Implement Flash Receiver Trait**
-   ```clarity
-   (impl-trait .flash-receiver-trait.flash-receiver-trait)
-   ```
+1. **Implement the right receiver trait** for the core you borrow from:
+   `stx-flash-receiver-trait` (STX) or `sbtc-flash-receiver-trait` (sBTC). See
+   [docs/BUILD_A_RECEIVER.md](./docs/BUILD_A_RECEIVER.md).
 
-2. **Always Repay Loan + Fee**
-   ```clarity
-   (let ((fee (/ (* amount u50) u10000)))
-     ;; Your logic here
-     (try! (contract-call? .sbtc-token transfer 
-       (+ amount fee) borrower (as-contract tx-sender) none))
-   )
-   ```
+2. **Repay loan + fee to the core, and gate your callback**: accept the callback only from the
+   core (`contract-caller`), and repay a hardcoded core, never a caller-supplied one. A receiver
+   must meet [docs/security/RECEIVER_VETTING.md](./docs/security/RECEIVER_VETTING.md) before it
+   can be approved.
 
 3. **Validate Inputs**
    ```clarity
@@ -160,9 +156,9 @@ We are committed to responding quickly:
 ## 📚 Security Resources
 
 ### Documentation
-- [Smart Contracts Overview](./docs/02-technical/SMART_CONTRACTS.md)
-- [Integration Guide](./docs/02-technical/INTEGRATION_GUIDE.md)
-- [Developer Documentation](./docs/02-technical/DEVELOPER_DOCUMENTATION.md)
+- [Contract inventory](./docs/security/CONTRACT_INVENTORY.md)
+- [Threat model](./docs/security/THREAT_MODEL.md)
+- [Building a receiver](./docs/BUILD_A_RECEIVER.md)
 
 ### External Resources
 - [Clarity Security Guidelines](https://docs.stacks.co/clarity/security)
@@ -173,8 +169,8 @@ We are committed to responding quickly:
 
 When a vulnerability is fixed:
 
-1. **Private Fix**: Develop and test fix in private repository
-2. **Review**: Internal code review
+1. **Contain first**: for a live contract, pause / de-approve / rotate before anything is published; exploit detail stays private until then
+2. **Review**: independent re-verification of the finding and the fix
 3. **Deploy**: Deploy to testnet for verification
 4. **Notify**: Contact vulnerability reporter
 5. **Public Release**: Release fix to mainnet
@@ -194,7 +190,8 @@ We will not pursue legal action against security researchers who follow these gu
 
 ## 📝 Past Security Advisories
 
-*None yet - this is our first public release*
+Findings, fixes and containment status are tracked in
+[docs/security/FINDINGS_REGISTER.md](./docs/security/FINDINGS_REGISTER.md).
 
 ## 📞 Contact
 
@@ -210,7 +207,6 @@ We recognize and thank security researchers who help improve FlashStack:
 
 ---
 
-**Last Updated**: April 2026
-**Version**: 1.0
+**Last Updated**: November 2026
 
 Thank you for helping keep FlashStack and the Bitcoin DeFi ecosystem secure! 🛡️⚡
