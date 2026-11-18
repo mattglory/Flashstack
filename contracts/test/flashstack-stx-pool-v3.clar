@@ -120,6 +120,10 @@
     ;; withdraw is deliberately never gated, so LPs can always still exit.
     (asserts! (not (var-get paused)) ERR-PAUSED)
     (asserts! (> amount u0) ERR-ZERO-AMOUNT)
+    ;; F-14: reject a deposit that would mint zero shares (dust after a donation
+    ;; floors to 0). Without this the transfer still succeeds and the depositor
+    ;; loses the funds with no shares credited. Same guard as flashstack-pool-v3.
+    (asserts! (> new-shares u0) ERR-ZERO-AMOUNT)
 
     ;; Credit shares (effects before interaction, matching pool-v3; if the
     ;; transfer below fails the whole call reverts, these writes included)
