@@ -46,6 +46,7 @@ export function usePositions() {
     }
   }, [isWalletConnected, stxAddress, network]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch/poll that syncs with an external system (chain API); setState runs in the async callback path
   useEffect(() => { load(); }, [load]);
 
   return { positions, loading, error };

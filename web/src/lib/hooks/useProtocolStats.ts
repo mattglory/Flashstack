@@ -26,6 +26,7 @@ export function useProtocolStats() {
   }, [network]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- show the loading state again when the network changes, then poll the chain API
     setLoading(true);
     load();
     const id = setInterval(load, REFRESH_INTERVAL);
