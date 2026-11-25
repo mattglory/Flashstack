@@ -42,6 +42,7 @@ export function StacksProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from wallet localStorage, which is only readable client-side after mount
     hydrateFromStorage();
   }, [hydrateFromStorage]);
 

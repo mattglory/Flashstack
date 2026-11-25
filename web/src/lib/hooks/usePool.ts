@@ -44,6 +44,7 @@ export function usePool(asset: PoolAsset) {
   }, [asset, isWalletConnected, address, network]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch/poll that syncs with an external system (chain API); setState runs in the async callback path
     refresh();
     const id = setInterval(refresh, 30_000);
     return () => clearInterval(id);

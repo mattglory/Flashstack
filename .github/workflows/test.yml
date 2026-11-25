@@ -64,10 +64,16 @@ jobs:
         run: cd web && npm ci
 
       # Type-check separately from the build so a type error is reported as one.
-      # (Lint is not a step yet: `npm run lint` has 5 pre-existing errors on main;
-      # it becomes a step once those are fixed, so the gate starts green.)
       - name: Type-check
         run: cd web && npx tsc --noEmit
+
+      - name: Lint
+        run: cd web && npm run lint
+
+      # The root suite only includes tests/**, so web/ unit tests (post-condition
+      # builders, amount parsing, tx guard) run here or not at all.
+      - name: Unit tests
+        run: cd web && npm test
 
       - name: Build Next.js app
         run: cd web && npm run build
